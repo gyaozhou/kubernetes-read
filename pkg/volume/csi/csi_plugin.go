@@ -48,6 +48,8 @@ import (
 )
 
 const (
+	// zhou: when used in path, converted to "kubernetes.io~csi" by utilstrings.EscapeQualifiedName()
+
 	// CSIPluginName is the name of the in-tree CSI Plugin
 	CSIPluginName = "kubernetes.io/csi"
 
@@ -76,8 +78,13 @@ func ProbeVolumePlugins() []volume.VolumePlugin {
 	return []volume.VolumePlugin{p}
 }
 
+// zhou: csiPlugin implement the interface.
+
 // volume.VolumePlugin methods
 var _ volume.VolumePlugin = &csiPlugin{}
+
+// zhou: "RegistrationHandler" implements "cache.PluginHandler" interface.
+//       Then, it could be used by "pluginManager.AddHandler"
 
 // RegistrationHandler is the handler which is fed to the pluginwatcher API.
 type RegistrationHandler struct {
@@ -94,6 +101,8 @@ var nim nodeinfomanager.Interface
 // pluginwatcher module in kubelet
 var PluginHandler = &RegistrationHandler{}
 
+// zhou: in case new registration sock file discovered, validate the information returned by "GetInfo()".
+
 // ValidatePlugin is called by kubelet's plugin watcher upon detection
 // of a new registration socket opened by CSI Driver registrar side car.
 func (h *RegistrationHandler) ValidatePlugin(pluginName string, endpoint string, versions []string) error {
@@ -107,6 +116,8 @@ func (h *RegistrationHandler) ValidatePlugin(pluginName string, endpoint string,
 
 	return err
 }
+
+// zhou: talk with vendor CSI Node Service directly to complete registration.
 
 // RegisterPlugin is called when a plugin can be registered
 func (h *RegistrationHandler) RegisterPlugin(pluginName string, endpoint string, versions []string, pluginClientTimeout *time.Duration) error {
@@ -140,6 +151,8 @@ func (h *RegistrationHandler) RegisterPlugin(pluginName string, endpoint string,
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	// zhou: kubelet get releated infomation from vendor's CSI Node Service
+
 	driverNodeID, maxVolumePerNode, accessibleTopology, err := csi.NodeGetInfo(ctx)
 	if err != nil {
 		if unregErr := unregisterDriver(pluginName); unregErr != nil {
@@ -147,6 +160,8 @@ func (h *RegistrationHandler) RegisterPlugin(pluginName string, endpoint string,
 		}
 		return err
 	}
+
+	// zhou: update object "Node" and create object "CSINode"
 
 	err = nim.InstallCSIDriver(pluginName, driverNodeID, maxVolumePerNode, accessibleTopology)
 	if err != nil {
@@ -158,6 +173,8 @@ func (h *RegistrationHandler) RegisterPlugin(pluginName string, endpoint string,
 
 	return nil
 }
+
+// zhou: validate CSI version
 
 func (h *RegistrationHandler) validateVersions(callerName, pluginName string, endpoint string, versions []string) (*utilversion.Version, error) {
 	if len(versions) == 0 {
@@ -194,6 +211,8 @@ func (h *RegistrationHandler) DeRegisterPlugin(pluginName string) {
 	}
 }
 
+// zhou: CSI Plugin, CSINode object for this node created here.
+
 func (p *csiPlugin) Init(host volume.VolumeHost) error {
 	p.host = host
 
@@ -201,6 +220,9 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 	if csiClient == nil {
 		klog.Warning(log("kubeclient not set, assuming standalone kubelet"))
 	} else {
+
+		// zhou: Attach/Detach related host ops
+
 		// set CSIDriverLister and volumeAttachmentLister
 		seLinuxHost, ok := host.(volume.CSIDriverVolumeHost)
 		if ok {
@@ -210,13 +232,18 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 			}
 		}
 		adcHost, ok := host.(volume.AttachDetachVolumeHost)
+
 		if ok {
 			p.volumeAttachmentLister = adcHost.VolumeAttachmentLister()
 			if p.volumeAttachmentLister == nil {
 				klog.Error(log("VolumeAttachmentLister not found on AttachDetachVolumeHost"))
 			}
 		}
+
+		// zhou: kubelet related host ops
+
 		kletHost, ok := host.(volume.KubeletVolumeHost)
+
 		if ok {
 			p.csiDriverLister = kletHost.CSIDriverLister()
 			if p.csiDriverLister == nil {
@@ -230,6 +257,8 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 			p.volumeAttachmentLister = nil
 		}
 	}
+
+	// zhou: migrate these volume plugins from in-tree to corresponding CSI driver.
 
 	var migratedPlugins = map[string](func() bool){
 		csitranslationplugins.GCEPDInTreePluginName: func() bool {
@@ -255,6 +284,8 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 		},
 	}
 
+	// zhou: setup CSINode Manager of this CSI volume plugin.
+
 	// Initializing the label management channels
 	nim = nodeinfomanager.NewNodeInfoManager(host.GetNodeName(), host, migratedPlugins)
 
@@ -267,7 +298,11 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 	return nil
 }
 
+// zhou: in kubelet context, make sure CSINode of this node is created
+
 func initializeCSINode(host volume.VolumeHost) error {
+
+	// zhou: by this way, make sure this VolumePlugin is used by kubelet.
 	kvh, ok := host.(volume.KubeletVolumeHost)
 	if !ok {
 		klog.V(4).Info("Cast from VolumeHost to KubeletVolumeHost failed. Skipping CSINode initialization, not running on kubelet")
@@ -285,12 +320,16 @@ func initializeCSINode(host volume.VolumeHost) error {
 	go func() {
 		defer utilruntime.HandleCrash()
 
+		// zhou: just make sure the connection with apiserver
+
 		// First wait indefinitely to talk to Kube APIServer
 		nodeName := host.GetNodeName()
 		err := waitForAPIServerForever(kubeClient, nodeName)
 		if err != nil {
 			klog.Fatalf("Failed to initialize CSINode while waiting for API server to report ok: %v", err)
 		}
+
+		// zhou: get or create CSINode object.
 
 		// Backoff parameters tuned to retry over 140 seconds. Will fail and restart the Kubelet
 		// after max retry steps.
@@ -325,6 +364,8 @@ func initializeCSINode(host volume.VolumeHost) error {
 	return nil
 }
 
+// zhou: "kubernetes.io/csi"
+
 func (p *csiPlugin) GetPluginName() string {
 	return CSIPluginName
 }
@@ -341,12 +382,20 @@ func (p *csiPlugin) GetVolumeName(spec *volume.Spec) (string, error) {
 	return fmt.Sprintf("%s%s%s", csi.Driver, volNameSep, csi.VolumeHandle), nil
 }
 
+// zhou: handle "normal CSI volume" and "CSI ephemeral volume".
+//       We can judge normal CSI volume by "spec.PersistentVolume.Spec.CSI != nil".
+//       Because "pod.spec.volumes[].PersistentVolumeClaimVolumeSource" is set,
+//       and if this PVC is already bound with PV, the PV will be set to "spec.PersistentVolume".
+
 func (p *csiPlugin) CanSupport(spec *volume.Spec) bool {
 	// TODO (vladimirvivien) CanSupport should also take into account
 	// the availability/registration of specified Driver in the volume source
 	if spec == nil {
 		return false
 	}
+
+	// zhou: return true if "normal CSI volume" or "CSI ephemeral storage".
+
 	return (spec.PersistentVolume != nil && spec.PersistentVolume.Spec.CSI != nil) ||
 		(spec.Volume != nil && spec.Volume.CSI != nil)
 }
@@ -367,6 +416,8 @@ func (p *csiPlugin) RequiresRemount(spec *volume.Spec) bool {
 	}
 	return *csiDriver.Spec.RequiresRepublish
 }
+
+// zhou: README,
 
 func (p *csiPlugin) NewMounter(
 	spec *volume.Spec,
@@ -433,6 +484,8 @@ func (p *csiPlugin) NewMounter(
 	klog.V(4).Info(log("mounter created successfully"))
 	return mounter, nil
 }
+
+// zhou: README,
 
 func (p *csiPlugin) NewUnmounter(specName string, podUID types.UID) (volume.Unmounter, error) {
 	klog.V(4).Info(log("setting up unmounter for [name=%v, podUID=%v]", specName, podUID))
@@ -552,22 +605,34 @@ func (p *csiPlugin) SupportsSELinuxContextMount(spec *volume.Spec) (bool, error)
 	return false, nil
 }
 
+// zhou: csiPlugin support "AttachableVolumePlugin", then we can check value of "CanAttach()".
+
 // volume.AttachableVolumePlugin methods
 var _ volume.AttachableVolumePlugin = &csiPlugin{}
 
+// zhou: csiPlugin implement the interface.
+
 var _ volume.DeviceMountableVolumePlugin = &csiPlugin{}
+
+// zhou: used to trigger CSI ControllerPublishVolume()
 
 func (p *csiPlugin) NewAttacher() (volume.Attacher, error) {
 	return p.newAttacherDetacher()
 }
 
+// zhou: same as above
+
 func (p *csiPlugin) NewDeviceMounter() (volume.DeviceMounter, error) {
 	return p.NewAttacher()
 }
 
+// zhou: used to trigger CSI ControllerUnpublishVolume()
+
 func (p *csiPlugin) NewDetacher() (volume.Detacher, error) {
 	return p.newAttacherDetacher()
 }
+
+// zhou: check PVC/PV corresponding storage provider's "csiDriver.Spec.AttachRequired"
 
 func (p *csiPlugin) CanAttach(spec *volume.Spec) (bool, error) {
 	volumeLifecycleMode, err := p.getVolumeLifecycleMode(spec)
@@ -619,6 +684,8 @@ func (p *csiPlugin) GetDeviceMountRefs(deviceMountPath string) ([]string, error)
 	m := p.host.GetMounter(p.GetPluginName())
 	return m.GetMountRefs(deviceMountPath)
 }
+
+// zhou: csiPlugin implement the interface.
 
 // BlockVolumePlugin methods
 var _ volume.BlockVolumePlugin = &csiPlugin{}
@@ -750,6 +817,8 @@ func (p *csiPlugin) ConstructBlockVolumeSpec(podUID types.UID, specVolName, mapP
 	return volume.NewSpecFromPersistentVolume(pv, false), nil
 }
 
+// zhou: check this storage provider's "csiDriver.Spec.AttachRequired"
+
 // skipAttach looks up CSIDriver object associated with driver name
 // to determine if driver requires attachment volume operation
 func (p *csiPlugin) skipAttach(driver string) (bool, error) {
@@ -824,6 +893,9 @@ func (p *csiPlugin) getPublishContext(client clientset.Interface, handle, driver
 	return attachment.Status.AttachmentMetadata, nil
 }
 
+// zhou: "csiAttacher" used for create/delete "VolumeAttachment", which trigger external-attacher to
+//       call ControllerPublishVolume()/ControllerUnpublishVolume()
+
 func (p *csiPlugin) newAttacherDetacher() (*csiAttacher, error) {
 	k8s := p.host.GetKubeClient()
 	if k8s == nil {
@@ -865,6 +937,8 @@ func unregisterDriver(driverName string) error {
 
 	return nil
 }
+
+// zhou: just make sure the connection with apiserver.
 
 // waitForAPIServerForever waits forever to get a CSINode instance as a proxy
 // for a healthy APIServer

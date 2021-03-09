@@ -136,6 +136,8 @@ type CSIMigratedPluginManager interface {
 	IsMigrationEnabledForPlugin(pluginName string) bool
 }
 
+// zhou: README,
+
 // PersistentVolumeController is a controller that synchronizes
 // PersistentVolumeClaims and PersistentVolumes. It starts two
 // cache.Controllers that watch PersistentVolume and PersistentVolumeClaim
@@ -159,6 +161,8 @@ type PersistentVolumeController struct {
 	volumePluginMgr           vol.VolumePluginMgr
 	enableDynamicProvisioning bool
 	resyncPeriod              time.Duration
+
+	// zhou: PV controller local cache
 
 	// Cache of the last known version of volumes and claims. This cache is
 	// thread safe as long as the volumes/claims there are not modified, they
@@ -228,6 +232,8 @@ type PersistentVolumeController struct {
 	csiMigratedPluginManager CSIMigratedPluginManager
 }
 
+// zhou: core part to handle PVC create/update/sync
+
 // syncClaim is the main controller method to decide what to do with a claim.
 // It's invoked by appropriate cache.Controller callbacks when a claim is
 // created, updated or periodically synced. We do not differentiate between
@@ -248,9 +254,17 @@ func (ctrl *PersistentVolumeController) syncClaim(ctx context.Context, claim *v1
 	}
 	claim = newClaim
 
+	// zhou: check annotation "pv.kubernetes.io/bind-completed"
+
 	if !metav1.HasAnnotation(claim.ObjectMeta, storagehelpers.AnnBindCompleted) {
+
+		// zhou: handle PVC need to be bound
+
 		return ctrl.syncUnboundClaim(ctx, claim)
 	} else {
+
+		// zhou: handle PVC already bound.
+
 		return ctrl.syncBoundClaim(ctx, claim)
 	}
 }
@@ -326,18 +340,28 @@ func (ctrl *PersistentVolumeController) emitEventForUnboundDelayBindingClaim(cla
 	return nil
 }
 
+// zhou: README, handle an unbound PVC !!!
+
 // syncUnboundClaim is the main controller method to decide what to do with an
 // unbound claim.
 func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, claim *v1.PersistentVolumeClaim) error {
 	// This is a new PVC that has not completed binding
 	// OBSERVATION: pvc is "Pending"
 	logger := klog.FromContext(ctx)
+
+	// zhou: this PVC is "Pending", not "Bound"
+
 	if claim.Spec.VolumeName == "" {
+
+		// zhou: specified StorageClass and "WaitForFirstConsumer" is used.
+
 		// User did not care which PV they get.
 		delayBinding, err := storagehelpers.IsDelayBindingMode(claim, ctrl.classLister)
 		if err != nil {
 			return err
 		}
+
+		// zhou: find the first matching volume.
 
 		// [Unit test set 1]
 		volume, err := ctrl.volumes.findBestMatchForClaim(claim, delayBinding)
@@ -345,12 +369,19 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 			logger.V(2).Info("Synchronizing unbound PersistentVolumeClaim, Error finding PV for claim", "PVC", klog.KObj(claim), "err", err)
 			return fmt.Errorf("error finding PV for claim %q: %w", claimToClaimKey(claim), err)
 		}
+
 		if volume == nil {
+
+			// zhou: there is no existing PV matching the PVC.
+
 			logger.V(4).Info("Synchronizing unbound PersistentVolumeClaim, no volume found", "PVC", klog.KObj(claim))
 			// No PV could be found. Try to provision one if possible.
 			// OBSERVATION: pvc is "Pending", will retry
 
 			logger.V(4).Info("Attempting to assign storage class to unbound PersistentVolumeClaim", "PVC", klog.KObj(claim))
+
+			// zhou:
+
 			updated, err := ctrl.assignDefaultStorageClass(ctx, claim)
 			if err != nil {
 				metrics.RecordRetroactiveStorageClassMetric(false)
@@ -369,6 +400,9 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 					return err
 				}
 			case storagehelpers.GetPersistentVolumeClaimClass(claim) != "":
+
+				// zhou: due to PVC specified StorageClass, ask for dynamic volume creation.
+
 				// The provisionClaim function may start a new asynchronous operation to provision a volume,
 				// or the operation is already running. The claim will be updated in the asynchronous operation,
 				// so the branch should be returned directly and the bind operation is expected to continue in
@@ -387,10 +421,16 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 				return err
 			}
 			return nil
+
 		} else /* pv != nil */ {
+			// zhou: already found a matching PV from existing PV objects.
+
 			// Found a PV for this claim
 			// OBSERVATION: pvc is "Pending", pv is "Available"
 			claimKey := claimToClaimKey(claim)
+
+			// zhou: bind the PVC with PV
+
 			logger.V(4).Info("Synchronizing unbound PersistentVolumeClaim, volume found", "PVC", klog.KObj(claim), "volumeName", volume.Name, "volumeStatus", getVolumeStatusForLogging(volume))
 			if err = ctrl.bind(ctx, volume, claim); err != nil {
 				// On any error saving the volume or the claim, subsequent
@@ -407,7 +447,9 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 			metrics.RecordMetric(claimKey, &ctrl.operationTimestamps, nil)
 			return nil
 		}
+
 	} else /* pvc.Spec.VolumeName != nil */ {
+
 		// [Unit test set 2]
 		// User asked for a specific PV.
 		logger.V(4).Info("Synchronizing unbound PersistentVolumeClaim, volume requested", "PVC", klog.KObj(claim), "volumeName", claim.Spec.VolumeName)
@@ -416,6 +458,8 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 			return err
 		}
 		if !found {
+			// zhou: the PVC specified PV, but PV is not found.
+
 			// User asked for a PV that does not exist.
 			// OBSERVATION: pvc is "Pending"
 			// Retry later.
@@ -424,7 +468,10 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 				return err
 			}
 			return nil
+
 		} else {
+			// zhou: the PVC specified PV, and PV is found.
+
 			volume, ok := obj.(*v1.PersistentVolume)
 			if !ok {
 				return fmt.Errorf("cannot convert object from volume cache to volume %q!?: %+v", claim.Spec.VolumeName, obj)
@@ -461,7 +508,9 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 				}
 				// OBSERVATION: pvc is "Bound", pv is "Bound"
 				return nil
+
 			} else {
+
 				// User asked for a PV that is claimed by someone else
 				// OBSERVATION: pvc is "Pending", pv is "Bound"
 				if !metav1.HasAnnotation(claim.ObjectMeta, storagehelpers.AnnBoundByController) {
@@ -486,6 +535,8 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(ctx context.Context, cl
 		}
 	}
 }
+
+// zhou: README,
 
 // syncBoundClaim is the main controller method to decide what to do with a
 // bound claim.
@@ -533,6 +584,9 @@ func (ctrl *PersistentVolumeController) syncBoundClaim(ctx context.Context, clai
 			}
 			return nil
 		} else if volume.Spec.ClaimRef.UID == claim.UID {
+
+			// zhou:
+
 			// All is well
 			// NOTE: syncPV can handle this so it can be left out.
 			// NOTE: bind() call here will do nothing in most cases as
@@ -555,6 +609,8 @@ func (ctrl *PersistentVolumeController) syncBoundClaim(ctx context.Context, clai
 	}
 }
 
+// zhou: README,
+
 // syncVolume is the main controller method to decide what to do with a volume.
 // It's invoked by appropriate cache.Controller callbacks when a volume is
 // created, updated or periodically synced. We do not differentiate between
@@ -562,6 +618,9 @@ func (ctrl *PersistentVolumeController) syncBoundClaim(ctx context.Context, clai
 func (ctrl *PersistentVolumeController) syncVolume(ctx context.Context, volume *v1.PersistentVolume) error {
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Synchronizing PersistentVolume", "volumeName", volume.Name, "volumeStatus", getVolumeStatusForLogging(volume))
+
+	// zhou:
+
 	// Set correct "migrated-to" annotations and modify finalizers on PV and update in API server if
 	// necessary
 	newVolume, err := ctrl.updateVolumeMigrationAnnotationsAndFinalizers(ctx, volume)
@@ -775,6 +834,8 @@ func (ctrl *PersistentVolumeController) syncVolume(ctx context.Context, volume *
 	}
 }
 
+// zhou: README,
+
 // updateClaimStatus saves new claim.Status to API server.
 // Parameters:
 //
@@ -961,6 +1022,8 @@ func (ctrl *PersistentVolumeController) updateVolumePhaseWithEvent(ctx context.C
 	return newVol, nil
 }
 
+// zhou: update PVC spec to fill default StorageClass if not provided.
+
 // assignDefaultStorageClass updates the claim storage class if there is any, the claim is updated to the API server.
 // Ignores claims that already have a storage class.
 // TODO: if resync is ever changed to a larger period, we might need to change how we set the default class on existing unbound claims
@@ -971,6 +1034,8 @@ func (ctrl *PersistentVolumeController) assignDefaultStorageClass(ctx context.Co
 		// The user asked for a class.
 		return false, nil
 	}
+
+	// zhou: In case more than 1 default, get the newest creation timestamp.
 
 	class, err := util.GetDefaultClass(ctrl.classLister)
 	if err != nil {
@@ -991,11 +1056,15 @@ func (ctrl *PersistentVolumeController) assignDefaultStorageClass(ctx context.Co
 	return true, nil
 }
 
+// zhou: README,
+
 // bindVolumeToClaim modifies given volume to be bound to a claim and saves it to
 // API server. The claim is not modified in this method!
 func (ctrl *PersistentVolumeController) bindVolumeToClaim(ctx context.Context, volume *v1.PersistentVolume, claim *v1.PersistentVolumeClaim) (*v1.PersistentVolume, error) {
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Updating PersistentVolume: binding to claim", "PVC", klog.KObj(claim), "volumeName", volume.Name)
+
+	// zhou:
 
 	volumeClone, dirty, err := storagehelpers.GetBindVolumeToClaim(volume, claim)
 	if err != nil {
@@ -1032,6 +1101,8 @@ func (ctrl *PersistentVolumeController) updateBindVolumeToClaim(ctx context.Cont
 	return newVol, nil
 }
 
+// zhou: README,
+
 // bindClaimToVolume modifies the given claim to be bound to a volume and
 // saves it to API server. The volume is not modified in this method!
 func (ctrl *PersistentVolumeController) bindClaimToVolume(ctx context.Context, claim *v1.PersistentVolumeClaim, volume *v1.PersistentVolume) (*v1.PersistentVolumeClaim, error) {
@@ -1061,6 +1132,8 @@ func (ctrl *PersistentVolumeController) bindClaimToVolume(ctx context.Context, c
 		}
 	}
 
+	// zhou:
+
 	// Set AnnBindCompleted if it is not set yet
 	if !metav1.HasAnnotation(claimClone.ObjectMeta, storagehelpers.AnnBindCompleted) {
 		metav1.SetMetaDataAnnotation(&claimClone.ObjectMeta, storagehelpers.AnnBindCompleted, "yes")
@@ -1086,6 +1159,8 @@ func (ctrl *PersistentVolumeController) bindClaimToVolume(ctx context.Context, c
 	logger.V(4).Info("Updating PersistentVolumeClaim: already bound to volume", "PVC", klog.KObj(claim), "volumeName", volume.Name)
 	return claim, nil
 }
+
+// zhou: README,
 
 // bind saves binding information both to the volume and the claim and marks
 // both objects as Bound. Volume is saved first.
@@ -1571,6 +1646,8 @@ func (ctrl *PersistentVolumeController) removeDeletionProtectionFinalizer(ctx co
 	return nil
 }
 
+// zhou: README, dynamic provisioning, including in-tree volume plugin and CSI.
+
 // provisionClaim starts new asynchronous operation to provision a claim if
 // provisioning is enabled.
 func (ctrl *PersistentVolumeController) provisionClaim(ctx context.Context, claim *v1.PersistentVolumeClaim) error {
@@ -1597,8 +1674,10 @@ func (ctrl *PersistentVolumeController) provisionClaim(ctx context.Context, clai
 		ctrl.operationTimestamps.AddIfNotExist(claimKey, ctrl.getProvisionerName(plugin, storageClass), "provision")
 		var err error
 		if plugin == nil {
+			// zhou: external provisioner, CSI comes here
 			_, err = ctrl.provisionClaimOperationExternal(ctx, claim, storageClass)
 		} else {
+			// zhou: internal provisioner
 			_, err = ctrl.provisionClaimOperation(ctx, claim, plugin, storageClass)
 		}
 		// if error happened, record an error count metric
@@ -1610,6 +1689,9 @@ func (ctrl *PersistentVolumeController) provisionClaim(ctx context.Context, clai
 	})
 	return nil
 }
+
+// zhou: README, internal provisioner used by in-tree Volume Plugin.
+//       CSI use "provisionClaimOperationExternal()".
 
 // provisionClaimOperation provisions a volume. This method is running in
 // standalone goroutine and already has all necessary locks.
@@ -1636,6 +1718,8 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 	}
 	provisionerName := storageClass.Provisioner
 	logger.V(4).Info("provisionClaimOperation", "PVC", klog.KObj(claim), "pluginName", pluginName, "provisionerName", provisionerName)
+
+	// zhou:
 
 	// Add provisioner annotation to be consistent with external provisioner workflow
 	newClaim, err := ctrl.setClaimProvisioner(ctx, claim, provisionerName)
@@ -1697,6 +1781,8 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 		ctrl.eventRecorder.Event(claim, v1.EventTypeWarning, events.ProvisioningFailed, strerr)
 		return pluginName, err
 	}
+
+	// zhou: README,
 
 	var selectedNode *v1.Node = nil
 	if nodeName, ok := claim.Annotations[storagehelpers.AnnSelectedNode]; ok {
@@ -1817,6 +1903,8 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 	return pluginName, nil
 }
 
+// zhou: README, external provisioner, used by CSI
+
 // provisionClaimOperationExternal provisions a volume using external provisioner async-ly
 // This method will be running in a standalone go-routine scheduled in "provisionClaim"
 func (ctrl *PersistentVolumeController) provisionClaimOperationExternal(
@@ -1839,6 +1927,9 @@ func (ctrl *PersistentVolumeController) provisionClaimOperationExternal(
 			return provisionerName, err
 		}
 	}
+
+	// zhou: add annotation "volume.kubernetes.io/storage-provisioner" to trigger external-provisioner.
+
 	// Add provisioner annotation so external provisioners know when to start
 	newClaim, err := ctrl.setClaimProvisioner(ctx, claim, provisionerName)
 	if err != nil {
@@ -1859,6 +1950,8 @@ func (ctrl *PersistentVolumeController) provisionClaimOperationExternal(
 	// return provisioner name here for metric reporting
 	return provisionerName, nil
 }
+
+// zhou: README,
 
 // rescheduleProvisioning signal back to the scheduler to retry dynamic provisioning
 // by removing the AnnSelectedNode annotation

@@ -148,6 +148,8 @@ var (
 	csrResource           = certapi.Resource("certificatesigningrequests")
 )
 
+// zhou: README,
+
 // Admit checks the admission policy and triggers corresponding actions
 func (p *Plugin) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
 	nodeName, isNode := p.nodeIdentifier.NodeIdentity(a.GetUserInfo())
@@ -373,6 +375,8 @@ func resourceClaimStatusesEqual(statusA, statusB []api.PodResourceClaimStatus) b
 	}
 	return true
 }
+
+// zhou: handle the API initiated Eviction
 
 // admitPodEviction allows to evict a pod if it is assigned to the current node.
 func (p *Plugin) admitPodEviction(nodeName string, a admission.Attributes) error {

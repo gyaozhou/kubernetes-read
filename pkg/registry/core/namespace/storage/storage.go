@@ -134,6 +134,9 @@ func (r *REST) Watch(ctx context.Context, options *metainternalversion.ListOptio
 	return r.store.Watch(ctx, options)
 }
 
+// zhou: README, override genericregistry.Store method Delete(),
+//       delete namespace from underlying storage.
+
 // Delete enforces life-cycle rules for namespace termination
 func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 	nsObj, err := r.Get(ctx, name, &metav1.GetOptions{})
@@ -191,6 +194,7 @@ func (r *REST) Delete(ctx context.Context, name string, deleteValidation rest.Va
 				if err := deleteValidation(ctx, existingNamespace); err != nil {
 					return nil, err
 				}
+
 				// Set the deletion timestamp if needed
 				if existingNamespace.DeletionTimestamp.IsZero() {
 					now := metav1.Now()

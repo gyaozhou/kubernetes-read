@@ -82,11 +82,15 @@ type csiMountMgr struct {
 // volume.Volume methods
 var _ volume.Volume = &csiMountMgr{}
 
+// zhou:
+
 func (c *csiMountMgr) GetPath() string {
 	dir := GetCSIMounterPath(filepath.Join(getTargetPath(c.podUID, c.specVolumeID, c.plugin.host)))
 	klog.V(4).Info(log("mounter.GetPath generated [%s]", dir))
 	return dir
 }
+
+// zhou: README,
 
 func getTargetPath(uid types.UID, specVolumeID string, host volume.VolumeHost) string {
 	specVolID := utilstrings.EscapeQualifiedName(specVolumeID)
@@ -96,9 +100,13 @@ func getTargetPath(uid types.UID, specVolumeID string, host volume.VolumeHost) s
 // volume.Mounter methods
 var _ volume.Mounter = &csiMountMgr{}
 
+// zhou: README,
+
 func (c *csiMountMgr) SetUp(mounterArgs volume.MounterArgs) error {
 	return c.SetUpAt(c.GetPath(), mounterArgs)
 }
+
+// zhou: README,
 
 func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error {
 	klog.V(4).Info(log("Mounter.SetUpAt(%s)", dir))
@@ -298,6 +306,8 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 		return volumetypes.NewTransientOperationFailure(errorMsg)
 	}
 
+	// zhou: invoke CSI driver node service, NodePublish
+
 	err = csi.NodePublishVolume(
 		ctx,
 		volumeHandle,
@@ -412,6 +422,8 @@ func (c *csiMountMgr) GetAttributes() volume.Attributes {
 // volume.Unmounter methods
 var _ volume.Unmounter = &csiMountMgr{}
 
+// zhou:
+
 func (c *csiMountMgr) TearDown() error {
 	return c.TearDownAt(c.GetPath())
 }
@@ -513,6 +525,8 @@ func (c *csiMountMgr) getFSGroupPolicy() (storage.FSGroupPolicy, error) {
 	}
 	return *csiDriver.Spec.FSGroupPolicy, nil
 }
+
+// zhou: README, "Persistent" or "Ephemeral"
 
 // supportsVolumeMode checks whether the CSI driver supports a volume in the given mode.
 // An error indicates that it isn't supported and explains why.

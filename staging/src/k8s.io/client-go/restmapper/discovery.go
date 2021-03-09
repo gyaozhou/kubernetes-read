@@ -38,6 +38,8 @@ type APIGroupResources struct {
 	VersionedResources map[string][]metav1.APIResource
 }
 
+// zhou: README,
+
 // NewDiscoveryRESTMapper returns a PriorityRESTMapper based on the discovered
 // groups and resources passed in.
 func NewDiscoveryRESTMapper(groupResources []*APIGroupResources) meta.RESTMapper {
@@ -141,6 +143,8 @@ func NewDiscoveryRESTMapper(groupResources []*APIGroupResources) meta.RESTMapper
 		KindPriority:     kindPriority,
 	}
 }
+
+// zhou:
 
 // GetAPIGroupResources uses the provided discovery client to gather
 // discovery information and populate a slice of APIGroupResources.
@@ -279,6 +283,8 @@ func (d *DeferredDiscoveryRESTMapper) ResourcesFor(input schema.GroupVersionReso
 	}
 	return
 }
+
+// zhou: README,
 
 // RESTMapping identifies a preferred resource mapping for the
 // provided group kind.

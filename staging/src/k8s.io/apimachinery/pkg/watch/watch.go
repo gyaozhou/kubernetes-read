@@ -299,6 +299,8 @@ type ProxyWatcher struct {
 
 var _ Interface = &ProxyWatcher{}
 
+// zhou: used by informer
+
 // NewProxyWatcher creates new ProxyWatcher by wrapping a channel
 func NewProxyWatcher(ch chan Event) *ProxyWatcher {
 	return &ProxyWatcher{

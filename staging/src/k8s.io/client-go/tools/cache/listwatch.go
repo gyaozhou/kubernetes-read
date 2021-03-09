@@ -55,6 +55,10 @@ type ListFunc func(options metav1.ListOptions) (runtime.Object, error)
 // WatchFunc knows how to watch resources
 type WatchFunc func(options metav1.ListOptions) (watch.Interface, error)
 
+// zhou: "ListWatch struct" implement "ListerWatcher interface"
+//       Just provide the capability of list and watch of specific type.
+//       Including clientset, lots of clients provide this capabilities.
+
 // ListWatch knows how to list and watch a set of apiserver resources.  It satisfies the ListerWatcher interface.
 // It is a convenience function for users of NewReflector, etc.
 // ListFunc and WatchFunc must not be nil
@@ -69,6 +73,8 @@ type ListWatch struct {
 type Getter interface {
 	Get() *restclient.Request
 }
+
+// zhou: using client like clientset as implementation of "Getter".
 
 // NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
 func NewListWatchFromClient(c Getter, resource string, namespace string, fieldSelector fields.Selector) *ListWatch {

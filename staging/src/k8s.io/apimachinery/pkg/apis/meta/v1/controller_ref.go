@@ -30,6 +30,8 @@ func IsControlledBy(obj Object, owner Object) bool {
 	return ref.UID == owner.GetUID()
 }
 
+// zhou: get owner reference
+
 // GetControllerOf returns a pointer to a copy of the controllerRef if controllee has a controller
 func GetControllerOf(controllee Object) *OwnerReference {
 	ref := GetControllerOfNoCopy(controllee)

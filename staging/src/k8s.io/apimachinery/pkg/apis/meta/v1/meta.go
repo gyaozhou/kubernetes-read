@@ -26,6 +26,8 @@ type ObjectMetaAccessor interface {
 	GetObjectMeta() Object
 }
 
+// zhou: README, "type ObjectMeta struct" implement it.
+
 // Object lets you work with object metadata from any of the versioned or
 // internal API objects. Attempting to set or retrieve a field on an object that does
 // not support that field (Name, UID, Namespace on lists) will be a no-op and return
@@ -113,6 +115,9 @@ func (meta *ListMeta) GetContinue() string               { return meta.Continue 
 func (meta *ListMeta) SetContinue(c string)              { meta.Continue = c }
 func (meta *ListMeta) GetRemainingItemCount() *int64     { return meta.RemainingItemCount }
 func (meta *ListMeta) SetRemainingItemCount(c *int64)    { meta.RemainingItemCount = c }
+
+// zhou: "schema.ObjectKind" is a interface, which defines methods:
+//       "SetGroupVersionKind(kind GroupVersionKind)" and "GroupVersionKind() GroupVersionKind"
 
 func (obj *TypeMeta) GetObjectKind() schema.ObjectKind { return obj }
 

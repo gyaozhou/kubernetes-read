@@ -26,6 +26,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// zhou:
+
 const (
 	// isDefaultStorageClassAnnotation represents a StorageClass annotation that
 	// marks a class as the default StorageClass
@@ -35,6 +37,9 @@ const (
 	// TODO: remove Beta when no longer used
 	BetaIsDefaultStorageClassAnnotation = "storageclass.beta.kubernetes.io/is-default-class"
 )
+
+// zhou: return default StorageClass.
+//       In case more than 1, newest creation timestamp firstly, then sort by name.
 
 // GetDefaultClass returns the default StorageClass from the store, or nil.
 func GetDefaultClass(lister storagev1listers.StorageClassLister) (*storagev1.StorageClass, error) {
@@ -50,6 +55,8 @@ func GetDefaultClass(lister storagev1listers.StorageClassLister) (*storagev1.Sto
 			klog.V(4).Infof("GetDefaultClass added: %s", class.Name)
 		}
 	}
+
+	// zhou: none default StorageClass
 
 	if len(defaultClasses) == 0 {
 		return nil, nil

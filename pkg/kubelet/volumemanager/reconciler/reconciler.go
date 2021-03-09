@@ -27,6 +27,8 @@ func (rc *reconciler) Run(stopCh <-chan struct{}) {
 	wait.Until(rc.reconcile, rc.loopSleepDuration, stopCh)
 }
 
+// zhou: README,
+
 func (rc *reconciler) reconcile() {
 	readyToUnmount := rc.readyToUnmount()
 	if readyToUnmount {
@@ -36,6 +38,8 @@ func (rc *reconciler) reconcile() {
 		// pod.
 		rc.unmountVolumes()
 	}
+
+	// zhou:
 
 	// Next we mount required volumes. This function could also trigger
 	// attach if kubelet is responsible for attaching volumes.

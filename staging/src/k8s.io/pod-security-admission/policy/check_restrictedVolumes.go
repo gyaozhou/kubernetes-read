@@ -73,7 +73,7 @@ func init() {
 func CheckRestrictedVolumes() Check {
 	return Check{
 		ID:    "restrictedVolumes",
-		Level: api.LevelRestricted,
+		Level: api.LevelRestricted, // zhou: Restricted forbid these kinds volumes
 		Versions: []VersionedCheck{
 			{
 				MinimumVersion:   api.MajorMinorVersion(1, 0),
@@ -84,12 +84,15 @@ func CheckRestrictedVolumes() Check {
 	}
 }
 
+// zhou:
+
 func restrictedVolumes_1_0(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
 	var badVolumes []string
 	badVolumeTypes := sets.NewString()
 
 	for _, volume := range podSpec.Volumes {
 		switch {
+		// zhou: these volumes are most safe.
 		case volume.ConfigMap != nil,
 			volume.CSI != nil,
 			volume.DownwardAPI != nil,

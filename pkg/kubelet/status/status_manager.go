@@ -116,6 +116,8 @@ type PodStartupLatencyStateHelper interface {
 	DeletePodStartupState(podUID types.UID)
 }
 
+// zhou: README,
+
 // Manager is the Source of truth for kubelet pod status, and should be kept up-to-date with
 // the latest v1.PodStatus. It also syncs updates back to the API server.
 type Manager interface {
@@ -167,6 +169,8 @@ type allocationManager interface {
 }
 
 const syncPeriod = 10 * time.Second
+
+// zhou:
 
 // NewManager returns a functional Manager.
 func NewManager(kubeClient clientset.Interface, podManager PodManager, podDeletionSafety PodDeletionSafetyProvider, podStartupLatencyHelper PodStartupLatencyStateHelper, stateFileDirectory string) Manager {
@@ -319,6 +323,8 @@ func (m *manager) GetPodStatus(uid types.UID) (v1.PodStatus, bool) {
 	return status.status, ok
 }
 
+// zhou:
+
 func (m *manager) SetPodStatus(pod *v1.Pod, status v1.PodStatus) {
 	m.podStatusesLock.Lock()
 	defer m.podStatusesLock.Unlock()
@@ -331,6 +337,8 @@ func (m *manager) SetPodStatus(pod *v1.Pod, status v1.PodStatus) {
 	// needs to be able to trigger an update and/or deletion.
 	m.updateStatusInternal(pod, status, pod.DeletionTimestamp != nil, false)
 }
+
+// Zhou: README,
 
 func (m *manager) SetContainerReadiness(podUID types.UID, containerID kubecontainer.ContainerID, ready bool) {
 	m.podStatusesLock.Lock()
@@ -636,6 +644,8 @@ func checkContainerStateTransition(oldStatuses, newStatuses *v1.PodStatus, podSp
 	return nil
 }
 
+// zhou: README,
+
 // updateStatusInternal updates the internal status cache, and queues an update to the api server if
 // necessary.
 // This method IS NOT THREAD SAFE and must be called from a locked function.
@@ -662,6 +672,8 @@ func (m *manager) updateStatusInternal(pod *v1.Pod, status v1.PodStatus, forceUp
 		klog.ErrorS(err, "Status update on pod aborted", "pod", klog.KObj(pod))
 		return
 	}
+
+	// zhou: README, why update them in same time ?
 
 	// Set ContainersReadyCondition.LastTransitionTime.
 	updateLastTransitionTime(&status, &oldStatus, v1.ContainersReady)

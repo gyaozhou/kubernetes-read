@@ -51,6 +51,8 @@ func chunkSizeFor(n, parallelism int) int {
 	return s
 }
 
+// zhou: README,
+
 // Until is a wrapper around workqueue.ParallelizeUntil to use in scheduling algorithms.
 // A given operation will be a label that is recorded in the goroutine metric.
 func (p Parallelizer) Until(ctx context.Context, pieces int, doWorkPiece workqueue.DoWorkPieceFunc, operation string) {
