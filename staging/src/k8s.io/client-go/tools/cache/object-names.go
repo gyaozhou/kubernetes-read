@@ -36,6 +36,8 @@ func (objName ObjectName) Parts() (namespace, name string) {
 	return objName.Namespace, objName.Name
 }
 
+// zhou: get a string of Namespace/Name or Name
+
 // String returns the standard string encoding,
 // which is designed to match the historical behavior of MetaNamespaceKeyFunc.
 // Note this behavior is different from the String method of types.NamespacedName.

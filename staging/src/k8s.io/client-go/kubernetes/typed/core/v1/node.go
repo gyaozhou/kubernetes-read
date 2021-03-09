@@ -36,6 +36,8 @@ type NodesGetter interface {
 	Nodes() NodeInterface
 }
 
+// zhou: "/api/v1/nodes/"
+
 // NodeInterface has methods to work with Node resources.
 type NodeInterface interface {
 	Create(ctx context.Context, node *corev1.Node, opts metav1.CreateOptions) (*corev1.Node, error)

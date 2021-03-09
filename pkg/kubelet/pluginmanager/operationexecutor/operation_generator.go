@@ -58,6 +58,10 @@ func NewOperationGenerator(recorder record.EventRecorder) OperationGenerator {
 	}
 }
 
+// zhou: in order to test OperationExecutor core logic, "OperationGenerator" is used to work as interface to
+//       decouple dependecy. "fakeOGCounter{}" is used in this case.
+//       Just generate callback function used by OperationExecutor.
+
 // OperationGenerator interface that extracts out the functions from operation_executor to make it dependency injectable
 type OperationGenerator interface {
 	// Generates the RegisterPlugin function needed to perform the registration of a plugin
@@ -73,6 +77,8 @@ type OperationGenerator interface {
 		actualStateOfWorldUpdater ActualStateOfWorldUpdater) func() error
 }
 
+// zhou: generate a callback function for register Plugin
+
 func (og *operationGenerator) GenerateRegisterPluginFunc(
 	socketPath string,
 	pluginUUID types.UID,
@@ -80,6 +86,10 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 	actualStateOfWorldUpdater ActualStateOfWorldUpdater) func() error {
 
 	registerPluginFunc := func() error {
+
+		// zhou: connect to registration unix sock file, like
+		//       "/var/lib/kubelet/plugins_registry/<driverName>-reg.sock"
+
 		client, conn, err := dial(socketPath, dialTimeoutDuration)
 		if err != nil {
 			return fmt.Errorf("RegisterPlugin error -- dial failed at socket %s, err: %v", socketPath, err)
@@ -89,10 +99,15 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
+		// zhou: e.g. RPC invoke csi-node-driver-registrar/GetInfo(),
+		//       including Plugin type, name and endpoint.
+
 		infoResp, err := client.GetInfo(ctx, &registerapi.InfoRequest{})
 		if err != nil {
 			return fmt.Errorf("RegisterPlugin error -- failed to get plugin info using RPC GetInfo at socket %s, err: %v", socketPath, err)
 		}
+
+		// zhou: find the plugin handler for each Plugin type
 
 		handler, ok := pluginHandlers[infoResp.Type]
 		if !ok {
@@ -102,15 +117,23 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 			return fmt.Errorf("RegisterPlugin error -- no handler registered for plugin type: %s at socket %s", infoResp.Type, socketPath)
 		}
 
+		// zhou: if not provided, reuse the registration sock file.
+
 		if infoResp.Endpoint == "" {
 			infoResp.Endpoint = socketPath
 		}
+
+		// zhou: e.g. call csi_plugin.go/ValidatePlugin()
+
 		if err := handler.ValidatePlugin(infoResp.Name, infoResp.Endpoint, infoResp.SupportedVersions); err != nil {
 			if err = og.notifyPlugin(client, false, fmt.Sprintf("RegisterPlugin error -- plugin validation failed with err: %v", err)); err != nil {
 				return fmt.Errorf("RegisterPlugin error -- failed to send error at socket %s, err: %v", socketPath, err)
 			}
 			return fmt.Errorf("RegisterPlugin error -- pluginHandler.ValidatePluginFunc failed")
 		}
+
+		// zhou: add to ASW
+
 		// We add the plugin to the actual state of world cache before calling a plugin consumer's Register handle
 		// so that if we receive a delete event during Register Plugin, we can process it as a DeRegister call.
 		err = actualStateOfWorldUpdater.AddPlugin(cache.PluginInfo{
@@ -123,9 +146,14 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 		if err != nil {
 			klog.ErrorS(err, "RegisterPlugin error -- failed to add plugin", "path", socketPath)
 		}
+
+		// zhou: e.g. call csi_plugin.go/RegisterPlugin()
+
 		if err := handler.RegisterPlugin(infoResp.Name, infoResp.Endpoint, infoResp.SupportedVersions, nil); err != nil {
 			return og.notifyPlugin(client, false, fmt.Sprintf("RegisterPlugin error -- plugin registration failed with err: %v", err))
 		}
+
+		// zhou: e.g. RPC invoke csi-node-driver-registrar/NotifyRegistrationStatus(),
 
 		// Notify is called after register to guarantee that even if notify throws an error Register will always be called after validate
 		if err := og.notifyPlugin(client, true, ""); err != nil {
@@ -135,6 +163,8 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 	}
 	return registerPluginFunc
 }
+
+// zhou: generate a callback function for unregister Plugin
 
 func (og *operationGenerator) GenerateUnregisterPluginFunc(
 	pluginInfo cache.PluginInfo,
@@ -156,6 +186,8 @@ func (og *operationGenerator) GenerateUnregisterPluginFunc(
 	return unregisterPluginFunc
 }
 
+// zhou:
+
 func (og *operationGenerator) notifyPlugin(client registerapi.RegistrationClient, registered bool, errStr string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), notifyTimeoutDuration)
 	defer cancel()
@@ -164,6 +196,8 @@ func (og *operationGenerator) notifyPlugin(client registerapi.RegistrationClient
 		PluginRegistered: registered,
 		Error:            errStr,
 	}
+
+	// zhou: e.g. RPC invoke csi-node-driver-registrar/NotifyRegistrationStatus(),
 
 	if _, err := client.NotifyRegistrationStatus(ctx, status); err != nil {
 		return fmt.Errorf("%s: %w", errStr, err)

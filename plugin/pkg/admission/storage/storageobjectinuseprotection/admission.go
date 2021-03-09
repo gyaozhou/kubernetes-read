@@ -84,6 +84,8 @@ func (c *storageProtectionPlugin) Admit(ctx context.Context, a admission.Attribu
 	}
 }
 
+// zhou: finalizer "kubernetes.io/pv-protection" should be added during PV creation.
+
 func (c *storageProtectionPlugin) admitPV(a admission.Attributes) error {
 	if len(a.GetSubresource()) != 0 {
 		return nil
@@ -105,6 +107,8 @@ func (c *storageProtectionPlugin) admitPV(a admission.Attributes) error {
 
 	return nil
 }
+
+// zhou: finalizer "kubernetes.io/pvc-protection" should be added during PVC creation.
 
 func (c *storageProtectionPlugin) admitPVC(a admission.Attributes) error {
 	if len(a.GetSubresource()) != 0 {

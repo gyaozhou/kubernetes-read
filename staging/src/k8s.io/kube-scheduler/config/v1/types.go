@@ -38,6 +38,8 @@ const (
 	SchedulerDefaultProviderName = "DefaultProvider"
 )
 
+// zhou: README,
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KubeSchedulerConfiguration configures a scheduler

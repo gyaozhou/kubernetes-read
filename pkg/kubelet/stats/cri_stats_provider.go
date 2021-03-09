@@ -494,6 +494,8 @@ func (p *criStatsProvider) getPodAndContainerMaps(ctx context.Context) (map[stri
 	return containerMap, podSandboxMap, nil
 }
 
+// zhou:
+
 // ImageFsStats returns the stats of the image filesystem.
 func (p *criStatsProvider) ImageFsStats(ctx context.Context) (imageFsRet *statsapi.FsStats, containerFsRet *statsapi.FsStats, errRet error) {
 	resp, err := p.imageService.ImageFsInfo(ctx)

@@ -38,6 +38,8 @@ import (
 	volutil "k8s.io/kubernetes/pkg/volume/util"
 )
 
+// zhou: README,
+
 // DesiredStateOfWorldPopulator periodically verifies that the pods in the
 // desired state of the world still exist, if not, it removes them.
 // It also loops through the list of active pods and ensures that
@@ -46,6 +48,8 @@ import (
 type DesiredStateOfWorldPopulator interface {
 	Run(ctx context.Context)
 }
+
+// zhou: README,
 
 // NewDesiredStateOfWorldPopulator returns a new instance of DesiredStateOfWorldPopulator.
 // loopSleepDuration - the amount of time the populator loop sleeps between
@@ -95,6 +99,8 @@ func (dswp *desiredStateOfWorldPopulator) Run(ctx context.Context) {
 	wait.UntilWithContext(ctx, dswp.populatorLoopFunc(ctx), dswp.loopSleepDuration)
 }
 
+// zhou: update DSW
+
 func (dswp *desiredStateOfWorldPopulator) populatorLoopFunc(ctx context.Context) func(ctx context.Context) {
 	return func(ctx context.Context) {
 		logger := klog.FromContext(ctx)
@@ -113,6 +119,8 @@ func (dswp *desiredStateOfWorldPopulator) populatorLoopFunc(ctx context.Context)
 		dswp.findAndAddActivePods(logger)
 	}
 }
+
+// zhou: handle Pod deactivation to update volume attachment state.
 
 // Iterate through all pods in desired state of world, and remove if they no
 // longer exist in the informer
@@ -175,6 +183,8 @@ func (dswp *desiredStateOfWorldPopulator) findAndRemoveDeletedPods(logger klog.L
 		}
 	}
 }
+
+// zhou: handle Pod activation to update volume attachment state.
 
 func (dswp *desiredStateOfWorldPopulator) findAndAddActivePods(logger klog.Logger) {
 	pods, err := dswp.podLister.List(labels.Everything())

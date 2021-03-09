@@ -27,6 +27,8 @@ import (
 	"k8s.io/kubernetes/pkg/util/goroutinemap"
 )
 
+// zhou: Plugin Manager reconciler will invoke these methods.
+
 // OperationExecutor defines a set of operations for registering and unregistering
 // a plugin that are executed with a NewGoRoutineMap which
 // prevents more than one operation from being triggered on the same socket path.
@@ -76,6 +78,8 @@ type ActualStateOfWorldUpdater interface {
 	RemovePlugin(socketPath string)
 }
 
+// zhou:
+
 type operationExecutor struct {
 	// pendingOperations keeps track of pending attach and detach operations so
 	// multiple operations are not started on the same volume
@@ -92,13 +96,20 @@ func (oe *operationExecutor) IsOperationPending(socketPath string) bool {
 	return oe.pendingOperations.IsOperationPending(socketPath)
 }
 
+// zhou: reconciler need to register a Plugin
+
 func (oe *operationExecutor) RegisterPlugin(
 	socketPath string,
 	pluginUUID types.UID,
 	pluginHandlers map[string]cache.PluginHandler,
 	actualStateOfWorld ActualStateOfWorldUpdater) error {
+
+	// zhou: generate a callback function
+
 	generatedOperation :=
 		oe.operationGenerator.GenerateRegisterPluginFunc(socketPath, pluginUUID, pluginHandlers, actualStateOfWorld)
+
+	// zhou: execute the callback function in an isolated thread, as task management.
 
 	return oe.pendingOperations.Run(
 		socketPath, generatedOperation)

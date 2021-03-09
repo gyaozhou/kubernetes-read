@@ -52,6 +52,8 @@ func NewFooInformer(client versioned.Interface, namespace string, resyncPeriod t
 	return NewFilteredFooInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
+// zhou: README,
+
 // NewFilteredFooInformer constructs a new informer for Foo type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
@@ -89,10 +91,12 @@ func NewFilteredFooInformer(client versioned.Interface, namespace string, resync
 	)
 }
 
+// zhou:
 func (f *fooInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	return NewFilteredFooInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
+// zhou: using "defaultInformer()" to create Foo informer
 func (f *fooInformer) Informer() cache.SharedIndexInformer {
 	return f.factory.InformerFor(&apissamplecontrollerv1alpha1.Foo{}, f.defaultInformer)
 }

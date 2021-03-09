@@ -28,6 +28,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
+// zhou: README,
+
 // Unstructured allows objects that do not have Golang structs registered to be manipulated
 // generically. This can be used to deal with the API objects from a plug-in. Unstructured
 // objects still have functioning TypeMeta features-- kind, version, etc.
@@ -44,6 +46,8 @@ type Unstructured struct {
 	// children.
 	Object map[string]interface{}
 }
+
+// zhou: implements such interface.
 
 var _ metav1.Object = &Unstructured{}
 var _ runtime.Unstructured = &Unstructured{}
@@ -421,6 +425,8 @@ func (u *Unstructured) SetAnnotations(annotations map[string]string) {
 	}
 	u.setNestedMap(annotations, "metadata", "annotations")
 }
+
+// zhou:
 
 func (u *Unstructured) SetGroupVersionKind(gvk schema.GroupVersionKind) {
 	u.SetAPIVersion(gvk.GroupVersion().String())

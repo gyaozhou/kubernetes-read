@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// zhou:
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.7
@@ -231,6 +233,8 @@ type NetworkPolicyList struct {
 	Items []NetworkPolicy `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou:
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.19
@@ -304,6 +308,8 @@ type IngressSpec struct {
 	// +listType=atomic
 	// +optional
 	TLS []IngressTLS `json:"tls,omitempty" protobuf:"bytes,2,rep,name=tls"`
+
+	// zhou:
 
 	// rules is a list of host rules used to configure the Ingress. If unspecified,
 	// or no rule matches, all traffic is sent to the default backend.
@@ -571,6 +577,9 @@ type IngressClass struct {
 
 // IngressClassSpec provides information about the class of an Ingress.
 type IngressClassSpec struct {
+
+	// zhou: e.g. "k8s.io/ingress-nginx"
+
 	// controller refers to the name of the controller that should handle this
 	// class. This allows for different "flavors" that are controlled by the
 	// same controller. For example, you may have different parameters for the

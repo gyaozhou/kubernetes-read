@@ -153,6 +153,8 @@ type StreamingRuntime interface {
 	GetPortForward(ctx context.Context, podName, podNamespace string, podUID types.UID, ports []int32) (*url.URL, error)
 }
 
+// zhou: CRI ImageService
+
 // ImageService interfaces allows to work with image service.
 type ImageService interface {
 	// PullImage pulls an image from the network to local storage using the supplied
@@ -270,6 +272,8 @@ func (c *ContainerID) UnmarshalJSON(data []byte) error {
 	return c.ParseString(string(data))
 }
 
+// zhou:
+
 // State represents the state of a container
 type State string
 
@@ -311,6 +315,8 @@ type Container struct {
 	// State is the state of the container.
 	State State
 }
+
+// zhou:
 
 // PodStatus represents the status of the pod and its containers.
 // v1.PodStatus can be derived from examining PodStatus and v1.Pod.

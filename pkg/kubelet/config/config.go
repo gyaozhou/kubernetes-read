@@ -55,6 +55,8 @@ type podStartupSLIObserver interface {
 	ObservedPodOnWatch(pod *v1.Pod, when time.Time)
 }
 
+// zhou: README, used by "kubeDeps.PodConfig". Pod Configuration comes from apiserver/file/url.
+
 // PodConfig is a configuration mux that merges many sources of pod configuration into a single
 // consistent structure, and then delivers incremental change notifications to listeners
 // in order.

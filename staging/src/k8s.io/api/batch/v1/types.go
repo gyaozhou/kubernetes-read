@@ -32,6 +32,7 @@ const (
 	CronJobScheduledTimestampAnnotation = labelPrefix + "cronjob-scheduled-timestamp"
 
 	JobCompletionIndexAnnotation = labelPrefix + "job-completion-index"
+
 	// JobTrackingFinalizer is a finalizer for Job's pods. It prevents them from
 	// being deleted before being accounted in the Job status.
 	//
@@ -42,6 +43,10 @@ const (
 	// apiserver and job controller will ignore this annotation and they will
 	// always track jobs using finalizers.
 	JobTrackingFinalizer = labelPrefix + "job-tracking"
+
+	// zhou: Job Controller set label and Selector automatically,
+	//       in "pkg/registry/batch/job/strategy.go"
+
 	// The Job labels will use batch.kubernetes.io as a prefix for all labels
 	// Historically the job controller uses unprefixed labels for job-name and controller-uid and
 	// Kubernetes continutes to recognize those unprefixed labels for consistency.
@@ -60,6 +65,8 @@ const (
 	// Job controller.
 	JobControllerName = "kubernetes.io/job-controller"
 )
+
+// zhou:
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -115,6 +122,8 @@ const (
 	// index.
 	IndexedCompletion CompletionMode = "Indexed"
 )
+
+// zhou:
 
 // PodFailurePolicyAction specifies how a Pod failure is handled.
 // +enum
@@ -299,6 +308,8 @@ type SuccessPolicyRule struct {
 	SucceededCount *int32 `json:"succeededCount,omitempty" protobuf:"varint,2,opt,name=succeededCount"`
 }
 
+// zhou: README,
+
 // JobSpec describes how the job execution will look like.
 type JobSpec struct {
 
@@ -326,6 +337,8 @@ type JobSpec struct {
 	// resumed again.
 	// +optional
 	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty" protobuf:"varint,3,opt,name=activeDeadlineSeconds"`
+
+	// zhou:
 
 	// Specifies the policy of handling failed pods. In particular, it allows to
 	// specify the set of actions and conditions which need to be

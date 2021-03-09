@@ -119,6 +119,8 @@ func (ba *BalancedAllocation) ScoreExtensions() framework.ScoreExtensions {
 	return nil
 }
 
+// zhou: README,
+
 // NewBalancedAllocation initializes a new plugin and returns it.
 func NewBalancedAllocation(_ context.Context, baArgs runtime.Object, h framework.Handle, fts feature.Features) (framework.Plugin, error) {
 	args, ok := baArgs.(*config.NodeResourcesBalancedAllocationArgs)

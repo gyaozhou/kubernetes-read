@@ -43,6 +43,8 @@ import (
 	"k8s.io/pod-security-admission/policy"
 )
 
+// zhou:
+
 const (
 	defaultNamespaceMaxPodsToCheck  = 3000
 	defaultNamespacePodCheckTimeout = 1 * time.Second
@@ -448,6 +450,8 @@ func (a *Admission) ValidatePodController(ctx context.Context, attrs api.Attribu
 	}
 	return a.EvaluatePod(ctx, nsPolicy, nsPolicyErrs.ToAggregate(), podMetadata, podSpec, attrs, false)
 }
+
+// zhou: evaluate the Pod's spec according to its Namespace's PodSecurityAdmission definition.
 
 // EvaluatePod evaluates the given policy against the given pod(-like) object.
 // The enforce policy is only checked if enforce=true.

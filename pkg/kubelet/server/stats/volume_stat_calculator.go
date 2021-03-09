@@ -93,6 +93,8 @@ func (s *volumeStatCalculator) GetLatest() (PodVolumeStats, bool) {
 	return result.(PodVolumeStats), true
 }
 
+// zhou: README,
+
 // calcAndStoreStats calculates PodVolumeStats for a given pod and writes the result to the s.latest cache.
 // If the pod references PVCs, the prometheus metrics for those are updated with the result.
 func (s *volumeStatCalculator) calcAndStoreStats() {
@@ -178,6 +180,8 @@ func (s *volumeStatCalculator) calcAndStoreStats() {
 	s.latest.Store(PodVolumeStats{EphemeralVolumes: ephemeralStats,
 		PersistentVolumes: persistentStats})
 }
+
+// zhou: README,
 
 // parsePodVolumeStats converts (internal) volume.Metrics to (external) stats.VolumeStats structures
 func (s *volumeStatCalculator) parsePodVolumeStats(podName string, pvcRef *stats.PVCReference, metric *volume.Metrics, volSpec v1.Volume) stats.VolumeStats {

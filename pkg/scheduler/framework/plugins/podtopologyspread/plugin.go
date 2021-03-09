@@ -87,6 +87,8 @@ func (pl *PodTopologySpread) Name() string {
 	return Name
 }
 
+// zhou: README,
+
 // New initializes a new plugin and returns it.
 func New(_ context.Context, plArgs runtime.Object, h framework.Handle, fts feature.Features) (framework.Plugin, error) {
 	if h.SnapshotSharedLister() == nil {

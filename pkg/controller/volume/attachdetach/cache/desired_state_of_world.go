@@ -123,6 +123,8 @@ type PodToAdd struct {
 	NodeName k8stypes.NodeName
 }
 
+// zhou:
+
 // NewDesiredStateOfWorld returns a new instance of DesiredStateOfWorld.
 func NewDesiredStateOfWorld(volumePluginMgr *volume.VolumePluginMgr) DesiredStateOfWorld {
 	return &desiredStateOfWorld{
@@ -130,6 +132,8 @@ func NewDesiredStateOfWorld(volumePluginMgr *volume.VolumePluginMgr) DesiredStat
 		volumePluginMgr: volumePluginMgr,
 	}
 }
+
+// zhou: README,
 
 type desiredStateOfWorld struct {
 	// nodesManaged is a map containing the set of nodes managed by the attach/
@@ -197,6 +201,8 @@ func (dsw *desiredStateOfWorld) AddNode(nodeName k8stypes.NodeName) {
 	}
 }
 
+// zhou: README, add one of Pod dependent volume to DSW.
+
 func (dsw *desiredStateOfWorld) AddPod(
 	podName types.UniquePodName,
 	podToAdd *v1.Pod,
@@ -211,6 +217,8 @@ func (dsw *desiredStateOfWorld) AddPod(
 			"no node with the name %q exists in the list of managed nodes",
 			nodeName)
 	}
+
+	// zhou: find it again
 
 	attachableVolumePlugin, err := dsw.volumePluginMgr.FindAttachablePluginBySpec(volumeSpec)
 	if err != nil || attachableVolumePlugin == nil {

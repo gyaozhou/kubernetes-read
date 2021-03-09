@@ -94,6 +94,8 @@ func HasStatusCause(err error, name metav1.CauseType) bool {
 	return ok
 }
 
+// zhou:
+
 // StatusCause returns the named cause from the provided error if it exists and
 // the error unwraps to the type APIStatus. Otherwise it returns false.
 func StatusCause(err error, name metav1.CauseType) (metav1.StatusCause, bool) {

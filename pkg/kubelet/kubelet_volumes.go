@@ -95,14 +95,22 @@ func (kl *Kubelet) podVolumesExist(podUID types.UID) bool {
 	return false
 }
 
+// zhou: README,
+
 // newVolumeMounterFromPlugins attempts to find a plugin by volume spec, pod
 // and volume options and then creates a Mounter.
 // Returns a valid mounter or an error.
 func (kl *Kubelet) newVolumeMounterFromPlugins(spec *volume.Spec, pod *v1.Pod) (volume.Mounter, error) {
+
+	// zhou: find the volume plugin according to PV spec.
+
 	plugin, err := kl.volumePluginMgr.FindPluginBySpec(spec)
 	if err != nil {
 		return nil, fmt.Errorf("can't use volume plugins for %s: %v", spec.Name(), err)
 	}
+
+	// zhou:
+
 	physicalMounter, err := plugin.NewMounter(spec, pod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate mounter for volume: %s using plugin: %s with a root cause: %v", spec.Name(), plugin.GetPluginName(), err)

@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// zhou: features
+
 // Package workqueue provides a simple queue that supports the following
 // features:
 //   - Fair: items processed in the order in which they are added.

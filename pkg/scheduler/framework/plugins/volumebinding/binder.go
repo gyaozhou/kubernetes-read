@@ -61,15 +61,21 @@ func (reasons ConflictReasons) Less(i, j int) bool { return reasons[i] < reasons
 func (reasons ConflictReasons) Swap(i, j int)      { reasons[i], reasons[j] = reasons[j], reasons[i] }
 
 const (
+	// zhou:
+
 	// ErrReasonBindConflict is used for VolumeBindingNoMatch predicate error.
 	ErrReasonBindConflict ConflictReason = "node(s) didn't find available persistent volumes to bind"
+
 	// ErrReasonNodeConflict is used for VolumeNodeAffinityConflict predicate error.
 	ErrReasonNodeConflict ConflictReason = "node(s) didn't match PersistentVolume's node affinity"
 	// ErrReasonNotEnoughSpace is used when a pod cannot start on a node because not enough storage space is available.
 	ErrReasonNotEnoughSpace = "node(s) did not have enough free storage"
+
 	// ErrReasonPVNotExist is used when a pod has one or more PVC(s) bound to non-existent persistent volume(s)"
 	ErrReasonPVNotExist = "node(s) unavailable due to one or more pvc(s) bound to non-existent pv(s)"
 )
+
+// zhou: used in static binding
 
 // BindingInfo holds a binding between PV and PVC.
 type BindingInfo struct {
@@ -108,6 +114,8 @@ type DynamicProvision struct {
 	NodeCapacity *storagev1.CSIStorageCapacity
 }
 
+// zhou: updated in Filter() phase
+
 // PodVolumes holds pod's volumes information used in volume scheduling.
 type PodVolumes struct {
 	// StaticBindings are binding decisions for PVCs which can be bound to
@@ -124,6 +132,8 @@ type InTreeToCSITranslator interface {
 	GetInTreePluginNameFromSpec(pv *v1.PersistentVolume, vol *v1.Volume) (string, error)
 	TranslateInTreePVToCSI(logger klog.Logger, pv *v1.PersistentVolume) (*v1.PersistentVolume, error)
 }
+
+// zhou: core procedure of VolumeBinding plugin.
 
 // SchedulerVolumeBinder is used by the scheduler VolumeBinding plugin to
 // handle PVC/PV binding and dynamic provisioning. The binding decisions are
@@ -203,6 +213,10 @@ type PodVolumeClaims struct {
 	unboundClaimsDelayBinding []*v1.PersistentVolumeClaim
 	// unboundClaimsImmediate are the pod's unbound with immediate binding PVCs (i.e., supposed to be bound already) .
 	unboundClaimsImmediate []*v1.PersistentVolumeClaim
+
+	// zhou: find the unbound PVC corresponding StorageClass' unbound PV list.
+	//       It is used for performing PVC PV matching in next Filter().
+
 	// unboundVolumesDelayBinding are PVs that belong to storage classes of the pod's unbound PVCs with delayed binding.
 	unboundVolumesDelayBinding map[string][]*v1.PersistentVolume
 }
@@ -219,6 +233,8 @@ type volumeBinder struct {
 
 	pvcCache *PVCAssumeCache
 	pvCache  *PVAssumeCache
+
+	// zhou: default value is 600s
 
 	// Amount of time to wait for the bind operation to succeed
 	bindTimeout time.Duration
@@ -238,6 +254,8 @@ type CapacityCheck struct {
 	CSIDriverInformer          storageinformers.CSIDriverInformer
 	CSIStorageCapacityInformer storageinformers.CSIStorageCapacityInformer
 }
+
+// zhou: README,
 
 // NewVolumeBinder sets up all the caches needed for the scheduler to make volume binding decisions.
 //
@@ -273,6 +291,8 @@ func NewVolumeBinder(
 
 	return b
 }
+
+// zhou: used in Filter() to evaluate "node"
 
 // FindPodVolumes finds the matching PVs for PVCs and nodes to provision PVs
 // for the given pod and node. If the node does not fit, conflict reasons are
@@ -331,6 +351,8 @@ func (b *volumeBinder) FindPodVolumes(logger klog.Logger, pod *v1.Pod, podVolume
 		podVolumes.DynamicProvisions = dynamicProvisions
 	}()
 
+	// zhou: is bound PVC's correspnding PV's NodeAffinity matching the node's Label.
+
 	// Check PV node affinity on bound volumes
 	if len(podVolumeClaims.boundClaims) > 0 {
 		boundVolumesSatisfied, boundPVsFound, err = b.checkBoundClaims(logger, podVolumeClaims.boundClaims, node, pod)
@@ -339,12 +361,18 @@ func (b *volumeBinder) FindPodVolumes(logger klog.Logger, pod *v1.Pod, podVolume
 		}
 	}
 
+	// zhou: in case of the Pod refer to unbound PVC.
+
 	// Find matching volumes and node for unbound claims
 	if len(podVolumeClaims.unboundClaimsDelayBinding) > 0 {
 		var (
+			// zhou: PVC has not specified node.
 			claimsToFindMatching []*v1.PersistentVolumeClaim
-			claimsToProvision    []*v1.PersistentVolumeClaim
+			// zhou: PVC already specified node, but waiting for bound to PV
+			claimsToProvision []*v1.PersistentVolumeClaim
 		)
+
+		// zhou: the PVC already assigned "volume.kubernetes.io/selected-node" and it doesn't match current node.
 
 		// Filter out claims to provision
 		for _, claim := range podVolumeClaims.unboundClaimsDelayBinding {
@@ -360,6 +388,8 @@ func (b *volumeBinder) FindPodVolumes(logger klog.Logger, pod *v1.Pod, podVolume
 			}
 		}
 
+		// zhou: failed to find matching PV for given PVC
+
 		// Find matching volumes
 		if len(claimsToFindMatching) > 0 {
 			var unboundClaims []*v1.PersistentVolumeClaim
@@ -367,8 +397,16 @@ func (b *volumeBinder) FindPodVolumes(logger klog.Logger, pod *v1.Pod, podVolume
 			if err != nil {
 				return
 			}
+
+			// zhou: both "claimsToProvision" and "unboundClaims" need to perform provisioning.
+			//       Does not include "staticBindings", which stands for PVC already bound to pre-provisioned PV.
+
 			claimsToProvision = append(claimsToProvision, unboundClaims...)
 		}
+
+		// zhou: make sure there is a provisioner name in StorageClass, checking:
+		//       1. the node's Lables matching "StorageClass.AllowedTopologies".
+		//       2. Storage Capacity Tracking.
 
 		// Check for claims to provision. This is the first time where we potentially
 		// find out that storage is not sufficient for the node.
@@ -392,6 +430,9 @@ func convertDynamicProvisionsToPVCs(dynamicProvisions []*DynamicProvision) []*v1
 	}
 	return pvcs
 }
+
+// zhou: README, invoked by Reserve(),
+//       Used to PVC and PV in scheduler's cache (have not been updated to api server)
 
 // AssumePodVolumes will take the matching PVs and PVCs to provision in pod's
 // volume information for the chosen node, and:
@@ -441,6 +482,9 @@ func (b *volumeBinder) AssumePodVolumes(logger klog.Logger, assumedPod *v1.Pod, 
 	// Assume PVCs
 	newProvisionedPVCs := []*DynamicProvision{}
 	for _, dynamicProvision := range podVolumes.DynamicProvisions {
+
+		// zhou: add annotation "volume.kubernetes.io/selected-node" to PVC
+
 		// The claims from method args can be pointing to watcher cache. We must not
 		// modify these, therefore create a copy.
 		claimClone := dynamicProvision.PVC.DeepCopy()
@@ -468,6 +512,8 @@ func (b *volumeBinder) RevertAssumedPodVolumes(podVolumes *PodVolumes) {
 	b.revertAssumedPVCs(pvcs)
 }
 
+// zhou: README,
+
 // BindPodVolumes gets the cached bindings and PVCs to provision in pod's volumes information,
 // makes the API update for those PVs/PVCs, and waits for the PVCs to be completely bound
 // by the PV controller.
@@ -490,6 +536,9 @@ func (b *volumeBinder) BindPodVolumes(ctx context.Context, assumedPod *v1.Pod, p
 		return err
 	}
 
+	// zhou: wait for 600s
+	//       The binding phase uses dedicated goroutine for each pod, will not block other pods.
+
 	err = wait.PollUntilContextTimeout(ctx, time.Second, b.bindTimeout, false, func(ctx context.Context) (bool, error) {
 		b, err := b.checkBindings(logger, assumedPod, bindings, claimsToProvision)
 		return b, err
@@ -507,6 +556,8 @@ func getPodName(pod *v1.Pod) string {
 func getPVCName(pvc *v1.PersistentVolumeClaim) string {
 	return pvc.Namespace + "/" + pvc.Name
 }
+
+// zhou: update PVC/PV object in api server
 
 // bindAPIUpdate makes the API update for those PVs/PVCs.
 func (b *volumeBinder) bindAPIUpdate(ctx context.Context, pod *v1.Pod, bindings []*BindingInfo, claimsToProvision []*v1.PersistentVolumeClaim) error {
@@ -538,9 +589,15 @@ func (b *volumeBinder) bindAPIUpdate(ctx context.Context, pod *v1.Pod, bindings 
 		claim   *v1.PersistentVolumeClaim
 	)
 
+	// zhou: static binding, "BindingInfo{pv: pv, pvc: pvc}"
+	//       How to trigger PV controller perform static binding?
+
 	// Do the actual prebinding. Let the PV controller take care of the rest
 	// There is no API rollback if the actual binding fails
 	for _, binding = range bindings {
+
+		// zhou: ??? do nothing.
+
 		// TODO: does it hurt if we make an api call and nothing needs to be updated?
 		logger.V(5).Info("Updating PersistentVolume: binding to claim", "pod", klog.KObj(pod), "PV", klog.KObj(binding.pv), "PVC", klog.KObj(binding.pvc))
 		newPV, err := b.kubeClient.CoreV1().PersistentVolumes().Update(ctx, binding.pv, metav1.UpdateOptions{})
@@ -554,6 +611,8 @@ func (b *volumeBinder) bindAPIUpdate(ctx context.Context, pod *v1.Pod, bindings 
 		binding.pv = newPV
 		lastProcessedBinding++
 	}
+
+	// zhou: dynamic provisioning
 
 	// Update claims objects to trigger volume provisioning. Let the PV controller take care of the rest
 	// PV controller is expected to signal back by removing related annotations if actual provisioning fails
@@ -576,6 +635,8 @@ func (b *volumeBinder) bindAPIUpdate(ctx context.Context, pod *v1.Pod, bindings 
 var (
 	versioner = storage.APIObjectVersioner{}
 )
+
+// zhou: README,
 
 // checkBindings runs through all the PVCs in the Pod and checks:
 // * if the PVC is fully bound
@@ -619,6 +680,8 @@ func (b *volumeBinder) checkBindings(logger klog.Logger, pod *v1.Pod, bindings [
 		logger.Error(err, "Failed to get pod from the lister", "pod", klog.KObj(pod))
 	}
 
+	// zhou: checking static binding
+
 	for _, binding := range bindings {
 		pv, err := b.pvCache.GetAPIPV(binding.pv.Name)
 		if err != nil {
@@ -656,6 +719,8 @@ func (b *volumeBinder) checkBindings(logger klog.Logger, pod *v1.Pod, bindings [
 			return false, nil
 		}
 	}
+
+	// zhou: checking dynamic provisioning
 
 	for _, claim := range claimsToProvision {
 		pvc, err := b.pvcCache.GetAPIPVC(getPVCName(claim))
@@ -716,6 +781,9 @@ func (b *volumeBinder) checkBindings(logger klog.Logger, pod *v1.Pod, bindings [
 	return true, nil
 }
 
+// zhou: return true if the Pod volume is not backing with PersistentVolumeClaim, or
+//       the backing with PersistentVolumeClaim which already bound.
+
 func (b *volumeBinder) isVolumeBound(logger klog.Logger, pod *v1.Pod, vol *v1.Volume) (bound bool, pvc *v1.PersistentVolumeClaim, err error) {
 	pvcName := ""
 	isEphemeral := false
@@ -728,8 +796,12 @@ func (b *volumeBinder) isVolumeBound(logger klog.Logger, pod *v1.Pod, vol *v1.Vo
 		pvcName = ephemeral.VolumeClaimName(pod, vol)
 		isEphemeral = true
 	default:
+		// zhou: the volume has no corresponding PVC.
+		//       Without PVC, volumes are treated as bound.
 		return true, nil, nil
 	}
+
+	// zhou: PVC locates with Pod namespace.
 
 	bound, pvc, err = b.isPVCBound(logger, pod.Namespace, pvcName)
 	// ... the PVC must be owned by the pod.
@@ -767,6 +839,8 @@ func (b *volumeBinder) isPVCBound(logger klog.Logger, namespace, pvcName string)
 	return fullyBound, pvc, nil
 }
 
+// zhou: pv name specified in PVC, and PVC owns annotation "pv.kubernetes.io/bind-completed".
+
 func (b *volumeBinder) isPVCFullyBound(pvc *v1.PersistentVolumeClaim) bool {
 	return pvc.Spec.VolumeName != "" && metav1.HasAnnotation(pvc.ObjectMeta, volume.AnnBindCompleted)
 }
@@ -782,6 +856,8 @@ func (b *volumeBinder) arePodVolumesBound(logger klog.Logger, pod *v1.Pod) bool 
 	return true
 }
 
+// zhou: get Pod's volumes' corresponding PVC (if it has) in different category.
+
 // GetPodVolumeClaims returns a pod's PVCs separated into bound, unbound with delayed binding (including provisioning),
 // unbound with immediate binding (including prebound) and PVs that belong to storage classes of unbound PVCs with delayed binding.
 func (b *volumeBinder) GetPodVolumeClaims(logger klog.Logger, pod *v1.Pod) (podVolumeClaims *PodVolumeClaims, err error) {
@@ -796,12 +872,17 @@ func (b *volumeBinder) GetPodVolumeClaims(logger klog.Logger, pod *v1.Pod) (podV
 		if err != nil {
 			return podVolumeClaims, err
 		}
+
+		// zhou: the volume has no corresponding PVC.
 		if pvc == nil {
 			continue
 		}
+
 		if volumeBound {
+			// zhou: the Pod volume backing without PVC or with PVC which already bound.
 			podVolumeClaims.boundClaims = append(podVolumeClaims.boundClaims, pvc)
 		} else {
+			// zhou: if it is "WaitForFirstConsumer"
 			delayBindingMode, err := volume.IsDelayBindingMode(pvc, b.classLister)
 			if err != nil {
 				return podVolumeClaims, err
@@ -818,6 +899,8 @@ func (b *volumeBinder) GetPodVolumeClaims(logger klog.Logger, pod *v1.Pod) (podV
 		}
 	}
 
+	// zhou: find the unbound PVC corresponding StorageClass' unbound PV list.
+
 	podVolumeClaims.unboundVolumesDelayBinding = map[string][]*v1.PersistentVolume{}
 	for _, pvc := range podVolumeClaims.unboundClaimsDelayBinding {
 		// Get storage class name from each PVC
@@ -826,6 +909,9 @@ func (b *volumeBinder) GetPodVolumeClaims(logger klog.Logger, pod *v1.Pod) (podV
 	}
 	return podVolumeClaims, nil
 }
+
+// zhou: is bound PVC's correspnding PV's NodeAffinity matching the node's Label.
+//       return "boundVolumesSatisfied, boundPVsFound, err"
 
 func (b *volumeBinder) checkBoundClaims(logger klog.Logger, claims []*v1.PersistentVolumeClaim, node *v1.Node, pod *v1.Pod) (bool, bool, error) {
 	csiNode, err := b.csiNodeLister.Get(node.Name)
@@ -860,6 +946,8 @@ func (b *volumeBinder) checkBoundClaims(logger klog.Logger, claims []*v1.Persist
 	logger.V(5).Info("All bound volumes for pod match with node", "pod", klog.KObj(pod), "node", klog.KObj(node))
 	return true, true, nil
 }
+
+// zhou: try to find matching PV for given PVC
 
 // findMatchingVolumes tries to find matching volumes for given claims,
 // and return unbound claims for further provision.
@@ -901,6 +989,9 @@ func (b *volumeBinder) findMatchingVolumes(logger klog.Logger, pod *v1.Pod, clai
 	return
 }
 
+// zhou: make sure there is a provisioner name in StorageClass, the node matching StorageClass topology
+//       and Storage Capacity Tracking.
+
 // checkVolumeProvisions checks given unbound claims (the claims have gone through func
 // findMatchingVolumes, and do not have matching volumes for binding), and return true
 // if all of the claims are eligible for dynamic provision.
@@ -911,6 +1002,9 @@ func (b *volumeBinder) checkVolumeProvisions(logger klog.Logger, pod *v1.Pod, cl
 	// fails or we encounter an error.
 	for _, claim := range claimsToProvision {
 		pvcName := getPVCName(claim)
+
+		// zhou: get StorageClass name
+
 		className := volume.GetPersistentVolumeClaimClass(claim)
 		if className == "" {
 			return false, false, nil, fmt.Errorf("no class for claim %q", pvcName)
@@ -920,17 +1014,24 @@ func (b *volumeBinder) checkVolumeProvisions(logger klog.Logger, pod *v1.Pod, cl
 		if err != nil {
 			return false, false, nil, fmt.Errorf("failed to find storage class %q", className)
 		}
+
+		// zhou: if no provisioner or the StorageClass indecating doesn't support dynamic provisioning.
+
 		provisioner := class.Provisioner
 		if provisioner == "" || provisioner == volume.NotSupportedProvisioner {
 			logger.V(5).Info("Storage class of claim does not support dynamic provisioning", "storageClassName", className, "PVC", klog.KObj(claim))
 			return false, true, nil, nil
 		}
 
+		// zhou: checking topology aware dynamic provisioning.
+
 		// Check if the node can satisfy the topology requirement in the class
 		if !v1helper.MatchTopologySelectorTerms(class.AllowedTopologies, labels.Set(node.Labels)) {
 			logger.V(5).Info("Node cannot satisfy provisioning topology requirements of claim", "node", klog.KObj(node), "PVC", klog.KObj(claim))
 			return false, true, nil, nil
 		}
+
+		// zhou: capacity track
 
 		// Check storage capacity.
 		sufficient, capacity, err := b.hasEnoughCapacity(logger, provisioner, claim, class, node)
@@ -963,6 +1064,8 @@ func (b *volumeBinder) revertAssumedPVCs(claims []*v1.PersistentVolumeClaim) {
 		b.pvcCache.Restore(getPVCName(claim))
 	}
 }
+
+// zhou: README, check CSI plugin available capacity for the node.
 
 // hasEnoughCapacity checks whether the provisioner has enough capacity left for a new volume of the given size
 // that is available from the node. This function returns the node capacity based on the PVC's storage class.

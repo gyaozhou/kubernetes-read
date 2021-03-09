@@ -39,6 +39,8 @@ import (
 	volumetypes "k8s.io/kubernetes/pkg/volume/util/types"
 )
 
+// zhou: README,
+
 type csiClient interface {
 	NodeGetInfo(ctx context.Context) (
 		nodeID string,
@@ -105,6 +107,8 @@ type csiAddr string
 // Strongly typed driver name
 type csiDriverName string
 
+// zhou: implementation of "csiClient interface"
+
 // csiClient encapsulates all csi-plugin methods
 type csiDriverClient struct {
 	driverName          csiDriverName
@@ -150,6 +154,8 @@ func newV1NodeClient(addr csiAddr, metricsManager *MetricsManager) (nodeClient c
 	return nodeClient, conn, nil
 }
 
+// zhou: set up client to vendor CSI driver
+
 func newCsiDriverClient(driverName csiDriverName) (*csiDriverClient, error) {
 	if driverName == "" {
 		return nil, fmt.Errorf("driver name is empty")
@@ -168,6 +174,8 @@ func newCsiDriverClient(driverName csiDriverName) (*csiDriverClient, error) {
 		metricsManager:      NewCSIMetricsManager(string(driverName)),
 	}, nil
 }
+
+// zhou: get from CSI Node Service
 
 func (c *csiDriverClient) NodeGetInfo(ctx context.Context) (
 	nodeID string,
@@ -207,6 +215,8 @@ func (c *csiDriverClient) nodeGetInfoV1(ctx context.Context) (
 	}
 	return res.GetNodeId(), res.GetMaxVolumesPerNode(), accessibleTopology, nil
 }
+
+// zhou: RPC call to CSI node service directly.
 
 func (c *csiDriverClient) NodePublishVolume(
 	ctx context.Context,

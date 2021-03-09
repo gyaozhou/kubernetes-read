@@ -55,6 +55,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 )
 
+// zhou: README,
+
 const (
 	// reconcilerLoopSleepPeriod is the amount of time the reconciler loop waits
 	// between successive executions
@@ -63,6 +65,8 @@ const (
 	// desiredStateOfWorldPopulatorLoopSleepPeriod is the amount of time the
 	// DesiredStateOfWorldPopulator loop waits between successive executions
 	desiredStateOfWorldPopulatorLoopSleepPeriod = 100 * time.Millisecond
+
+	// zhou: wait for 2m3s in each retry
 
 	// podAttachAndMountTimeout is the maximum amount of time the
 	// WaitForAttachAndMount call will wait for all volumes in the specified pod
@@ -92,12 +96,16 @@ const (
 	VolumeAttachmentLimitExceededReason = "VolumeAttachmentLimitExceeded"
 )
 
+// zhou: README,
+
 // VolumeManager runs a set of asynchronous loops that figure out which volumes
 // need to be attached/mounted/unmounted/detached based on the pods scheduled on
 // this node and makes it so.
 type VolumeManager interface {
 	// Starts the volume manager and all the asynchronous loops that it controls
 	Run(ctx context.Context, sourcesReady config.SourcesReady)
+
+	// zhou: "blocks until they are all attached and mounted"
 
 	// WaitForAttachAndMount processes the volumes referenced in the specified
 	// pod and blocks until they are all attached and mounted (reflected in
@@ -173,6 +181,8 @@ type PodManager interface {
 	GetPods() []*v1.Pod
 }
 
+// zhou: README,
+
 // NewVolumeManager returns a new concrete instance implementing the
 // VolumeManager interface.
 //
@@ -195,6 +205,8 @@ func NewVolumeManager(
 	blockVolumePathHandler volumepathhandler.BlockVolumePathHandler) VolumeManager {
 
 	seLinuxTranslator := util.NewSELinuxLabelTranslator()
+
+	// zhou: "desiredStateOfWorld", "actualStateOfWorld" and "operationExecutor" init with VolumePluginMgr.
 	vm := &volumeManager{
 		kubeClient:          kubeClient,
 		volumePluginMgr:     volumePluginMgr,
@@ -222,6 +234,7 @@ func NewVolumeManager(
 		csiMigratedPluginManager,
 		intreeToCSITranslator,
 		volumePluginMgr)
+	// zhou:
 	vm.reconciler = reconciler.NewReconciler(
 		kubeClient,
 		controllerAttachDetachEnabled,
@@ -240,11 +253,17 @@ func NewVolumeManager(
 	return vm
 }
 
+// zhou: README,
+
 // volumeManager implements the VolumeManager interface
 type volumeManager struct {
+	// zhou: if set nil, means that kubelet works in standalone mode.
+
 	// kubeClient is the kube API client used by DesiredStateOfWorldPopulator to
 	// communicate with the API server to fetch PV and PVC objects
 	kubeClient clientset.Interface
+
+	// zhou: VolumePluginMgr used to find and invoke VolumePlugin methods.
 
 	// volumePluginMgr is the volume plugin manager used to access volume
 	// plugins. It must be pre-initialized.
@@ -300,6 +319,8 @@ func (vm *volumeManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 	logger := klog.FromContext(ctx)
 	defer runtime.HandleCrash()
 
+	// zhou: if kubelet is not standalone mode
+
 	if vm.kubeClient != nil {
 		// start informer for CSIDriver
 		go vm.volumePluginMgr.Run(ctx.Done())
@@ -307,6 +328,8 @@ func (vm *volumeManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 
 	go vm.desiredStateOfWorldPopulator.Run(ctx, sourcesReady)
 	logger.V(2).Info("The desired_state_of_world populator starts")
+
+	// zhou: common path
 
 	logger.Info("Starting Kubelet Volume Manager")
 	go vm.reconciler.Run(ctx, ctx.Done())
@@ -395,6 +418,8 @@ func (vm *volumeManager) MarkVolumesAsReportedInUse(
 	vm.desiredStateOfWorld.MarkVolumesReportedInUse(volumesReportedAsInUse)
 }
 
+// zhou: README,
+
 func (vm *volumeManager) WaitForAttachAndMount(ctx context.Context, pod *v1.Pod) error {
 	logger := klog.FromContext(ctx)
 	if pod == nil {
@@ -414,6 +439,8 @@ func (vm *volumeManager) WaitForAttachAndMount(ctx context.Context, pod *v1.Pod)
 	// Remount plugins for which this is true. (Atomically updating volumes,
 	// like Downward API, depend on this to update the contents of the volume).
 	vm.desiredStateOfWorldPopulator.ReprocessPod(uniquePodName)
+
+	// zhou: check and wait
 
 	err := wait.PollUntilContextTimeout(
 		ctx,
@@ -553,6 +580,8 @@ func (vm *volumeManager) getUnattachedVolumes(uniquePodName types.UniquePodName)
 	}
 	return unattachedVolumes
 }
+
+// zhou: README,
 
 // verifyVolumesMountedFunc returns a method that returns true when all expected
 // volumes are mounted.

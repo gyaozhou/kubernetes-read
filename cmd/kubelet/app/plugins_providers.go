@@ -56,6 +56,8 @@ type pluginInfo struct {
 	pluginProbeFunction     probeFn
 }
 
+// zhou: this volume plugins planned to be removed out of in-tree, but will be controlled by feature gates.
+
 func appendLegacyProviderVolumes(ctx context.Context, allPlugins []volume.VolumePlugin, featureGate featuregate.FeatureGate) ([]volume.VolumePlugin, error) {
 	pluginMigrationStatus := make(map[string]pluginInfo)
 	pluginMigrationStatus[plugins.PortworxVolumePluginName] = pluginInfo{pluginMigrationFeature: features.CSIMigrationPortworx, pluginUnregisterFeature: features.InTreePluginPortworxUnregister, pluginProbeFunction: portworx.ProbeVolumePlugins}

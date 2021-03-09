@@ -41,6 +41,8 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 		rc.unmountVolumes(logger)
 	}
 
+	// zhou:
+
 	// Next we mount required volumes. This function could also trigger
 	// attach if kubelet is responsible for attaching volumes.
 	// If underlying PVC was resized while in-use then this function also handles volume

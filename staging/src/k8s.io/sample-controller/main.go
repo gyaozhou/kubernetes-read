@@ -57,6 +57,7 @@ func main() {
 		klog.FlushAndExit(klog.ExitFlushTimeout, 1)
 	}
 
+	// zhou: crd generated clientset.
 	exampleClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Error(err, "Error building kubernetes clientset")
@@ -68,6 +69,7 @@ func main() {
 
 	controller := NewController(ctx, kubeClient, exampleClient,
 		kubeInformerFactory.Apps().V1().Deployments(),
+		// zhou: why not using "NewFooInformer()" directly ??? It could be, but this way is more flexible.
 		exampleInformerFactory.Samplecontroller().V1alpha1().Foos())
 
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(ctx.done())

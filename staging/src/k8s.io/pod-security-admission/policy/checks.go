@@ -146,10 +146,13 @@ func AggregateCheckResults(results []CheckResult) AggregateCheckResult {
 	}
 }
 
+// zhou: check list.
 var (
 	defaultChecks      []func() Check
 	experimentalChecks []func() Check
 )
+
+// zhou: invoked during each check module's init().
 
 func addCheck(f func() Check) {
 	// add to experimental or versioned list

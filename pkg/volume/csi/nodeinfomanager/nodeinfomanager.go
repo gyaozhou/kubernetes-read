@@ -72,6 +72,8 @@ type nodeInfoManager struct {
 // If no updates is needed, the function must return the same Node object as the input.
 type nodeUpdateFunc func(*v1.Node) (newNode *v1.Node, updated bool, err error)
 
+// zhou: maintain object "CSINode"
+
 // Interface implements an interface for managing labels of a node
 type Interface interface {
 	CreateCSINode() (*storagev1.CSINode, error)
@@ -93,6 +95,8 @@ type Interface interface {
 	UninstallCSIDriver(driverName string) error
 }
 
+// zhou: node info manager
+
 // NewNodeInfoManager initializes nodeInfoManager
 func NewNodeInfoManager(
 	nodeName types.NodeName,
@@ -104,6 +108,9 @@ func NewNodeInfoManager(
 		migratedPlugins: migratedPlugins,
 	}
 }
+
+// zhou: Add CSI node ID into Node's annotation, add CSI topology map into Node's lable,
+//       add both of them into "CSINode".
 
 // InstallCSIDriver updates the node ID annotation in the Node object and CSIDrivers field in the
 // CSINode object. If the CSINode object doesn't yet exist, it will be created.
@@ -177,6 +184,8 @@ func (nim *nodeInfoManager) updateNode(updateFuncs ...nodeUpdateFunc) error {
 	return nil
 }
 
+// zhou: update Node's annotation, label and status for max attached volume limit.
+
 // updateNode repeatedly attempts to update the corresponding node object
 // which is modified by applying the given update functions sequentially.
 // Because updateFuncs are applied sequentially, later updateFuncs should take into account
@@ -221,6 +230,8 @@ func (nim *nodeInfoManager) tryUpdateNode(updateFuncs ...nodeUpdateFunc) error {
 	return nil
 }
 
+// zhou: get current object "Node" annotation "csi.volume.kubernetes.io/nodeid" value
+
 // Guarantees the map is non-nil if no error is returned.
 func buildNodeIDMapFromAnnotation(node *v1.Node) (map[string]string, error) {
 	var previousAnnotationValue string
@@ -247,11 +258,15 @@ func buildNodeIDMapFromAnnotation(node *v1.Node) (map[string]string, error) {
 	return existingDriverMap, nil
 }
 
+// zhou: add annotation to object "Node", like:
+//       csi.volume.kubernetes.io/nodeid: '{"<csi plugin name>":"<node id get from csi plugin>"}'
+
 // updateNodeIDInNode returns a function that updates a Node object with the given
 // Node ID information.
 func updateNodeIDInNode(
 	csiDriverName string,
 	csiDriverNodeID string) nodeUpdateFunc {
+
 	return func(node *v1.Node) (*v1.Node, bool, error) {
 		existingDriverMap, err := buildNodeIDMapFromAnnotation(node)
 		if err != nil {
@@ -335,9 +350,12 @@ func removeNodeIDFromNode(csiDriverName string) nodeUpdateFunc {
 	}
 }
 
+// zhou: add label to object "Node", topology map get from NodeGetInfo()
+
 // updateTopologyLabels returns a function that updates labels of a Node object with the given
 // topology information.
 func updateTopologyLabels(topology map[string]string) nodeUpdateFunc {
+
 	return func(node *v1.Node) (*v1.Node, bool, error) {
 		if len(topology) == 0 {
 			return node, false, nil
@@ -358,6 +376,8 @@ func updateTopologyLabels(topology map[string]string) nodeUpdateFunc {
 		return node, true, nil
 	}
 }
+
+// zhou: according to the info get from "node-driver-registrar", fill CSI driver into CSINode.
 
 func (nim *nodeInfoManager) updateCSINode(
 	driverName string,
@@ -448,6 +468,8 @@ func (nim *nodeInfoManager) tryInitializeCSINodeWithAnnotation(csiKubeClient cli
 	return nil
 
 }
+
+// zhou: create CSINode object for this node, no CSI driver will be filled.
 
 func (nim *nodeInfoManager) CreateCSINode() (*storagev1.CSINode, error) {
 

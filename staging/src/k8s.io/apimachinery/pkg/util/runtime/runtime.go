@@ -43,6 +43,8 @@ var (
 // is attributed to the code which triggered the panic.
 var PanicHandlers = []func(context.Context, interface{}){logPanic}
 
+// zhou: README,
+
 // HandleCrash simply catches a crash and logs an error. Meant to be called via
 // defer.  Additional context-specific handlers can be provided, and will be
 // called in case of panic.  HandleCrash actually crashes, after calling the
@@ -267,6 +269,8 @@ func GetCaller() string {
 	}
 	return f.Name()
 }
+
+// zhou:
 
 // RecoverFromPanic replaces the specified error with an error containing the
 // original error, and  the call tree when a panic occurs. This enables error

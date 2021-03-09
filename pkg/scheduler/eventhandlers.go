@@ -388,6 +388,8 @@ func (sched *Scheduler) WaitForHandlersSync(ctx context.Context) error {
 	})
 }
 
+// zhou: README,
+
 // addAllEventHandlers is a helper function used in tests and in Scheduler
 // to add event handlers for various informers.
 func addAllEventHandlers(

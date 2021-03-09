@@ -36,6 +36,8 @@ type LazyErrorNodeSelector struct {
 	terms []nodeSelectorTerm
 }
 
+// zhou:
+
 // NewNodeSelector returns a NodeSelector or aggregate parsing errors found.
 func NewNodeSelector(ns *v1.NodeSelector, opts ...field.PathOption) (*NodeSelector, error) {
 	lazy := NewLazyErrorNodeSelector(ns, opts...)
@@ -107,6 +109,8 @@ type PreferredSchedulingTerms struct {
 	terms []preferredSchedulingTerm
 }
 
+// zhou: used to handle "PreferredDuringSchedulingIgnoredDuringExecution"
+
 // NewPreferredSchedulingTerms returns a PreferredSchedulingTerms or all the parsing errors found.
 // If a v1.PreferredSchedulingTerm has a 0 weight, its parsing is skipped.
 func NewPreferredSchedulingTerms(terms []v1.PreferredSchedulingTerm, opts ...field.PathOption) (*PreferredSchedulingTerms, error) {
@@ -166,6 +170,8 @@ type nodeSelectorTerm struct {
 	matchFields fields.Selector
 	parseErrs   []error
 }
+
+// zhou:
 
 func newNodeSelectorTerm(term *v1.NodeSelectorTerm, path *field.Path) nodeSelectorTerm {
 	var parsedTerm nodeSelectorTerm
@@ -302,6 +308,8 @@ type RequiredNodeAffinity struct {
 	nodeSelector  *LazyErrorNodeSelector
 }
 
+// zhou: consolidate "NodeSelector" and "NodeAffinity"
+
 // GetRequiredNodeAffinity returns the parsing result of pod's nodeSelector and nodeAffinity.
 func GetRequiredNodeAffinity(pod *v1.Pod) RequiredNodeAffinity {
 	var selector labels.Selector
@@ -317,6 +325,8 @@ func GetRequiredNodeAffinity(pod *v1.Pod) RequiredNodeAffinity {
 	}
 	return RequiredNodeAffinity{labelSelector: selector, nodeSelector: affinity}
 }
+
+// zhou: !!! match both NodeSelector and NodeAffinity
 
 // Match checks whether the pod is schedulable onto nodes according to
 // the requirements in both nodeSelector and nodeAffinity.

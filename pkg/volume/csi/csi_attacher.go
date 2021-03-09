@@ -45,6 +45,9 @@ import (
 
 const globalMountInGlobalPath = "globalmount"
 
+// zhou: README, "csiAttacher" used for create/delete "VolumeAttachment", which trigger external-attacher to
+//       call ControllerPublishVolume()/ControllerUnpublishVolume().
+
 type csiAttacher struct {
 	plugin       *csiPlugin
 	k8s          kubernetes.Interface
@@ -59,6 +62,8 @@ var _ volume.Attacher = &csiAttacher{}
 var _ volume.Detacher = &csiAttacher{}
 
 var _ volume.DeviceMounter = &csiAttacher{}
+
+// zhou: README, handle attach volume to a node
 
 func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string, error) {
 	_, ok := c.plugin.host.(volume.KubeletVolumeHost)
@@ -84,6 +89,8 @@ func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string
 		return "", errors.New(log("failed to get volume attachment from lister: %v", err))
 	}
 
+	// zhou: the VolumeAttachment has not created
+
 	if attachment == nil {
 		var vaSrc storage.VolumeAttachmentSource
 		if spec.InlineVolumeSpecForCSIMigration {
@@ -103,6 +110,8 @@ func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string
 				PersistentVolumeName: &pvName,
 			}
 		}
+
+		// zhou: init VolumeAttachment
 
 		attachment := &storage.VolumeAttachment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -261,6 +270,8 @@ func (c *csiAttacher) GetDeviceMountPath(spec *volume.Spec) (string, error) {
 	return deviceMountPath, nil
 }
 
+// zhou: README, NodeStageVolume()
+
 func (c *csiAttacher) MountDevice(spec *volume.Spec, devicePath string, deviceMountPath string, deviceMounterArgs volume.DeviceMounterArgs) error {
 	klog.V(4).Info(log("attacher.MountDevice(%s, %s)", devicePath, deviceMountPath))
 
@@ -413,6 +424,8 @@ func (c *csiAttacher) MountDevice(spec *volume.Spec, devicePath string, deviceMo
 var _ volume.Detacher = &csiAttacher{}
 
 var _ volume.DeviceUnmounter = &csiAttacher{}
+
+// zhou: README,
 
 func (c *csiAttacher) Detach(volumeName string, nodeName types.NodeName) error {
 	_, ok := c.plugin.host.(volume.KubeletVolumeHost)

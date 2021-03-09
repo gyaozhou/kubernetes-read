@@ -157,10 +157,14 @@ func haveOverlap(a1, a2 []string) bool {
 	return false
 }
 
+// zhou: these volume plugin forbid two pod within one node sharing a volume by nature, implicit "ReadWriteOncePod".
+
 // return true if there are conflict checking targets.
 func needsRestrictionsCheck(v v1.Volume) bool {
 	return v.GCEPersistentDisk != nil || v.AWSElasticBlockStore != nil || v.RBD != nil || v.ISCSI != nil
 }
+
+// zhou: README,
 
 // PreFilter computes and stores cycleState containing details for enforcing ReadWriteOncePod.
 func (pl *VolumeRestrictions) PreFilter(ctx context.Context, cycleState fwk.CycleState, pod *v1.Pod, nodes []fwk.NodeInfo) (*framework.PreFilterResult, *fwk.Status) {
@@ -171,6 +175,8 @@ func (pl *VolumeRestrictions) PreFilter(ctx context.Context, cycleState fwk.Cycl
 			break
 		}
 	}
+
+	// zhou: get the PVCs with "ReadWriteOncePod"
 
 	pvcs, err := pl.readWriteOncePodPVCsForPod(ctx, pod)
 	if err != nil {
@@ -184,6 +190,9 @@ func (pl *VolumeRestrictions) PreFilter(ctx context.Context, cycleState fwk.Cycl
 	if err != nil {
 		return nil, fwk.AsStatus(err)
 	}
+
+	// zhou: gd/ebs/rbd/iscsi conflict check need to do per node
+	//       "s.conflictingPVCRefCount == 0" means no ReadWriteOncePod .
 
 	if !needsCheck && s.conflictingPVCRefCount == 0 {
 		return nil, fwk.NewStatus(fwk.Skip)
@@ -226,6 +235,8 @@ func getPreFilterState(cycleState fwk.CycleState) (*preFilterState, error) {
 	return s, nil
 }
 
+// zhou: checking conflict
+
 // calPreFilterState computes preFilterState describing which PVCs use ReadWriteOncePod
 // and which pods in the cluster are in conflict.
 func (pl *VolumeRestrictions) calPreFilterState(ctx context.Context, pod *v1.Pod, pvcs sets.Set[string]) (*preFilterState, error) {
@@ -242,6 +253,8 @@ func (pl *VolumeRestrictions) calPreFilterState(ctx context.Context, pod *v1.Pod
 		conflictingPVCRefCount: conflictingPVCRefCount,
 	}, nil
 }
+
+// zhou: get the PVC with "ReadWriteOncePod"
 
 func (pl *VolumeRestrictions) readWriteOncePodPVCsForPod(ctx context.Context, pod *v1.Pod) (sets.Set[string], error) {
 	pvcs := sets.New[string]()
@@ -263,11 +276,14 @@ func (pl *VolumeRestrictions) readWriteOncePodPVCsForPod(ctx context.Context, po
 	return pvcs, nil
 }
 
+// zhou: gd/ebs/rbd/iscsi conflict checking
+
 // Checks if scheduling the pod onto this node would cause any conflicts with
 // existing volumes.
 func satisfyVolumeConflicts(pod *v1.Pod, nodeInfo fwk.NodeInfo) bool {
 	for i := range pod.Spec.Volumes {
 		v := pod.Spec.Volumes[i]
+
 		if !needsRestrictionsCheck(v) {
 			continue
 		}
@@ -296,6 +312,8 @@ func (pl *VolumeRestrictions) PreFilterExtensions() framework.PreFilterExtension
 	return pl
 }
 
+// zhou:
+
 // Filter invoked at the filter extension point.
 // It evaluates if a pod can fit due to the volumes it requests, and those that
 // are already mounted. If there is already a volume mounted on that node, another pod that uses the same volume
@@ -308,9 +326,15 @@ func (pl *VolumeRestrictions) PreFilterExtensions() framework.PreFilterExtension
 // If the pod uses PVCs with the ReadWriteOncePod access mode, it evaluates if
 // these PVCs are already in-use and if preemption will help.
 func (pl *VolumeRestrictions) Filter(ctx context.Context, cycleState fwk.CycleState, pod *v1.Pod, nodeInfo fwk.NodeInfo) *fwk.Status {
+
+	// zhou: gd/ebs/rbd/iscsi conflict checking
+
 	if !satisfyVolumeConflicts(pod, nodeInfo) {
 		return fwk.NewStatus(fwk.Unschedulable, ErrReasonDiskConflict)
 	}
+
+	// zhou: reuse PreFilter() result
+
 	state, err := getPreFilterState(cycleState)
 	if err != nil {
 		return fwk.AsStatus(err)

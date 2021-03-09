@@ -45,6 +45,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume/util/subpath"
 )
 
+// zhou: init and get VolumePluginMgr, which used to find and invoke VolumePlugin's methods.
+
 // NewInitializedVolumePluginMgr returns a new instance of
 // volume.VolumePluginMgr initialized with kubelets implementation of the
 // volume.VolumeHost interface.
@@ -89,6 +91,8 @@ func NewInitializedVolumePluginMgr(
 		csiDriversSynced:          csiDriversSynced,
 	}
 
+	// zhou: init Volume Plugin Manager, all volume plugins will be Init().
+
 	if err := kvh.volumePluginMgr.InitPlugins(plugins, prober, kvh); err != nil {
 		return nil, fmt.Errorf(
 			"could not initialize volume plugins for KubeletVolumePluginMgr: %v",
@@ -131,6 +135,8 @@ func (kvh *kubeletVolumeHost) GetPodsDir() string {
 	return kvh.kubelet.getPodsDir()
 }
 
+// zhou: "/var/lib/kubelet/pods/[pod uid]/volumes/[plugin name]/[volume name]"
+
 func (kvh *kubeletVolumeHost) GetPodVolumeDir(podUID types.UID, pluginName string, volumeName string) string {
 	dir := kvh.kubelet.getPodVolumeDir(podUID, pluginName, volumeName)
 	if runtime.GOOS == "windows" {
@@ -138,6 +144,8 @@ func (kvh *kubeletVolumeHost) GetPodVolumeDir(podUID types.UID, pluginName strin
 	}
 	return dir
 }
+
+// zhou: "/var/lib/kubelet/pods/[pod uid]/volumeDevices/[plugin name]"
 
 func (kvh *kubeletVolumeHost) GetPodVolumeDeviceDir(podUID types.UID, pluginName string) string {
 	return kvh.kubelet.getPodVolumeDeviceDir(podUID, pluginName)
@@ -187,6 +195,8 @@ func (kvh *kubeletVolumeHost) WaitForCacheSync() error {
 	return nil
 }
 
+// zhou: README,
+
 func (kvh *kubeletVolumeHost) NewWrapperMounter(
 	volName string,
 	spec volume.Spec,
@@ -199,6 +209,8 @@ func (kvh *kubeletVolumeHost) NewWrapperMounter(
 
 	return kvh.kubelet.newVolumeMounterFromPlugins(&spec, pod)
 }
+
+// zhou: README,
 
 func (kvh *kubeletVolumeHost) NewWrapperUnmounter(volName string, spec volume.Spec, podUID types.UID) (volume.Unmounter, error) {
 	// The name of wrapper volume is set to "wrapped_{wrapped_volume_name}"
@@ -276,6 +288,8 @@ func (kvh *kubeletVolumeHost) GetNodeLabels() (map[string]string, error) {
 	}
 	return node.Labels, nil
 }
+
+// zhou: README,
 
 func (kvh *kubeletVolumeHost) GetAttachedVolumesFromNodeStatus() (map[v1.UniqueVolumeName]string, error) {
 	node, err := kvh.kubelet.GetNode()

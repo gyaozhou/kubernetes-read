@@ -34,6 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// zhou:
+
 // TypeMeta describes an individual object in an API response or request
 // with strings representing the type of the object and its API schema version.
 // Structures that are versioned or persisted should inline TypeMeta.
@@ -105,6 +107,8 @@ const (
 	FinalizerOrphanDependents = "orphan"
 	FinalizerDeleteDependents = "foregroundDeletion"
 )
+
+// zhou: README, each instance's metadata
 
 // ObjectMeta is metadata that all persisted resources must have, which includes all objects
 // users must create.
@@ -229,6 +233,8 @@ type ObjectMeta struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 
+	// zhou:
+
 	// List of objects depended by this object. If ALL objects in the list have
 	// been deleted, this object will be garbage collected. If this object is managed by a controller,
 	// then an entry in this list will point to this controller, with the controller field set to true.
@@ -318,6 +324,8 @@ type OwnerReference struct {
 	// +optional
 	BlockOwnerDeletion *bool `json:"blockOwnerDeletion,omitempty" protobuf:"varint,7,opt,name=blockOwnerDeletion"`
 }
+
+// zhou: selector to filter
 
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -499,6 +507,8 @@ const (
 	// persist changes to storage.
 	DryRunAll = "All"
 )
+
+// zhou: options used in deletion, including GracePeriodSeconds/PropagationPolicy/DryRun/..
 
 // +k8s:conversion-gen:explicit-from=net/url.Values
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -832,6 +842,8 @@ const (
 	StatusFailure = "Failure"
 )
 
+// zhou: StatusReason
+
 // StatusReason is an enumeration of possible failure causes.  Each StatusReason
 // must map to a single HTTP status code, but multiple reasons may map
 // to the same HTTP status code.
@@ -1089,6 +1101,8 @@ type List struct {
 	Items []runtime.RawExtension `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou:
+
 // APIVersions lists the versions that are available, to allow clients to
 // discover the API at /api, which is the root path of the legacy v1 API.
 //
@@ -1122,6 +1136,8 @@ type APIGroupList struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// zhou:
 
 // APIGroup contains the name, the supported versions, and the preferred version
 // of a group.
@@ -1166,6 +1182,8 @@ type GroupVersionForDiscovery struct {
 	// the clients the trouble of splitting the GroupVersion.
 	Version string `json:"version" protobuf:"bytes,2,opt,name=version"`
 }
+
+// zhou:
 
 // APIResource specifies the name of a resource and whether it is namespaced.
 type APIResource struct {
@@ -1216,6 +1234,8 @@ func (vs Verbs) String() string {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// zhou:
 
 // APIResourceList is a list of APIResource, it is used to expose the name of the
 // resources supported in a specific group and version, and if the resource

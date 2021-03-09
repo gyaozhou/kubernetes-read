@@ -55,6 +55,8 @@ type Reconciler interface {
 	Run(ctx context.Context)
 }
 
+// zhou: README,
+
 // NewReconciler returns a new instance of Reconciler that waits loopPeriod
 // between successive executions.
 // loopPeriod is the amount of time the reconciler loop waits between
@@ -111,6 +113,8 @@ func (rc *reconciler) Run(ctx context.Context) {
 	wait.UntilWithContext(ctx, rc.reconciliationLoopFunc(ctx), rc.loopPeriod)
 }
 
+// zhou: README,
+
 // reconciliationLoopFunc this can be disabled via cli option disableReconciliation.
 // It periodically checks whether the attached volumes from actual state
 // are still attached to the node and update the status if they are not.
@@ -162,9 +166,13 @@ func (rc *reconciler) nodeIsHealthy(nodeName types.NodeName) (bool, error) {
 	return nodeutil.IsNodeReady(node), nil
 }
 
+// zhou: README, AD controller core processing to reconcile ASW with DSW.
+
 func (rc *reconciler) reconcile(ctx context.Context) {
 	// Detaches are triggered before attaches so that volumes referenced by
 	// pods that are rescheduled to a different node are detached first.
+
+	// zhou: handle detach firstly
 
 	// Ensure volumes that should be detached are detached.
 	logger := klog.FromContext(ctx)
@@ -254,6 +262,8 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 					"err", err)
 			}
 
+			// zhou: the "attachedVolume" to be detached.
+
 			// Update Node Status to indicate volume is no longer safe to mount.
 			err = rc.nodeStatusUpdater.UpdateNodeStatusForNode(logger, attachedVolume.NodeName)
 			if err != nil {
@@ -273,6 +283,9 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 				logger.V(4).Info("node has out-of-service taint", "node", klog.KRef("", string(attachedVolume.NodeName)))
 			}
 			verifySafeToDetach := !(forceDetatchTimeoutExpired || hasOutOfServiceTaint)
+
+			// zhou:
+
 			err = rc.attacherDetacher.DetachVolume(logger, attachedVolume.AttachedVolume, verifySafeToDetach, rc.actualStateOfWorld)
 			if err == nil {
 				if verifySafeToDetach { // normal detach
@@ -306,8 +319,13 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 			}
 		}
 	}
+	// zhou: end of handling detach.
+
+	// zhou:
 
 	rc.attachDesiredVolumes(logger)
+
+	// zhou: update nodes' status according the actual state of the world after attach volumes
 
 	// Update Node Status
 	err := rc.nodeStatusUpdater.UpdateNodeStatuses(logger)
@@ -315,6 +333,8 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 		logger.Info("UpdateNodeStatuses failed", "err", err)
 	}
 }
+
+// zhou: README,
 
 func (rc *reconciler) attachDesiredVolumes(logger klog.Logger) {
 	// Ensure volumes that should be attached are attached.
@@ -357,6 +377,8 @@ func (rc *reconciler) attachDesiredVolumes(logger klog.Logger) {
 			}
 		}
 
+		// zhou: leverage OperationExecutor to invoke VolumePlugin's Attach()
+
 		// Volume/Node doesn't exist, spawn a goroutine to attach it
 		logger.V(5).Info("Starting attacherDetacher.AttachVolume", "volume", volumeToAttach)
 		err := rc.attacherDetacher.AttachVolume(logger, volumeToAttach.VolumeToAttach, rc.actualStateOfWorld)
@@ -370,6 +392,8 @@ func (rc *reconciler) attachDesiredVolumes(logger klog.Logger) {
 		}
 	}
 }
+
+// zhou: README,
 
 // reportMultiAttachError sends events and logs situation that a volume that
 // should be attached to a node is already attached to different node(s).

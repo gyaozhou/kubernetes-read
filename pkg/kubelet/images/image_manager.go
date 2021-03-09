@@ -49,6 +49,8 @@ type ImagePodPullingTimeRecorder interface {
 	RecordImageFinishedPulling(podUID types.UID)
 }
 
+// zhou: README,
+
 // imageManager provides the functionalities for image pulling.
 type imageManager struct {
 	recorder         record.EventRecorder
@@ -145,6 +147,8 @@ func (m *imageManager) imageNotPresentOnNeverPolicyError(logPrefix string, objRe
 	m.logIt(objRef, v1.EventTypeWarning, events.ErrImageNeverPullPolicy, logPrefix, msg, klog.Warning)
 	return msg, ErrImageNeverPull
 }
+
+// zhou: README, used by "startContainer()" to pull the image.
 
 // EnsureImageExists pulls the image for the specified pod and requestedImage, and returns
 // (imageRef, error message, error).

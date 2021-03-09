@@ -6,9 +6,11 @@ option go_package = "k8s.io/kubelet/pkg/apis/pluginregistration/v1";
 
 // PluginInfo is the message sent from a plugin to the Kubelet pluginwatcher for plugin registration
 message PluginInfo {
+    // zhou: plugins let kubelet understanding.
+
 	// Type of the Plugin. CSIPlugin or DevicePlugin
 	string type = 1;
-	// Plugin name that uniquely identifies the plugin for the given plugin type.
+  	// Plugin name that uniquely identifies the plugin for the given plugin type.
 	// For DevicePlugin, this is the resource name that the plugin manages and
 	// should follow the extended resource name convention.
 	// For CSI, this is the CSI driver registrar name.

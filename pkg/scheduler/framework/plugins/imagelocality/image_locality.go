@@ -87,6 +87,8 @@ func calculatePriority(sumScores int64, numContainers int) int64 {
 	return framework.MaxNodeScore * (sumScores - minThreshold) / (maxThreshold - minThreshold)
 }
 
+// zhou: README, to be scheduled Pod's images, if the more image already ready, the high score for this node.
+
 // sumImageScores returns the sum of image scores of all the containers that are already on the node.
 // Each image receives a raw score of its size, scaled by scaledImageScore. The raw scores are later used to calculate
 // the final score.

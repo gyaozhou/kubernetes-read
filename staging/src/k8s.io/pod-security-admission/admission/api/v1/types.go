@@ -28,6 +28,8 @@ type PodSecurityConfiguration struct {
 	Exemptions PodSecurityExemptions `json:"exemptions"`
 }
 
+// zhou:
+
 type PodSecurityDefaults struct {
 	Enforce        string `json:"enforce,omitempty"`
 	EnforceVersion string `json:"enforce-version,omitempty"`

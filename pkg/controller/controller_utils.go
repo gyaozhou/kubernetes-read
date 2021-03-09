@@ -128,6 +128,8 @@ func StaticResyncPeriodFunc(resyncPeriod time.Duration) ResyncPeriodFunc {
 	}
 }
 
+// zhou:
+
 // Expectations are a way for controllers to tell the controller manager what they expect. eg:
 //	ControllerExpectations: {
 //		controller1: expects  2 adds in 2 minutes
@@ -150,6 +152,8 @@ var ExpKeyFunc = func(obj interface{}) (string, error) {
 	}
 	return "", fmt.Errorf("could not find key for obj %#v", obj)
 }
+
+// zhou: README,
 
 // ControllerExpectationsInterface is an interface that allows users to set and wait on expectations.
 // Only abstracted out for testing.
@@ -313,6 +317,8 @@ func (e *ControlleeExpectations) MarshalLog() interface{} {
 	}
 }
 
+// zhou:
+
 // NewControllerExpectations returns a store for ControllerExpectations.
 func NewControllerExpectations() *ControllerExpectations {
 	return &ControllerExpectations{cache.NewStore(ExpKeyFunc)}
@@ -448,6 +454,8 @@ func (r RealRSControl) PatchReplicaSet(ctx context.Context, namespace, name stri
 	return err
 }
 
+// zhou: Controller Revisions patch interface
+
 // TODO: merge the controller revision interface in controller_history.go with this one
 // ControllerRevisionControlInterface is an interface that knows how to patch
 // ControllerRevisions, as well as increment or decrement them. It is used
@@ -467,6 +475,8 @@ func (r RealControllerRevisionControl) PatchControllerRevision(ctx context.Conte
 	_, err := r.KubeClient.AppsV1().ControllerRevisions(namespace).Patch(ctx, name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	return err
 }
+
+// zhou: Pod management interface
 
 // PodControlInterface is an interface that knows how to add or delete pods
 // created as an interface to allow testing.

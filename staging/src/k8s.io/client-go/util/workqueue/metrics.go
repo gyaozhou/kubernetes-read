@@ -125,6 +125,9 @@ func (m *defaultQueueMetrics[T]) done(item T) {
 	}
 }
 
+// zhou: 1. total waiting time of each items still in queue
+//       2. the waiting time of the oldest item still in queue.
+
 func (m *defaultQueueMetrics[T]) updateUnfinishedWork() {
 	// Note that a summary metric would be better for this, but prometheus
 	// doesn't seem to have non-hacky ways to reset the summary metrics.

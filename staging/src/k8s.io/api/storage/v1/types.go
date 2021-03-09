@@ -22,6 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// zhou:
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -42,6 +44,9 @@ type StorageClass struct {
 
 	// provisioner indicates the type of the provisioner.
 	Provisioner string `json:"provisioner" protobuf:"bytes,2,opt,name=provisioner"`
+
+	// zhou: "csi.storage.k8s.io/fstype" is key used by external-provisioner
+	//       Most of them are defined by csi driver itself.
 
 	// parameters holds the parameters for the provisioner that should
 	// create volumes of this storage class.
@@ -64,11 +69,15 @@ type StorageClass struct {
 	// +optional
 	AllowVolumeExpansion *bool `json:"allowVolumeExpansion,omitempty" protobuf:"varint,6,opt,name=allowVolumeExpansion"`
 
+	// zhou: "Immediate" or "WaitForFirstConsumer"
+
 	// volumeBindingMode indicates how PersistentVolumeClaims should be
 	// provisioned and bound.  When unset, VolumeBindingImmediate is used.
 	// This field is only honored by servers that enable the VolumeScheduling feature.
 	// +optional
 	VolumeBindingMode *VolumeBindingMode `json:"volumeBindingMode,omitempty" protobuf:"bytes,7,opt,name=volumeBindingMode"`
+
+	// zhou: used to specify topology to select nodes to create volumes.
 
 	// allowedTopologies restrict the node topologies where volumes can be dynamically provisioned.
 	// Each volume plugin defines its own supported topology specifications.
@@ -110,6 +119,8 @@ const (
 	// binding will occur during Pod scheduing.
 	VolumeBindingWaitForFirstConsumer VolumeBindingMode = "WaitForFirstConsumer"
 )
+
+// zhou: README, AD controller create VolumeAttachment via volume plugin.
 
 // +genclient
 // +genclient:nonNamespaced
@@ -167,6 +178,8 @@ type VolumeAttachmentSpec struct {
 	// nodeName represents the node that the volume should be attached to.
 	NodeName string `json:"nodeName" protobuf:"bytes,3,opt,name=nodeName"`
 }
+
+// zhou: README,
 
 // VolumeAttachmentSource represents a volume that should be attached.
 // Right now only PersistentVolumes can be attached via external attacher,
@@ -235,6 +248,8 @@ type VolumeError struct {
 	// +optional
 	ErrorCode *int32 `json:"errorCode,omitempty" protobuf:"varint,3,opt,name=errorCode"`
 }
+
+// zhou: used to describe the features/behavior implemented by CSI driver.
 
 // +genclient
 // +genclient:nonNamespaced
@@ -515,6 +530,8 @@ const (
 	VolumeLifecycleEphemeral VolumeLifecycleMode = "Ephemeral"
 )
 
+// zhou:
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -550,6 +567,8 @@ type CSINodeSpec struct {
 	// +listMapKey=name
 	Drivers []CSINodeDriver `json:"drivers" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,1,rep,name=drivers"`
 }
+
+// zhou: create/update by kubelet
 
 // CSINodeDriver holds information about the specification of one CSI driver installed on a node
 type CSINodeDriver struct {
@@ -614,6 +633,8 @@ type CSINodeList struct {
 	// items is the list of CSINode
 	Items []CSINode `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// zhou: README,
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

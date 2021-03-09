@@ -300,6 +300,8 @@ type PreFilterExtensions interface {
 	RemovePod(ctx context.Context, state fwk.CycleState, podToSchedule *v1.Pod, podInfoToRemove fwk.PodInfo, nodeInfo fwk.NodeInfo) *fwk.Status
 }
 
+// zhou:
+
 // PreFilterPlugin is an interface that must be implemented by "PreFilter" plugins.
 // These plugins are called at the beginning of the scheduling cycle.
 type PreFilterPlugin interface {
@@ -322,6 +324,8 @@ type PreFilterPlugin interface {
 	// Filter again on a specific node.
 	PreFilterExtensions() PreFilterExtensions
 }
+
+// zhou:
 
 // FilterPlugin is an interface for Filter plugins. These plugins are called at the
 // filter extension point for filtering out hosts that cannot run a pod.
@@ -356,6 +360,8 @@ type FilterPlugin interface {
 	// anymore.
 	Filter(ctx context.Context, state fwk.CycleState, pod *v1.Pod, nodeInfo fwk.NodeInfo) *fwk.Status
 }
+
+// zhou:
 
 // PostFilterPlugin is an interface for "PostFilter" plugins. These plugins are called
 // after a pod cannot be scheduled.
@@ -487,6 +493,8 @@ type BindPlugin interface {
 	// pod is rejected and will not be bound.
 	Bind(ctx context.Context, state fwk.CycleState, p *v1.Pod, nodeName string) *fwk.Status
 }
+
+// zhou: scheduler framework.
 
 // Framework manages the set of plugins in use by the scheduling framework.
 // Configured plugins are called at specified points in a scheduling context.

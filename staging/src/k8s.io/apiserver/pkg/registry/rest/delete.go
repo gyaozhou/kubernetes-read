@@ -63,6 +63,8 @@ type RESTGracefulDeleteStrategy interface {
 	CheckGracefulDelete(ctx context.Context, obj runtime.Object, options *metav1.DeleteOptions) bool
 }
 
+// zhou: check and set DeletionTimestamp and GracePeriodSeconds.
+
 // BeforeDelete tests whether the object can be gracefully deleted.
 // If graceful is set, the object should be gracefully deleted.  If gracefulPending
 // is set, the object has already been gracefully deleted (and the provided grace
@@ -73,13 +75,18 @@ type RESTGracefulDeleteStrategy interface {
 // This function is responsible for setting deletionTimestamp during gracefulDeletion,
 // other one for cascading deletions.
 func BeforeDelete(strategy RESTDeleteStrategy, ctx context.Context, obj runtime.Object, options *metav1.DeleteOptions) (graceful, gracefulPending bool, err error) {
+
 	objectMeta, gvk, kerr := objectMetaAndKind(strategy, obj)
 	if kerr != nil {
 		return false, false, kerr
 	}
+
+	// zhou: check "PropagationPolicy" and "dryRun" flag for deletion.
+
 	if errs := validation.ValidateDeleteOptions(options); len(errs) > 0 {
 		return false, false, errors.NewInvalid(schema.GroupKind{Group: metav1.GroupName, Kind: "DeleteOptions"}, "", errs)
 	}
+
 	// Checking the Preconditions here to fail early. They'll be enforced later on when we actually do the deletion, too.
 	if options.Preconditions != nil {
 		if options.Preconditions.UID != nil && *options.Preconditions.UID != objectMeta.GetUID() {
@@ -94,6 +101,7 @@ func BeforeDelete(strategy RESTDeleteStrategy, ctx context.Context, obj runtime.
 	if gracePeriodSeconds := options.GracePeriodSeconds; gracePeriodSeconds != nil && *gracePeriodSeconds < 0 {
 		options.GracePeriodSeconds = ptr.To[int64](1)
 	}
+
 	if deletionGracePeriodSeconds := objectMeta.GetDeletionGracePeriodSeconds(); deletionGracePeriodSeconds != nil && *deletionGracePeriodSeconds < 0 {
 		objectMeta.SetDeletionGracePeriodSeconds(ptr.To[int64](1))
 	}
@@ -104,6 +112,7 @@ func BeforeDelete(strategy RESTDeleteStrategy, ctx context.Context, obj runtime.
 		// the obcject before deleting it.
 		return false, false, nil
 	}
+
 	// if the object is already being deleted, no need to update generation.
 	if objectMeta.GetDeletionTimestamp() != nil {
 		// if we are already being deleted, we may only shorten the deletion grace period
@@ -160,9 +169,12 @@ func BeforeDelete(strategy RESTDeleteStrategy, ctx context.Context, obj runtime.
 		return false, false, errors.NewInternalError(fmt.Errorf("options.GracePeriodSeconds should not be nil"))
 	}
 
+	// zhou: set DeletionTimestamp and GracePeriodSeconds.
+
 	requestedDeletionTimestamp := metav1.NewTime(metav1Now().Add(time.Second * time.Duration(*options.GracePeriodSeconds)))
 	objectMeta.SetDeletionTimestamp(&requestedDeletionTimestamp)
 	objectMeta.SetDeletionGracePeriodSeconds(options.GracePeriodSeconds)
+
 	// If it's the first graceful deletion we are going to set the DeletionTimestamp to non-nil.
 	// Controllers of the object that's being deleted shouldn't take any nontrivial actions, hence its behavior changes.
 	// Thus we need to bump object's Generation (if set). This handles generation bump during graceful deletion.
@@ -173,6 +185,8 @@ func BeforeDelete(strategy RESTDeleteStrategy, ctx context.Context, obj runtime.
 
 	return true, false, nil
 }
+
+// zhou:
 
 // AdmissionToValidateObjectDeleteFunc returns a admission validate func for object deletion
 func AdmissionToValidateObjectDeleteFunc(admit admission.Interface, staticAttributes admission.Attributes, objInterfaces admission.ObjectInterfaces) ValidateObjectFunc {

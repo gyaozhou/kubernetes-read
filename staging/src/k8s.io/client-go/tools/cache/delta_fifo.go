@@ -31,6 +31,7 @@ import (
 // DeltaFIFOOptions is the configuration parameters for DeltaFIFO. All are
 // optional.
 type DeltaFIFOOptions struct {
+	// zhou: key generator method.
 
 	// KeyFunction is used to figure out what key an object should have. (It's
 	// exposed in the returned DeltaFIFO's KeyOf() method, with additional
@@ -38,11 +39,15 @@ type DeltaFIFOOptions struct {
 	// Optional, the default is MetaNamespaceKeyFunc.
 	KeyFunction KeyFunc
 
+	// zhou: help to handle Replace ???
+
 	// KnownObjects is expected to return a list of keys that the consumer of
 	// this queue "knows about". It is used to decide which items are missing
 	// when Replace() is called; 'Deleted' deltas are produced for the missing items.
 	// KnownObjects may be nil if you can tolerate missing deletions on Replace().
 	KnownObjects KeyListerGetter
+
+	// zhou: whether using "Replaced" instead of "Sync"
 
 	// EmitDeltaTypeReplaced indicates that the queue consumer
 	// understands the Replaced DeltaType. Before the `Replaced` event type was
@@ -59,6 +64,14 @@ type DeltaFIFOOptions struct {
 	// If set, log output will go to this logger instead of klog.Background().
 	Logger *klog.Logger
 }
+
+// zhou: refer to <kubernetes yuan ma pou xi, zhen xu dong> P136.
+//       DeltaFIFO only handle one type of resource !!! The key normally only includes Namespace/Name.
+//       DeltaFIFO satisify not only "Queue interface" but also "Store interface"
+//
+//       Deltas is a list of actions related with an object.
+//       "queue" is ordered by the first action generation time of an object.
+//       The later actions with this object, will be put into Deltas if this object still sit in queue.
 
 // DeltaFIFO is like FIFO, but differs in two ways.  One is that the
 // accumulator associated with a given object's key is not that object
@@ -106,9 +119,15 @@ type DeltaFIFO struct {
 	lock sync.RWMutex
 	cond sync.Cond
 
+	// zhou: User could provide user defined method.
+	//       The default method is "MetaNamespaceKeyFunc()" which generate key as the object's namespaced name.
+	//       Deltas is list of actions related an object.
+
 	// `items` maps a key to a Deltas.
 	// Each such Deltas has at least one Delta.
 	items map[string]Deltas
+
+	// zhou: consumer will handle Deltas in queue order.
 
 	// `queue` maintains FIFO order of keys for consumption in Pop().
 	// There are no duplicates in `queue`.
@@ -120,6 +139,8 @@ type DeltaFIFO struct {
 	populated bool
 	// initialPopulationCount is the number of items inserted by the first call of Replace()
 	initialPopulationCount int
+
+	// zhou: user could overwrite default key generator by provide this.
 
 	// keyFunc is used to make the key used for queued item
 	// insertion and retrieval, and should be deterministic.
@@ -133,6 +154,8 @@ type DeltaFIFO struct {
 	// Currently, not used to gate any of CRUD operations.
 	closed bool
 
+	// zhou: in order to compatible with old client, this flag is used to control using "Sync" or "Replaced".
+	//       "Sync" is legacy action.
 	// emitDeltaTypeReplaced is whether to emit the Replaced or Sync
 	// DeltaType when Replace() is called (to preserve backwards compat).
 	emitDeltaTypeReplaced bool
@@ -171,6 +194,9 @@ const (
 	Added   DeltaType = "Added"
 	Updated DeltaType = "Updated"
 	Deleted DeltaType = "Deleted"
+
+	// zhou: fetch the latest state of the object, we don't previous state. So, using action "Replaced".
+
 	// Replaced is emitted when we encountered watch errors and had to do a
 	// relist. We don't know if the replaced object has changed.
 	//
@@ -178,9 +204,14 @@ const (
 	// as well. Hence, Replaced is only emitted when the option
 	// EmitDeltaTypeReplaced is true.
 	Replaced DeltaType = "Replaced"
+
+	// zhou:
+
 	// Sync is for synthetic events during a periodic resync.
 	Sync DeltaType = "Sync"
 )
+
+// zhou: action and its output state.
 
 // Delta is a member of Deltas (a list of Delta objects) which
 // in its turn is the type stored by a DeltaFIFO. It tells you what
@@ -196,6 +227,8 @@ type Delta struct {
 // Deltas is a list of one or more 'Delta's to an individual object.
 // The oldest delta is at index 0, the newest delta is the last one.
 type Deltas []Delta
+
+// zhou:
 
 // NewDeltaFIFO returns a Queue which can be used to process changes to items.
 //
@@ -245,6 +278,8 @@ func NewDeltaFIFO(keyFunc KeyFunc, knownObjects KeyListerGetter) *DeltaFIFO {
 	})
 }
 
+// zhou:
+
 // NewDeltaFIFOWithOptions returns a Queue which can be used to process changes to
 // items. See also the comment on DeltaFIFO.
 func NewDeltaFIFOWithOptions(opts DeltaFIFOOptions) *DeltaFIFO {
@@ -270,6 +305,7 @@ func NewDeltaFIFOWithOptions(opts DeltaFIFOOptions) *DeltaFIFO {
 }
 
 var (
+	// zhou: static checking in compilation, make sure the "DeltaFIFO" is "Queue interface" compatible.
 	_ = Queue(&DeltaFIFO{}) // DeltaFIFO is a Queue
 )
 
@@ -280,6 +316,8 @@ var (
 	ErrZeroLengthDeltasObject = errors.New("0 length Deltas object; can't get key")
 )
 
+// zhou: why not release items in DeltaFIFO ???
+
 // Close the queue.
 func (f *DeltaFIFO) Close() {
 	f.lock.Lock()
@@ -288,6 +326,8 @@ func (f *DeltaFIFO) Close() {
 	f.cond.Broadcast()
 }
 
+// zhou: using the newest object in list as key.
+
 // KeyOf exposes f's keyFunc, but also detects the key of a Deltas object or
 // DeletedFinalStateUnknown objects.
 func (f *DeltaFIFO) KeyOf(obj interface{}) (string, error) {
@@ -295,8 +335,10 @@ func (f *DeltaFIFO) KeyOf(obj interface{}) (string, error) {
 		if len(d) == 0 {
 			return "", KeyError{obj, ErrZeroLengthDeltasObject}
 		}
+		// zhou: use the newest Delta in Delta list.
 		obj = d.Newest().Object
 	}
+	// zhou: the object action is deletion, we don't know the object final state.
 	if d, ok := obj.(DeletedFinalStateUnknown); ok {
 		return d.Key, nil
 	}
@@ -320,6 +362,8 @@ func (f *DeltaFIFO) hasSynced_locked() bool {
 	return f.populated && f.initialPopulationCount == 0
 }
 
+// zhou: add a Delta which action is "Added"
+
 // Add inserts an item, and puts it in the queue. The item is only enqueued
 // if it doesn't already exist in the set.
 func (f *DeltaFIFO) Add(obj interface{}) error {
@@ -329,6 +373,8 @@ func (f *DeltaFIFO) Add(obj interface{}) error {
 	return f.queueActionLocked(Added, obj)
 }
 
+// zhou: add a Delta which action is "Updated"
+
 // Update is just like Add, but makes an Updated Delta.
 func (f *DeltaFIFO) Update(obj interface{}) error {
 	f.lock.Lock()
@@ -336,6 +382,8 @@ func (f *DeltaFIFO) Update(obj interface{}) error {
 	f.populated = true
 	return f.queueActionLocked(Updated, obj)
 }
+
+// zhou: add a Delta which action is "Deleted".
 
 // Delete is just like Add, but makes a Deleted Delta. If the given
 // object does not already exist, it will be ignored. (It may have
@@ -351,6 +399,7 @@ func (f *DeltaFIFO) Delete(obj interface{}) error {
 	defer f.lock.Unlock()
 	f.populated = true
 	if f.knownObjects == nil {
+		// zhou: why ??? Once the Added Delta already be consumed ...
 		if _, exists := f.items[id]; !exists {
 			// Presumably, this was deleted when a relist happened.
 			// Don't provide a second report of the same deletion.
@@ -373,6 +422,8 @@ func (f *DeltaFIFO) Delete(obj interface{}) error {
 	// exist in items and/or KnownObjects
 	return f.queueActionLocked(Deleted, obj)
 }
+
+// zhou: right now, just remove one Delta if two deletion are sit together.
 
 // re-listing and watching can deliver the same update multiple times in any
 // order. This will combine the most recent two deltas if they are the same.
@@ -453,6 +504,7 @@ func (f *DeltaFIFO) queueActionInternalLocked(actionType, internalActionType Del
 
 	oldDeltas := f.items[id]
 	newDeltas := append(oldDeltas, Delta{actionType, obj})
+	// zhou: right now, just remove one Delta if two deletion are sit together.
 	newDeltas = dedupDeltas(newDeltas)
 
 	if len(newDeltas) > 0 {
@@ -460,6 +512,7 @@ func (f *DeltaFIFO) queueActionInternalLocked(actionType, internalActionType Del
 			f.queue = append(f.queue, id)
 		}
 		f.items[id] = newDeltas
+		// zhou: notify the consumer
 		f.cond.Broadcast()
 	} else {
 		// This never happens, because dedupDeltas never returns an empty list
@@ -482,6 +535,9 @@ func (f *DeltaFIFO) IsClosed() bool {
 	defer f.lock.Unlock()
 	return f.closed
 }
+
+// zhou: block to pop up. So the Deltas will be removed from queue before processing.
+//       Controller will use this function.
 
 // Pop blocks until the queue has some items, and then returns one.  If
 // multiple items are ready, they are returned in the order in which they were
@@ -506,23 +562,27 @@ func (f *DeltaFIFO) Pop(process PopProcessFunc) (interface{}, error) {
 			if f.closed {
 				return nil, ErrFIFOClosed
 			}
-
+			// zhou: condition wait here.
 			f.cond.Wait()
 		}
 		isInInitialList := !f.hasSynced_locked()
 		id := f.queue[0]
+		// zhou: remove from list
 		f.queue = f.queue[1:]
 		depth := len(f.queue)
 		if f.initialPopulationCount > 0 {
 			f.initialPopulationCount--
 		}
+		// zhou: get Deltas
 		item, ok := f.items[id]
 		if !ok {
 			// This should never happen
 			f.logger.Error(nil, "Inconceivable! Item was in f.queue but not f.items; ignoring", "id", id)
 			continue
 		}
+		// zhou: remove from map.
 		delete(f.items, id)
+
 		// Only log traces if the queue depth is greater than 10 and it takes more than
 		// 100 milliseconds to process one item from the queue.
 		// Queue depth never goes high because processing an item is locking the queue,
@@ -535,12 +595,17 @@ func (f *DeltaFIFO) Pop(process PopProcessFunc) (interface{}, error) {
 				utiltrace.Field{Key: "Reason", Value: "slow event handlers blocking the queue"})
 			defer trace.LogIfLong(100 * time.Millisecond)
 		}
+
+		// zhou: invoker provides method to process Deltas, e.g. "HandleDeltas()"
+
 		err := process(item, isInInitialList)
 		// Don't need to copyDeltas here, because we're transferring
 		// ownership to the caller.
 		return item, err
 	}
 }
+
+// zhou: README,
 
 // Replace atomically does two things: (1) it adds the given objects
 // using the Sync or Replace DeltaType and then (2) it does some deletions.
@@ -723,6 +788,10 @@ func copyDeltas(d Deltas) Deltas {
 	copy(d2, d)
 	return d2
 }
+
+// zhou: used to mark an object was stale and deleted.
+//       It's a wrapper of Object, the content of Object is useless due to lost connect to fetch its
+//       final state. So, just using the key.
 
 // DeletedFinalStateUnknown is placed into a DeltaFIFO in the case where an object
 // was deleted but the watch deletion event was missed while disconnected from

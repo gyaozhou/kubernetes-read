@@ -112,6 +112,8 @@ var allowedEphemeralContainerFields = map[string]bool{
 // https://github.com/opencontainers/runtime-spec/blob/master/config.md#platform-specific-configuration
 var validOS = sets.New(core.Linux, core.Windows)
 
+// zhou: must have and same value.
+
 // ValidateHasLabel requires that metav1.ObjectMeta has a Label with key and expectedValue
 func ValidateHasLabel(meta metav1.ObjectMeta, fldPath *field.Path, key, expectedValue string) field.ErrorList {
 	allErrs := field.ErrorList{}
@@ -6298,6 +6300,8 @@ var supportedServiceIPFamilyPolicy = sets.New(
 	core.IPFamilyPolicySingleStack,
 	core.IPFamilyPolicyPreferDualStack,
 	core.IPFamilyPolicyRequireDualStack)
+
+// zhou: README, validate Service object
 
 // ValidateService tests if required fields/annotations of a Service are valid.
 func validateService(service, oldService *core.Service) field.ErrorList {

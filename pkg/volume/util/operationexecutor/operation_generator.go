@@ -61,6 +61,8 @@ type operationGenerator struct {
 	// VerifyControllerAttachedVolume operation.
 	kubeClient clientset.Interface
 
+	// zhou:
+
 	// volumePluginMgr is the volume plugin manager used to create volume
 	// plugin objects.
 	volumePluginMgr *volume.VolumePluginMgr
@@ -82,12 +84,15 @@ type inTreeResizeResponse struct {
 	resizeCalled bool
 }
 
+// zhou:
+
 // NewOperationGenerator is returns instance of operationGenerator
 func NewOperationGenerator(kubeClient clientset.Interface,
 	volumePluginMgr *volume.VolumePluginMgr,
 	recorder record.EventRecorder,
 	blkUtil volumepathhandler.BlockVolumePathHandler) OperationGenerator {
 
+	// zhou: VolumePluginMgr
 	return &operationGenerator{
 		kubeClient:      kubeClient,
 		volumePluginMgr: volumePluginMgr,
@@ -98,6 +103,9 @@ func NewOperationGenerator(kubeClient clientset.Interface,
 
 // OperationGenerator interface that extracts out the functions from operation_executor to make it dependency injectable
 type OperationGenerator interface {
+
+	// zhou: used in Filesystem volume case
+
 	// Generates the MountVolume function needed to perform the mount of a volume plugin
 	GenerateMountVolumeFunc(waitForAttachTimeout time.Duration, volumeToMount VolumeToMount, actualStateOfWorldMounterUpdater ActualStateOfWorldMounterUpdater, isRemount bool) volumetypes.GeneratedOperations
 
@@ -118,6 +126,8 @@ type OperationGenerator interface {
 
 	// Generates the function needed to check if the attach_detach controller has attached the volume plugin
 	GenerateVerifyControllerAttachedVolumeFunc(logger klog.Logger, volumeToMount VolumeToMount, nodeName types.NodeName, actualStateOfWorld ActualStateOfWorldAttacherUpdater) (volumetypes.GeneratedOperations, error)
+
+	// zhou: used in Block volume case
 
 	// Generates the MapVolume function needed to perform the map of a volume plugin
 	GenerateMapVolumeFunc(waitForAttachTimeout time.Duration, volumeToMount VolumeToMount, actualStateOfWorldMounterUpdater ActualStateOfWorldMounterUpdater) (volumetypes.GeneratedOperations, error)
@@ -245,6 +255,8 @@ func (og *operationGenerator) GenerateVolumesAreAttachedFunc(
 	}, nil
 }
 
+// zhou: README, handle attach volume to a node.
+
 func (og *operationGenerator) GenerateAttachVolumeFunc(
 	logger klog.Logger,
 	volumeToAttach VolumeToAttach,
@@ -342,6 +354,8 @@ func (og *operationGenerator) GetVolumePluginMgr() *volume.VolumePluginMgr {
 	return og.volumePluginMgr
 }
 
+// zhou: README,
+
 func (og *operationGenerator) GenerateDetachVolumeFunc(
 	logger klog.Logger,
 	volumeToDetach AttachedVolume,
@@ -394,6 +408,7 @@ func (og *operationGenerator) GenerateDetachVolumeFunc(
 			err = og.verifyVolumeIsSafeToDetach(volumeToDetach)
 		}
 		if err == nil {
+			// zhou:
 			err = volumeDetacher.Detach(volumeName, volumeToDetach.NodeName)
 		}
 
@@ -428,11 +443,15 @@ func (og *operationGenerator) GenerateDetachVolumeFunc(
 	}, nil
 }
 
+// zhou: used in Filesystem volume case, mount it into Pod
+
 func (og *operationGenerator) GenerateMountVolumeFunc(
 	waitForAttachTimeout time.Duration,
 	volumeToMount VolumeToMount,
 	actualStateOfWorld ActualStateOfWorldMounterUpdater,
 	isRemount bool) volumetypes.GeneratedOperations {
+
+	// zhou: find VolumePlugin
 
 	volumePluginName := unknownVolumePlugin
 	volumePlugin, err :=
@@ -458,6 +477,8 @@ func (og *operationGenerator) GenerateMountVolumeFunc(
 			return volumetypes.NewOperationContext(eventErr, detailedErr, migrated)
 		}
 
+		// zhou:
+
 		volumeMounter, newMounterErr := volumePlugin.NewMounter(
 			volumeToMount.VolumeSpec,
 			volumeToMount.Pod)
@@ -482,6 +503,8 @@ func (og *operationGenerator) GenerateMountVolumeFunc(
 			eventErr, detailedErr := volumeToMount.GenerateError("MountVolume.SetUp failed", err)
 			return volumetypes.NewOperationContext(eventErr, detailedErr, migrated)
 		}
+
+		// zhou: get AttachableVolumePlugin
 
 		// Get attacher, if possible
 		attachableVolumePlugin, _ :=
@@ -538,6 +561,8 @@ func (og *operationGenerator) GenerateMountVolumeFunc(
 				eventErr, detailedErr := volumeToMount.GenerateError("MountVolume.GetDeviceMountPath failed", err)
 				return volumetypes.NewOperationContext(eventErr, detailedErr, migrated)
 			}
+
+			// zhou: NodeStageVolume(), valid for Filesystem volume only.
 
 			// Mount device to global mount path
 			err = volumeDeviceMounter.MountDevice(
@@ -613,6 +638,8 @@ func (og *operationGenerator) GenerateMountVolumeFunc(
 		}
 		klog.V(verbosity).InfoS(detailedMsg, "pod", klog.KObj(volumeToMount.Pod))
 		resizeOptions.DeviceMountPath = volumeMounter.GetPath()
+
+		// zhou:
 
 		_, resizeError = og.expandVolumeDuringMount(volumeToMount, actualStateOfWorld, resizeOptions)
 		if resizeError != nil {
@@ -725,6 +752,8 @@ func (og *operationGenerator) markVolumeErrorState(volumeToMount VolumeToMount, 
 		}
 	}
 }
+
+// zhou: README,
 
 func (og *operationGenerator) GenerateUnmountVolumeFunc(
 	volumeToUnmount MountedVolume,
@@ -911,6 +940,8 @@ func (og *operationGenerator) GenerateUnmountDeviceFunc(
 	}, nil
 }
 
+// zhou: used in Block volume case, mapping it to Pod. README,
+
 // GenerateMapVolumeFunc marks volume as mounted based on following steps.
 // If plugin is attachable, call WaitForAttach() and then mark the device
 // as mounted. On next step, SetUpDevice is called without dependent of
@@ -924,6 +955,8 @@ func (og *operationGenerator) GenerateMapVolumeFunc(
 	waitForAttachTimeout time.Duration,
 	volumeToMount VolumeToMount,
 	actualStateOfWorld ActualStateOfWorldMounterUpdater) (volumetypes.GeneratedOperations, error) {
+
+	// zhou:
 
 	// Get block volume mapper plugin
 	blockVolumePlugin, err :=
@@ -950,6 +983,8 @@ func (og *operationGenerator) GenerateMapVolumeFunc(
 		og.recorder.Eventf(volumeToMount.Pod, v1.EventTypeWarning, kevents.FailedMapVolume, eventErr.Error())
 		return volumetypes.GeneratedOperations{}, detailedErr
 	}
+
+	// zhou:
 
 	// Get attacher, if possible
 	attachableVolumePlugin, _ :=
@@ -1033,6 +1068,9 @@ func (og *operationGenerator) GenerateMapVolumeFunc(
 
 		// Call MapPodDevice if blockVolumeMapper implements CustomBlockVolumeMapper
 		if customBlockVolumeMapper, ok := blockVolumeMapper.(volume.CustomBlockVolumeMapper); ok {
+
+			// zhou:
+
 			// Execute driver specific map
 			pluginDevicePath, mapErr := customBlockVolumeMapper.MapPodDevice()
 			if mapErr != nil {

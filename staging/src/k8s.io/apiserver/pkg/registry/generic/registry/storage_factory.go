@@ -32,6 +32,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// zhou: README,
+
 // Creates a cacher based given storageConfig.
 func StorageWithCacher() generic.StorageDecorator {
 	return func(

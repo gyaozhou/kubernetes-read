@@ -73,6 +73,7 @@ func NewForConfigOrDie(c *rest.Config) *DynamicClient {
 	return ret
 }
 
+// zhou: create a new dynamic client.
 // NewForConfig creates a new dynamic client or returns an error.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).

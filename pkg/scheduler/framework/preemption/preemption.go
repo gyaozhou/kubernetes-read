@@ -105,6 +105,8 @@ func (cl *candidateList) get() []Candidate {
 	return cl.items[:cl.size()]
 }
 
+// zhou: README, define the Preemption plugin interface.
+
 // Interface is expected to be implemented by different preemption plugins as all those member
 // methods might have different behavior compared with the default preemption.
 type Interface interface {
@@ -214,6 +216,8 @@ func (ev *Evaluator) IsPodRunningPreemption(podUID types.UID) bool {
 
 	return ev.preempting.Has(podUID)
 }
+
+// zhou: README,
 
 // Preempt returns a PostFilterResult carrying suggested nominatedNodeName, along with a Status.
 // The semantics of returned <PostFilterResult, Status> varies on different scenarios:
@@ -330,6 +334,8 @@ func (ev *Evaluator) findCandidates(ctx context.Context, state fwk.CycleState, a
 	return ev.DryRunPreemption(ctx, state, pod, potentialNodes, pdbs, offset, candidatesNum)
 }
 
+// zhou: README, invoke Extender "PrioritizeVerb"
+
 // callExtenders calls given <extenders> to select the list of feasible candidates.
 // We will only check <candidates> with extenders that support preemption.
 // Extenders which do not support preemption may later prevent preemptor from being scheduled on the nominated
@@ -422,6 +428,8 @@ func (ev *Evaluator) SelectCandidate(ctx context.Context, candidates []Candidate
 	// To not break the whole flow, return the first candidate.
 	return candidates[0]
 }
+
+// zhou: README,
 
 // prepareCandidate does some preparation work before nominating the selected candidate:
 // - Evict the victim pods

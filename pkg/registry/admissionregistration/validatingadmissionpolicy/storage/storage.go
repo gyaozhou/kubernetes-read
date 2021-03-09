@@ -51,6 +51,9 @@ var groupResource = admissionregistration.Resource("validatingadmissionpolicies"
 func NewREST(optsGetter generic.RESTOptionsGetter, authorizer authorizer.Authorizer, resourceResolver resolver.ResourceResolver) (*REST, *StatusREST, error) {
 	r := &REST{}
 	strategy := validatingadmissionpolicy.NewStrategy(authorizer, resourceResolver)
+
+	// zhou:
+
 	store := &genericregistry.Store{
 		NewFunc:     func() runtime.Object { return &admissionregistration.ValidatingAdmissionPolicy{} },
 		NewListFunc: func() runtime.Object { return &admissionregistration.ValidatingAdmissionPolicyList{} },

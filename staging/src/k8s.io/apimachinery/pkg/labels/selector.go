@@ -91,6 +91,8 @@ type Selector interface {
 // Sharing this saves 1 alloc per use; this is safe because it's immutable.
 var sharedEverythingSelector Selector = internalSelector{}
 
+// zhou: matchs all labels
+
 // Everything returns a selector that matches all labels.
 func Everything() Selector {
 	return sharedEverythingSelector
@@ -993,6 +995,8 @@ func SelectorFromValidatedSet(ls Set) Selector {
 func ParseToRequirements(selector string, opts ...field.PathOption) ([]Requirement, error) {
 	return parse(selector, field.ToPath(opts...))
 }
+
+// zhou: check Selector Matching the Labels.
 
 // ValidatedSetSelector wraps a Set, allowing it to implement the Selector interface. Unlike
 // Set.AsSelectorPreValidated (which copies the input Set), this type simply wraps the underlying

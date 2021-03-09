@@ -22,6 +22,8 @@ import (
 	fwk "k8s.io/kube-scheduler/framework"
 )
 
+// zhou: README,
+
 // Extender is an interface for external processes to influence scheduling
 // decisions made by Kubernetes. This is typically needed for resources not directly
 // managed by Kubernetes.

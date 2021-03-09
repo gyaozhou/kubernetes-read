@@ -43,7 +43,7 @@ func init() {
 func CheckPrivileged() Check {
 	return Check{
 		ID:    "privileged",
-		Level: api.LevelBaseline,
+		Level: api.LevelBaseline, // zhou:
 		Versions: []VersionedCheck{
 			{
 				MinimumVersion: api.MajorMinorVersion(1, 0),
@@ -52,6 +52,8 @@ func CheckPrivileged() Check {
 		},
 	}
 }
+
+// zhou: check pod.spec.container[].SecurityContext.Privileged
 
 func privileged_1_0(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
 	var badContainers []string

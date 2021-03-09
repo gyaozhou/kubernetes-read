@@ -34,6 +34,9 @@ import (
 	"k8s.io/utils/clock"
 )
 
+// zhou: manage all ConfigMap objects updating used by registered pods.
+//       Different strategies define how to detect the changes of ConfigMap for registered volume.
+
 // Manager interface provides methods for Kubelet to manage ConfigMap.
 type Manager interface {
 	// Get configmap by configmap namespace and name.
@@ -108,8 +111,11 @@ func getConfigMapNames(pod *v1.Pod) sets.Set[string] {
 }
 
 const (
+	// zhou: for caching ConfigMap manager, update every 1 min.
 	defaultTTL = time.Minute
 )
+
+// zhou: periodically update cache for ConfigMap objects
 
 // NewCachingConfigMapManager creates a manager that keeps a cache of all configmaps
 // necessary for registered pods.
@@ -128,6 +134,9 @@ func NewCachingConfigMapManager(kubeClient clientset.Interface, getTTL manager.G
 		manager: manager.NewCacheBasedManager(configMapStore, getConfigMapNames),
 	}
 }
+
+// zhou: default strategy, use informer Watch(), to keep the cache always be updated.
+//       Implemented like client-go informer did.
 
 // NewWatchingConfigMapManager creates a manager that keeps a cache of all configmaps
 // necessary for registered pods.

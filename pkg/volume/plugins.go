@@ -123,6 +123,9 @@ type DynamicPluginProber interface {
 	Probe() (events []ProbeEvent, err error)
 }
 
+// zhou: README, core interface,
+//       csiPlugin implement the interface.
+
 // VolumePlugin is an interface to volume plugins that can be used on a
 // kubernetes node (e.g. by kubelet) to instantiate and manage volumes.
 type VolumePlugin interface {
@@ -145,6 +148,8 @@ type VolumePlugin interface {
 	// If the plugin does not support the given spec, this returns an error.
 	GetVolumeName(spec *Spec) (string, error)
 
+	// zhou: used to check wether this volume plugin support this volume.
+
 	// CanSupport tests whether the plugin supports a given volume
 	// specification from the API.  The spec pointer should be considered
 	// const.
@@ -155,16 +160,22 @@ type VolumePlugin interface {
 	// this to update the contents of the volume.
 	RequiresRemount(spec *Spec) bool
 
+	// zhou: used in Filesystem volume to mount in Pod.
+
 	// NewMounter creates a new volume.Mounter from an API specification.
 	// Ownership of the spec pointer in *not* transferred.
 	// - spec: The v1.Volume spec
 	// - pod: The enclosing pod
 	NewMounter(spec *Spec, podRef *v1.Pod) (Mounter, error)
 
+	// zhou: used in Filesystem volume to unmount from Pod
+
 	// NewUnmounter creates a new volume.Unmounter from recoverable state.
 	// - name: The volume name, as per the v1.Volume spec.
 	// - podUID: The UID of the enclosing pod
 	NewUnmounter(name string, podUID types.UID) (Unmounter, error)
+
+	// zhou:
 
 	// ConstructVolumeSpec constructs a volume spec based on the given volume name
 	// and volumePath. The spec may have incomplete information due to limited
@@ -179,6 +190,8 @@ type VolumePlugin interface {
 	// mount -o context=XYZ for a given volume.
 	SupportsSELinuxContextMount(spec *Spec) (bool, error)
 }
+
+// zhou:
 
 // PersistentVolumePlugin is an extended interface of VolumePlugin and is used
 // by volumes that want to provide long term persistence of data
@@ -223,6 +236,9 @@ type ProvisionableVolumePlugin interface {
 	NewProvisioner(logger klog.Logger, options VolumeOptions) (Provisioner, error)
 }
 
+// zhou: interface implemented by in-tree volume plugins
+//       csiPlugin implement the interface.
+
 // AttachableVolumePlugin is an extended interface of VolumePlugin and is used for volumes that require attachment
 // to a node before mounting.
 type AttachableVolumePlugin interface {
@@ -233,6 +249,9 @@ type AttachableVolumePlugin interface {
 	CanAttach(spec *Spec) (bool, error)
 	VerifyExhaustedResource(spec *Spec) bool
 }
+
+// zhou: used for volume plugin implementation could provide block device, such as csiPlugin.
+//       Then, it might need NodeStageVolume() to mkfs on device to meet Filesystem volume.
 
 // DeviceMountableVolumePlugin is an extended interface of VolumePlugin and is used
 // for volumes that requires mount device to a node before binding to volume to pod.
@@ -253,6 +272,9 @@ type ExpandableVolumePlugin interface {
 	RequiresFSResize() bool
 }
 
+// zhou:
+//       csiPlugin implement the interface.
+
 // NodeExpandableVolumePlugin is an expanded interface of VolumePlugin and is used for volumes that
 // require expansion on the node via NodeExpand call.
 type NodeExpandableVolumePlugin interface {
@@ -261,6 +283,9 @@ type NodeExpandableVolumePlugin interface {
 	// NodeExpand expands volume on given deviceMountPath and returns true if resize is successful.
 	NodeExpand(resizeOptions NodeResizeOptions) (bool, error)
 }
+
+// zhou: used to support Block volume.
+//       csiPlugin implement the interface.
 
 // BlockVolumePlugin is an extend interface of VolumePlugin and is used for block volumes support.
 type BlockVolumePlugin interface {
@@ -281,6 +306,8 @@ type BlockVolumePlugin interface {
 	// volume spec by reading the volume directories from disk.
 	ConstructBlockVolumeSpec(podUID types.UID, volumeName, volumePath string) (*Spec, error)
 }
+
+// zhou: peer with "AttachDetachVolumeHost"
 
 // TODO(#14217)
 // As part of the Volume Host refactor we are starting to create Volume Hosts
@@ -324,6 +351,8 @@ type CSIDriverVolumeHost interface {
 	CSIDriverLister() storagelistersv1.CSIDriverLister
 }
 
+// zhou: peer with "KubeletVolumeHost"
+
 // AttachDetachVolumeHost is a AttachDetach Controller specific interface that plugins can use
 // to access methods on the Attach Detach Controller.
 type AttachDetachVolumeHost interface {
@@ -336,6 +365,18 @@ type AttachDetachVolumeHost interface {
 	// to the attachDetachController
 	IsAttachDetachController() bool
 }
+
+// zhou: volume plugins could use this interface to access the kubelet/local dir.
+//       Because volume plugins will be used by both controllers and kubelets/volume manager,
+//       both of them have to implement all of methods.
+//
+//       The volume plugins methods (e.g. attach)  used by controllers will not access host.
+//       So PV/AD/Expand controller implement VolumeHost interface with do nothing.
+//
+//       The volume plugins methods (e.g. mount) used by kubelet/volume manager, need to
+//       access host. So kubelet will implement VolumeHost interface with real works.
+//
+//       In summary, it's worth to split this interface into two interfaces.
 
 // VolumeHost is an interface that plugins can use to access the kubelet.
 type VolumeHost interface {
@@ -399,6 +440,8 @@ type VolumeHost interface {
 	// Returns a function that returns a secret.
 	GetSecretFunc() func(namespace, name string) (*v1.Secret, error)
 
+	// zhou:
+
 	// Returns a function that returns a configmap.
 	GetConfigMapFunc() func(namespace, name string) (*v1.ConfigMap, error)
 
@@ -421,6 +464,11 @@ type VolumeHost interface {
 	GetSubpather() subpath.Interface
 }
 
+// zhou: Volume Plugin Manager
+//       "plugins",  used to store initialized in-tree volume plugins.
+//       "prober", "probedPlugins", used to dynamically detect FlexVolume vendor plugin.
+//       "Host",  used by volume plugin implementation to access host capability.
+
 // VolumePluginMgr tracks registered plugins.
 type VolumePluginMgr struct {
 	mutex         sync.RWMutex
@@ -430,10 +478,13 @@ type VolumePluginMgr struct {
 	Host          VolumeHost
 }
 
+// zhou: an internal representation of a volume,
+//       used to colocate "corev1.Volume" and "corev1.PersistentVolume"
+
 // Spec is an internal representation of a volume.  All API volume types translate to Spec.
 type Spec struct {
-	Volume                          *v1.Volume
-	PersistentVolume                *v1.PersistentVolume
+	Volume                          *v1.Volume           // zhou: part of Pod spec.
+	PersistentVolume                *v1.PersistentVolume // zhou: CSI PV, translated from in-tree PV or Pod volume
 	ReadOnly                        bool
 	InlineVolumeSpecForCSIMigration bool
 	Migrated                        bool
@@ -560,6 +611,10 @@ func NewSpecFromPersistentVolume(pv *v1.PersistentVolume, readOnly bool) *Spec {
 	}
 }
 
+// zhou: init all in-tree volume plugins "plugins", and "prober" is used to dynamic discovery
+//       volume plugins, currently only "FlexVolume".
+//       "host" is used for volume plugins to access host.
+
 // InitPlugins initializes each plugin.  All plugins must have unique names.
 // This must be called exactly once before any New* methods are called on any
 // plugins.
@@ -568,6 +623,8 @@ func (pm *VolumePluginMgr) InitPlugins(plugins []VolumePlugin, prober DynamicPlu
 	defer pm.mutex.Unlock()
 
 	pm.Host = host
+
+	// zhou: only used to handle dynamically probe FlexVolume
 
 	if prober == nil {
 		// Use a dummy prober to prevent nil deference.
@@ -590,28 +647,41 @@ func (pm *VolumePluginMgr) InitPlugins(plugins []VolumePlugin, prober DynamicPlu
 
 	allErrs := []error{}
 	for _, plugin := range plugins {
+
+		// zhou: e.g. "kubernetes.io/aws-ebs", "kubernetes.io/csi"
+
 		name := plugin.GetPluginName()
 		if errs := validation.IsQualifiedName(name); len(errs) != 0 {
 			allErrs = append(allErrs, fmt.Errorf("volume plugin has invalid name: %q: %s", name, strings.Join(errs, ";")))
 			continue
 		}
 
+		// zhou: make sure not conflict
+
 		if _, found := pm.plugins[name]; found {
 			allErrs = append(allErrs, fmt.Errorf("volume plugin %q was registered more than once", name))
 			continue
 		}
+
+		// zhou: invoke all volume plugin's init() with "VolumeHost"
+
 		err := plugin.Init(host)
 		if err != nil {
 			klog.ErrorS(err, "Failed to load volume plugin", "pluginName", name)
 			allErrs = append(allErrs, err)
 			continue
 		}
+
+		// zhou: set done
+
 		pm.plugins[name] = plugin
 		klog.V(1).InfoS("Loaded volume plugin", "pluginName", name)
 	}
 	pm.refreshProbedPlugins()
 	return utilerrors.NewAggregate(allErrs)
 }
+
+// zhou: used in FlexVolume dynamically probe
 
 func (pm *VolumePluginMgr) initProbedPlugin(probedPlugin VolumePlugin) error {
 	name := probedPlugin.GetPluginName()
@@ -628,6 +698,9 @@ func (pm *VolumePluginMgr) initProbedPlugin(probedPlugin VolumePlugin) error {
 	return nil
 }
 
+// zhou: probe volume plugin to handle this volume according to "spec".
+//       only one expected.
+
 // FindPluginBySpec looks for a plugin that can support a given volume
 // specification.  If no plugins can support or more than one plugin can
 // support it, return error.
@@ -641,12 +714,17 @@ func (pm *VolumePluginMgr) FindPluginBySpec(spec *Spec) (VolumePlugin, error) {
 	var match VolumePlugin
 	matchedPluginNames := []string{}
 	for _, v := range pm.plugins {
+
+		// zhou: invoke each plugins "CanSupport()" to probe volume type.
+
 		if v.CanSupport(spec) {
 			match = v
 			matchedPluginNames = append(matchedPluginNames, v.GetPluginName())
 		}
 	}
 	pm.refreshProbedPlugins()
+
+	// zhou: handle probed plugins, used for FlexVolume.
 
 	for _, plugin := range pm.probedPlugins {
 		if plugin.CanSupport(spec) {
@@ -688,6 +766,8 @@ func (pm *VolumePluginMgr) FindPluginByName(name string) (VolumePlugin, error) {
 	return match, nil
 }
 
+// zhou: used in FlexVolume dynamically probe
+
 // Check if probedPlugin cache update is required.
 // If it is, initialize all probed plugins and replace the cache with them.
 func (pm *VolumePluginMgr) refreshProbedPlugins() {
@@ -718,6 +798,8 @@ func (pm *VolumePluginMgr) refreshProbedPlugins() {
 		}
 	}
 }
+
+// zhou: no one use.
 
 // FindPersistentPluginBySpec looks for a persistent volume plugin that can
 // support a given volume specification.  If no plugin is found, return an
@@ -798,6 +880,9 @@ func (pm *VolumePluginMgr) FindDeletablePluginByName(name string) (DeletableVolu
 	return nil, fmt.Errorf("no deletable volume plugin matched")
 }
 
+// zhou: get AttachableVolumePlugin interface if the corresponding volume support the action.
+//       Then check value of "CanAttach()".
+
 // FindAttachablePluginBySpec fetches a persistent volume plugin by spec.
 // Unlike the other "FindPlugin" methods, this does not return error if no
 // plugin is found.  All volumes require a mounter and unmounter, but not
@@ -811,6 +896,9 @@ func (pm *VolumePluginMgr) FindAttachablePluginBySpec(spec *Spec) (AttachableVol
 		if canAttach, err := attachableVolumePlugin.CanAttach(spec); err != nil {
 			return nil, err
 		} else if canAttach {
+
+			// zhou: should perform attach/detach to a node.
+
 			return attachableVolumePlugin, nil
 		}
 	}

@@ -42,6 +42,8 @@ func VolumeClaimName(pod *v1.Pod, volume *v1.Volume) string {
 	return pod.Name + "-" + volume.Name
 }
 
+// zhou: "checks that the PVC is the ephemeral volume that was created for the Pod."
+
 // VolumeIsForPod checks that the PVC is the ephemeral volume that
 // was created for the Pod. It returns an error that is informative
 // enough to be returned by the caller without adding further details

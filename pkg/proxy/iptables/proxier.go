@@ -130,6 +130,8 @@ func NewDualStackProxier(
 	return metaproxier.NewMetaProxier(ipv4Proxier, ipv6Proxier), nil
 }
 
+// zhou: README,
+
 // Proxier is an iptables-based proxy
 type Proxier struct {
 	// ipFamily defines the IP family which this proxier is tracking.

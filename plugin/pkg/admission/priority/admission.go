@@ -34,6 +34,9 @@ import (
 	"k8s.io/kubernetes/pkg/apis/scheduling"
 )
 
+// zhou: mutate and validate,
+//       "PreemptionPolicy" in PriorityClass, "PreemptionPolicy", "Priority" in Pod.
+
 const (
 	// PluginName indicates name of admission plugin.
 	PluginName = "Priority"
@@ -158,6 +161,8 @@ func (p *Plugin) admitPod(a admission.Attributes) error {
 		}
 		return nil
 	}
+
+	// zhou:
 
 	if operation == admission.Create {
 		var priority int32

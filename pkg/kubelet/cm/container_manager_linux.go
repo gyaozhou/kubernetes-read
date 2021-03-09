@@ -202,6 +202,8 @@ func validateSystemRequirements(mountUtil mount.Interface) (features, error) {
 	return f, nil
 }
 
+// zhou: README,
+
 // TODO(vmarmol): Add limits to the system containers.
 // Takes the absolute name of the specified containers.
 // Empty container name disables use of the specified container.

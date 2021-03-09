@@ -115,6 +115,8 @@ type HorizontalPodAutoscalerList struct {
 	Items []HorizontalPodAutoscaler `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou:
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.2
 // +k8s:isSubresource=/scale

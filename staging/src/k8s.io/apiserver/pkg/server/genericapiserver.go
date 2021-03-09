@@ -776,6 +776,8 @@ func (s preparedGenericAPIServer) NonBlockingRunWithContext(ctx context.Context,
 	return stoppedCh, listenerStoppedCh, nil
 }
 
+// zhou: README,
+
 // installAPIResources is a private method for installing the REST storage backing each api groupversionresource
 func (s *GenericAPIServer) installAPIResources(apiPrefix string, apiGroupInfo *APIGroupInfo, typeConverter managedfields.TypeConverter) error {
 	var resourceInfos []*storageversion.ResourceInfo
@@ -794,6 +796,8 @@ func (s *GenericAPIServer) installAPIResources(apiPrefix string, apiGroupInfo *A
 		}
 		apiGroupVersion.TypeConverter = typeConverter
 		apiGroupVersion.MaxRequestBodyBytes = s.maxRequestBodyBytes
+
+		// zhou: setup web server and register resource handler
 
 		discoveryAPIResources, r, err := apiGroupVersion.InstallREST(s.Handler.GoRestfulContainer)
 
@@ -865,6 +869,8 @@ func (s *GenericAPIServer) InstallLegacyAPIGroup(apiPrefix string, apiGroupInfo 
 
 	return nil
 }
+
+// zhou: README,
 
 // InstallAPIGroups exposes given api groups in the API.
 // The <apiGroupInfos> passed into this function shouldn't be used elsewhere as the
@@ -941,6 +947,8 @@ func (s *GenericAPIServer) registerStorageReadinessCheck(groupName string, apiGr
 		}
 	}
 }
+
+// zhou:
 
 // InstallAPIGroup exposes the given api group in the API.
 // The <apiGroupInfo> passed into this function shouldn't be used elsewhere as the

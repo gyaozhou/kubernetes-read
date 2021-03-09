@@ -386,6 +386,9 @@ func (d *DiscoveryClient) ServerGroups() (*metav1.APIGroupList, error) {
 	return groups, nil
 }
 
+// zhou: "groupVersion" == group/version, could be fetched via "GroupVersion.String()"
+//       query all resources of specified GV via url: /apis/group/version
+
 // ServerResourcesForGroupVersion returns the supported resources for a group and version.
 func (d *DiscoveryClient) ServerResourcesForGroupVersion(groupVersion string) (resources *metav1.APIResourceList, err error) {
 	url := url.URL{}
@@ -412,6 +415,8 @@ func (d *DiscoveryClient) ServerResourcesForGroupVersion(groupVersion string) (r
 	}
 	return resources, nil
 }
+
+// zhou: get all API server supported GVR
 
 // ServerGroupsAndResources returns the supported resources for all groups and versions.
 func (d *DiscoveryClient) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
@@ -514,6 +519,8 @@ func ServerGroupsAndResources(d DiscoveryInterface) ([]*metav1.APIGroup, []*meta
 
 	return resultGroups, result, &ErrGroupDiscoveryFailed{Groups: failedGroups}
 }
+
+// zhou: README,
 
 // ServerPreferredResources uses the provided discovery interface to look up preferred resources
 func ServerPreferredResources(d DiscoveryInterface) ([]*metav1.APIResourceList, error) {
@@ -652,6 +659,8 @@ func ServerPreferredNamespacedResources(d DiscoveryInterface) ([]*metav1.APIReso
 	}), all), err
 }
 
+// zhou: fetch k8s server version.
+
 // ServerVersion retrieves and parses the server's version (git version).
 func (d *DiscoveryClient) ServerVersion() (*version.Info, error) {
 	body, err := d.restClient.Get().AbsPath("/version").Do(context.TODO()).Raw()
@@ -730,6 +739,8 @@ func setDiscoveryDefaults(config *restclient.Config) error {
 	}
 	return nil
 }
+
+// zhou: README,
 
 // NewDiscoveryClientForConfig creates a new DiscoveryClient for the given config. This client
 // can be used to discover supported resources in the API server.

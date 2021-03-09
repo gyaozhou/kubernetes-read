@@ -288,6 +288,8 @@ func (w *logWriter) write(msg *logMessage, addPrefix bool) error {
 	return nil
 }
 
+// zhou: README,
+
 // ReadLogs read the container log and redirect into stdout and stderr.
 // Note that containerID is only needed when following the log, or else
 // just pass in empty string "".

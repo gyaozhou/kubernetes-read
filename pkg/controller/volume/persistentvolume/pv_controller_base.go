@@ -72,6 +72,8 @@ type ControllerParameters struct {
 	EnableDynamicProvisioning bool
 }
 
+// zhou: README,
+
 // NewController creates a new PersistentVolume controller
 func NewController(ctx context.Context, p ControllerParameters) (*PersistentVolumeController, error) {
 	eventBroadcaster := record.NewBroadcaster(record.WithContext(ctx))
@@ -92,6 +94,8 @@ func NewController(ctx context.Context, p ControllerParameters) (*PersistentVolu
 		resyncPeriod:                  p.SyncPeriod,
 		operationTimestamps:           metrics.NewOperationStartTimeCache(),
 	}
+
+	// zhou: build up VolumePluginMgr to invoke VolumePlugin
 
 	// Prober is nil because PV is not aware of Flexvolume.
 	if err := controller.volumePluginMgr.InitPlugins(p.VolumePlugins, nil /* prober */, controller); err != nil {
@@ -115,9 +119,10 @@ func NewController(ctx context.Context, p ControllerParameters) (*PersistentVolu
 			DeleteFunc: func(obj interface{}) { controller.enqueueWork(ctx, controller.claimQueue, obj) },
 		},
 	)
+	// zhou: pvc
 	controller.claimLister = p.ClaimInformer.Lister()
 	controller.claimListerSynced = p.ClaimInformer.Informer().HasSynced
-
+	// zhou: storageclass
 	controller.classLister = p.ClassInformer.Lister()
 	controller.classListerSynced = p.ClassInformer.Informer().HasSynced
 	controller.podLister = p.PodInformer.Lister()
@@ -131,6 +136,8 @@ func NewController(ctx context.Context, p ControllerParameters) (*PersistentVolu
 	if err := common.AddPodPVCIndexerIfNotPresent(controller.podIndexer); err != nil {
 		return nil, fmt.Errorf("could not initialize attach detach controller: %w", err)
 	}
+
+	// zhou: used for csi migration
 
 	csiTranslator := csitrans.New()
 	controller.translator = csiTranslator
@@ -192,6 +199,8 @@ func (ctrl *PersistentVolumeController) storeClaimUpdate(logger klog.Logger, cla
 	return storeObjectUpdate(logger, ctrl.claims, claim, "claim")
 }
 
+// zhou: README,
+
 // updateVolume runs in worker thread and handles "volume added",
 // "volume updated" and "periodic sync" events.
 func (ctrl *PersistentVolumeController) updateVolume(ctx context.Context, volume *v1.PersistentVolume) {
@@ -218,6 +227,8 @@ func (ctrl *PersistentVolumeController) updateVolume(ctx context.Context, volume
 	}
 }
 
+// zhou: handle PV delete event
+
 // deleteVolume runs in worker thread and handles "volume deleted" event.
 func (ctrl *PersistentVolumeController) deleteVolume(ctx context.Context, volume *v1.PersistentVolume) {
 	logger := klog.FromContext(ctx)
@@ -231,6 +242,7 @@ func (ctrl *PersistentVolumeController) deleteVolume(ctx context.Context, volume
 	// end of timestamp cache entry lifecycle, "RecordMetric" will do the clean
 	metrics.RecordMetric(volume.Name, &ctrl.operationTimestamps, nil)
 
+	// zhou: no PVC bound with this PV, delete it directly
 	if volume.Spec.ClaimRef == nil {
 		return
 	}
@@ -238,13 +250,21 @@ func (ctrl *PersistentVolumeController) deleteVolume(ctx context.Context, volume
 	// claim here in response to volume deletion prevents the claim from
 	// waiting until the next sync period for its Lost status.
 	claimKey := claimrefToClaimKey(volume.Spec.ClaimRef)
+
+	// zhou: ask PVC worker to handle it.
+
 	logger.V(5).Info("deleteVolume: scheduling sync of claim", "PVC", klog.KRef(volume.Spec.ClaimRef.Namespace, volume.Spec.ClaimRef.Name), "volumeName", volume.Name)
 	ctrl.claimQueue.Add(claimKey)
 }
 
+// zhou: handle pvc create/update/sync event
+
 // updateClaim runs in worker thread and handles "claim added",
 // "claim updated" and "periodic sync" events.
 func (ctrl *PersistentVolumeController) updateClaim(ctx context.Context, claim *v1.PersistentVolumeClaim) {
+
+	// zhou: comparing with local cache
+
 	// Store the new claim version in the cache and do not process it if this is
 	// an old version.
 	logger := klog.FromContext(ctx)
@@ -255,6 +275,9 @@ func (ctrl *PersistentVolumeController) updateClaim(ctx context.Context, claim *
 	if !new {
 		return
 	}
+
+	// zhou: handle it if it is a new version of PVC
+
 	err = ctrl.syncClaim(ctx, claim)
 	if err != nil {
 		if errors.IsConflict(err) {
@@ -266,6 +289,8 @@ func (ctrl *PersistentVolumeController) updateClaim(ctx context.Context, claim *
 		}
 	}
 }
+
+// zhou: handle PVC delete event
 
 // Unit test [5-5] [5-6] [5-7]
 // deleteClaim runs in worker thread and handles "claim deleted" event.
@@ -282,9 +307,14 @@ func (ctrl *PersistentVolumeController) deleteClaim(ctx context.Context, claim *
 
 	volumeName := claim.Spec.VolumeName
 	if volumeName == "" {
+
+		// zhou: PVC has not been bound, delete directly.
+
 		logger.V(5).Info("deleteClaim: volume not bound", "PVC", klog.KObj(claim))
 		return
 	}
+
+	// zhou: ask PV worker to handle it.
 
 	// sync the volume when its claim is deleted.  Explicitly sync'ing the
 	// volume here in response to claim deletion prevents the volume from
@@ -292,6 +322,10 @@ func (ctrl *PersistentVolumeController) deleteClaim(ctx context.Context, claim *
 	logger.V(5).Info("deleteClaim: scheduling sync of volume", "PVC", klog.KObj(claim), "volumeName", volumeName)
 	ctrl.volumeQueue.Add(volumeName)
 }
+
+// zhou: running all goroutine within this PV controller loop.
+//       started by "cmd/kube-controller-manager/app/core.go"
+//       "startPersistentVolumeBinderController()"
 
 // Run starts all of this controller's control loops
 func (ctrl *PersistentVolumeController) Run(ctx context.Context) {
@@ -314,14 +348,24 @@ func (ctrl *PersistentVolumeController) Run(ctx context.Context) {
 
 	ctrl.initializeCaches(logger, ctrl.volumeLister, ctrl.claimLister)
 
+	// zhou: resync informer every "ctrl.resyncPeriod"
+
 	go wait.Until(func() { ctrl.resync(ctx) }, ctrl.resyncPeriod, ctx.Done())
+
+	// zhou: running volume worker until "ctx.Done()", handle PV events
+
 	go wait.UntilWithContext(ctx, ctrl.volumeWorker, time.Second)
+
+	// zhou: running claim worker until "ctx.Done()", handle PVC events
+
 	go wait.UntilWithContext(ctx, ctrl.claimWorker, time.Second)
 
 	metrics.Register(ctrl.volumes.store, ctrl.claims, &ctrl.volumePluginMgr)
 
 	<-ctx.Done()
 }
+
+// zhou: README,
 
 func (ctrl *PersistentVolumeController) updateClaimMigrationAnnotations(ctx context.Context,
 	claim *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
@@ -348,6 +392,8 @@ func (ctrl *PersistentVolumeController) updateClaimMigrationAnnotations(ctx cont
 	return newClaim, nil
 }
 
+// zhou:
+
 func (ctrl *PersistentVolumeController) updateVolumeMigrationAnnotationsAndFinalizers(ctx context.Context,
 	volume *v1.PersistentVolume) (*v1.PersistentVolume, error) {
 	volumeClone := volume.DeepCopy()
@@ -370,6 +416,8 @@ func (ctrl *PersistentVolumeController) updateVolumeMigrationAnnotationsAndFinal
 	}
 	return newVol, nil
 }
+
+// zhou: README,
 
 // modifyDeletionFinalizers updates the finalizers based on the reclaim policy and if it is a in-tree volume or not.
 // The in-tree PV deletion protection finalizer is only added if the reclaimPolicy associated with the PV is `Delete`.
@@ -482,6 +530,9 @@ func updateMigrationAnnotations(logger klog.Logger, cmpm CSIMigratedPluginManage
 	return false
 }
 
+// zhou: 1/2 PV controller workers, another worker is claimWorker.
+//       handle PV add/update/delete events, and PVC state management.
+
 // volumeWorker processes items from volumeQueue. It must run only once,
 // syncVolume is not assured to be reentrant.
 func (ctrl *PersistentVolumeController) volumeWorker(ctx context.Context) {
@@ -540,11 +591,17 @@ func (ctrl *PersistentVolumeController) volumeWorker(ctx context.Context) {
 	}
 }
 
+// zhou: 1/2 PV controller workers, another worker is "volumeWorker".
+//       claim worker which handles PVC events.
+
 // claimWorker processes items from claimQueue. It must run only once,
 // syncClaim is not reentrant.
 func (ctrl *PersistentVolumeController) claimWorker(ctx context.Context) {
 	logger := klog.FromContext(ctx)
 	workFunc := func() bool {
+
+		// zhou: block to consume event from work queue
+
 		key, quit := ctrl.claimQueue.Get()
 		if quit {
 			return true
@@ -559,6 +616,8 @@ func (ctrl *PersistentVolumeController) claimWorker(ctx context.Context) {
 		}
 		claim, err := ctrl.claimLister.PersistentVolumeClaims(namespace).Get(name)
 		if err == nil {
+			// zhou: this is not a delete event due to we could find it in cache.
+
 			// The claim still exists in informer cache, the event must have
 			// been add/update/sync
 			ctrl.updateClaim(ctx, claim)
@@ -568,6 +627,8 @@ func (ctrl *PersistentVolumeController) claimWorker(ctx context.Context) {
 			logger.V(2).Info("Error getting claim from informer", "claimKey", key, "err", err)
 			return false
 		}
+
+		// zhou: check the local cache
 
 		// The claim is not in informer cache, the event must have been "delete"
 		claimObj, found, err := ctrl.claims.GetByKey(key)
@@ -586,9 +647,14 @@ func (ctrl *PersistentVolumeController) claimWorker(ctx context.Context) {
 			logger.Error(nil, "Expected claim, got", "obj", claimObj)
 			return false
 		}
+
+		// zhou: handle delete event
+
 		ctrl.deleteClaim(ctx, claim)
 		return false
 	}
+
+	// zhou: handle PVC event in loop
 	for {
 		if quit := workFunc(); quit {
 			logger.Info("Claim worker queue shutting down")
@@ -596,6 +662,8 @@ func (ctrl *PersistentVolumeController) claimWorker(ctx context.Context) {
 		}
 	}
 }
+
+// zhou: README,
 
 // resync supplements short resync period of shared informers - we don't want
 // all consumers of PV/PVC shared informer to have a short resync period,
@@ -622,6 +690,9 @@ func (ctrl *PersistentVolumeController) resync(ctx context.Context) {
 		ctrl.enqueueWork(ctx, ctrl.volumeQueue, pv)
 	}
 }
+
+// zhou: README, add annotation "volume.kubernetes.io/storage-provisioner" = xxx,
+//       to triger CSI external-provisioner handle it.
 
 // setClaimProvisioner saves
 // claim.Annotations["volume.kubernetes.io/storage-provisioner"] = class.Provisioner
@@ -667,6 +738,8 @@ func getVolumeStatusForLogging(volume *v1.PersistentVolume) string {
 	}
 	return fmt.Sprintf("phase: %s, bound to: %q, boundByController: %v", volume.Status.Phase, claimName, boundByController)
 }
+
+// zhou: why doesn't trust go-client informer?
 
 // storeObjectUpdate updates given cache with a new object version from Informer
 // callback (i.e. with events from etcd) or with an object modified by the

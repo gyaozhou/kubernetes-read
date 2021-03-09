@@ -37,7 +37,7 @@ import (
 	"k8s.io/klog/v2"
 	fwk "k8s.io/kube-scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/kubernetes/pkg/scheduler/backend/api_dispatcher"
+	apidispatcher "k8s.io/kubernetes/pkg/scheduler/backend/api_dispatcher"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/parallelize"
 	"k8s.io/kubernetes/pkg/scheduler/metrics"
@@ -48,6 +48,8 @@ const (
 	// Specifies the maximum timeout a permit plugin can return.
 	maxTimeout = 15 * time.Minute
 )
+
+// zhou: README,
 
 // frameworkImpl is the component responsible for initializing and running scheduler
 // plugins.
@@ -717,6 +719,8 @@ func (f *frameworkImpl) QueueSortFunc() framework.LessFunc {
 	return f.queueSortPlugins[0].Less
 }
 
+// zhou: README,
+
 // RunPreFilterPlugins runs the set of configured PreFilter plugins. It returns
 // *Status and its code is set to non-success if any of the plugins returns
 // anything but Success/Skip.
@@ -796,6 +800,8 @@ func (f *frameworkImpl) runPreFilterPlugin(ctx context.Context, pl framework.Pre
 	return result, status
 }
 
+// zhou: README,
+
 // RunPreFilterExtensionAddPod calls the AddPod interface for the set of configured
 // PreFilter plugins. It returns directly if any of the plugins return any
 // status other than Success.
@@ -840,6 +846,8 @@ func (f *frameworkImpl) runPreFilterExtensionAddPod(ctx context.Context, pl fram
 	f.metricsRecorder.ObservePluginDurationAsync(metrics.PreFilterExtensionAddPod, pl.Name(), status.Code().String(), metrics.SinceInSeconds(startTime))
 	return status
 }
+
+// zhou: README,
 
 // RunPreFilterExtensionRemovePod calls the RemovePod interface for the set of configured
 // PreFilter plugins. It returns directly if any of the plugins return any
@@ -889,6 +897,8 @@ func (f *frameworkImpl) runPreFilterExtensionRemovePod(ctx context.Context, pl f
 	f.metricsRecorder.ObservePluginDurationAsync(metrics.PreFilterExtensionRemovePod, pl.Name(), status.Code().String(), metrics.SinceInSeconds(startTime))
 	return status
 }
+
+// zhou: README,
 
 // RunFilterPlugins runs the set of configured Filter plugins for pod on
 // the given node. If any of these plugins doesn't return "Success", the
@@ -995,6 +1005,8 @@ func (f *frameworkImpl) runPostFilterPlugin(ctx context.Context, pl framework.Po
 	f.metricsRecorder.ObservePluginDurationAsync(metrics.PostFilter, pl.Name(), s.Code().String(), metrics.SinceInSeconds(startTime))
 	return r, s
 }
+
+// zhou: README,
 
 // RunFilterPluginsWithNominatedPods runs the set of configured filter plugins
 // for nominated pod on the given node.
@@ -1262,6 +1274,8 @@ func (f *frameworkImpl) runScoreExtension(ctx context.Context, pl framework.Scor
 	f.metricsRecorder.ObservePluginDurationAsync(metrics.ScoreExtensionNormalize, pl.Name(), status.Code().String(), metrics.SinceInSeconds(startTime))
 	return status
 }
+
+// zhou: README, run all PreBind plugins for this Pod.
 
 // RunPreBindPlugins runs the set of configured prebind plugins. It returns a
 // failure (bool) if any of the plugins returns an error. It also returns an

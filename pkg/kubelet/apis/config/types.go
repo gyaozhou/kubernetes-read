@@ -56,6 +56,7 @@ const (
 	// WatchChangeDetectionStrategy is a mode in which kubelet uses
 	// watches to observe changes to objects that are in its interest.
 	WatchChangeDetectionStrategy ResourceChangeDetectionStrategy = "Watch"
+
 	// RestrictedTopologyManagerPolicy is a mode in which kubelet only allows
 	// pods with optimal NUMA node alignment for requested resources
 	RestrictedTopologyManagerPolicy = "restricted"
@@ -81,7 +82,7 @@ const (
 // KubeletConfiguration contains the configuration for the Kubelet
 type KubeletConfiguration struct {
 	metav1.TypeMeta
-
+	// zhou: ???
 	// enableServer enables Kubelet's secured server.
 	// Note: Kubelet's insecure port is controlled by the readOnlyPort option.
 	EnableServer bool
@@ -217,6 +218,9 @@ type KubeletConfiguration struct {
 	NodeStatusReportFrequency metav1.Duration
 	// nodeLeaseDurationSeconds is the duration the Kubelet will set on its corresponding Lease.
 	NodeLeaseDurationSeconds int32
+
+	// zhou:
+
 	// ImageMinimumGCAge is the minimum age for an unused image before it is
 	// garbage collected.
 	ImageMinimumGCAge metav1.Duration
@@ -232,6 +236,7 @@ type KubeletConfiguration struct {
 	// image garbage collection is never run. Lowest disk usage to garbage
 	// collect to. The percent is calculated as this field value out of 100.
 	ImageGCLowThresholdPercent int32
+
 	// How frequently to calculate and cache volume disk usage for all pods
 	VolumeStatsAggPeriod metav1.Duration
 	// KubeletCgroups is the absolute name of cgroups to isolate the kubelet in
@@ -388,7 +393,7 @@ type KubeletConfiguration struct {
 	// Interval at which the container logs are monitored for rotation
 	ContainerLogMonitorInterval metav1.Duration
 	// ConfigMapAndSecretChangeDetectionStrategy is a mode in which config map and secret managers are running.
-	ConfigMapAndSecretChangeDetectionStrategy ResourceChangeDetectionStrategy
+	ConfigMapAndSecretChangeDetectionStrategy ResourceChangeDetectionStrategy // zhou: the default value is "WatchChangeDetectionStrategy"
 	// A comma separated allowlist of unsafe sysctls or sysctl patterns (ending in `*`).
 	// Unsafe sysctl groups are `kernel.shm*`, `kernel.msg*`, `kernel.sem`, `fs.mqueue.*`, and `net.*`.
 	// These sysctls are namespaced but not allowed by default.

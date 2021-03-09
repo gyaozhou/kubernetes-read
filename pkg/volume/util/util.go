@@ -271,6 +271,8 @@ func GetUniqueVolumeNameFromSpecWithPod(
 		fmt.Sprintf("%s/%v-%s", volumePlugin.GetPluginName(), podName, volumeSpec.Name()))
 }
 
+// zhou: README,
+
 // GetUniqueVolumeNameFromSpec uses the given VolumePlugin to generate a unique
 // name representing the volume defined in the specified volume spec.
 // This returned name can be used to uniquely reference the actual backing
@@ -299,6 +301,8 @@ func GetUniqueVolumeNameFromSpec(
 		nil
 }
 
+// zhou: return true, if Pod is terminated.
+
 // IsPodTerminated checks if pod is terminated
 func IsPodTerminated(pod *v1.Pod, podStatus v1.PodStatus) bool {
 	// TODO: the guarantees provided by kubelet status are not sufficient to guarantee it's safe to ignore a deleted pod,
@@ -306,6 +310,9 @@ func IsPodTerminated(pod *v1.Pod, podStatus v1.PodStatus) bool {
 	// to start a container).
 	return podStatus.Phase == v1.PodFailed || podStatus.Phase == v1.PodSucceeded || (pod.DeletionTimestamp != nil && notRunning(podStatus.InitContainerStatuses) && notRunning(podStatus.ContainerStatuses) && notRunning(podStatus.EphemeralContainerStatuses))
 }
+
+// zhou: check container's state, ContainerStateWaiting/ContainerStateRunning/ContainerStateTerminated
+//       Return false if running.
 
 // notRunning returns true if every status is terminated or waiting, or the status list
 // is empty.
@@ -501,6 +508,8 @@ func IsLocalEphemeralVolume(volume v1.Volume) bool {
 		volume.ConfigMap != nil
 }
 
+// zhou: README,
+
 // GetPodVolumeNames returns names of volumes that are used in a pod,
 // either as filesystem mount or raw block device.
 // To save another sweep through containers, SELinux options are optionally collected too.
@@ -591,6 +600,8 @@ func HasMountRefs(mountPath string, mountRefs []string) bool {
 	return false
 }
 
+// zhou: fast fail for that definitely not allowed. All other cases, keep relying on the attacher.
+
 // IsMultiAttachAllowed checks if attaching this volume to multiple nodes is definitely not allowed/possible.
 // In its current form, this function can only reliably say for which volumes it's definitely forbidden. If it returns
 // false, it is not guaranteed that multi-attach is actually supported by the volume type and we must rely on the
@@ -601,6 +612,8 @@ func IsMultiAttachAllowed(volumeSpec *volume.Spec) bool {
 		// we don't know if it's supported or not and let the attacher fail later in cases it's not supported
 		return true
 	}
+
+	// zhou: Azure disk and Cinder, definitely not allowed to attach to many nodes.
 
 	if volumeSpec.Volume != nil {
 		// Check for volume types which are known to fail slow or cause trouble when trying to multi-attach
@@ -625,6 +638,8 @@ func IsMultiAttachAllowed(volumeSpec *volume.Spec) bool {
 				return true
 			}
 		}
+
+		// zhou: this PVC, definitely not allowed to attach to many nodes.
 		return false
 	}
 

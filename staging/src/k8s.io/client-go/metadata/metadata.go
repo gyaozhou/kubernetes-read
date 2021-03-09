@@ -82,6 +82,8 @@ func NewForConfigOrDie(c *rest.Config) Interface {
 	return ret
 }
 
+// zhou:
+
 // NewForConfig creates a new metadata client that can retrieve object
 // metadata details about any Kubernetes object (core, aggregated, or custom
 // resource based) in the form of PartialObjectMetadata objects, or returns

@@ -208,6 +208,8 @@ func BuildContainerLogsDirectory(podLogsDir, podNamespace, podName string, podUI
 	return filepath.Join(BuildPodLogsDirectory(podLogsDir, podNamespace, podName, podUID), containerName)
 }
 
+// zhou: README,
+
 // BuildPodLogsDirectory builds absolute log directory path for a pod sandbox.
 func BuildPodLogsDirectory(podLogsDir, podNamespace, podName string, podUID types.UID) string {
 	return filepath.Join(podLogsDir, strings.Join([]string{podNamespace, podName,

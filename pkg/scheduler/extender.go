@@ -84,6 +84,8 @@ func makeTransport(config *schedulerapi.Extender) (http.RoundTripper, error) {
 	return utilnet.SetTransportDefaults(&http.Transport{}), nil
 }
 
+// zhou: setup clients for connecting to Scheduler Extender
+
 // NewHTTPExtender creates an HTTPExtender object.
 func NewHTTPExtender(config *schedulerapi.Extender) (framework.Extender, error) {
 	if config.HTTPTimeout.Duration.Nanoseconds() == 0 {
@@ -132,6 +134,8 @@ func (h *HTTPExtender) IsIgnorable() bool {
 func (h *HTTPExtender) SupportsPreemption() bool {
 	return len(h.preemptVerb) > 0
 }
+
+// zhou: invoke Extender "PreemptVerb"
 
 // ProcessPreemption returns filtered candidate nodes and victims after running preemption logic in extender.
 func (h *HTTPExtender) ProcessPreemption(
@@ -241,6 +245,8 @@ func convertToMetaVictims(
 	return nodeNameToMetaVictims
 }
 
+// zhou: invoke Extender "FilterVerb"
+
 // Filter based on extender implemented predicate functions. The filtered list is
 // expected to be a subset of the supplied list; otherwise the function returns an error.
 // The failedNodes and failedAndUnresolvableNodes optionally contains the list
@@ -262,9 +268,13 @@ func (h *HTTPExtender) Filter(
 		fromNodeName[n.Node().Name] = n
 	}
 
+	// zhou: "FilterVerb" not defined in "KubeSchedulerConfiguration"
+
 	if h.filterVerb == "" {
 		return nodes, extenderv1.FailedNodesMap{}, extenderv1.FailedNodesMap{}, nil
 	}
+
+	// zhou: how many data will be passed to Extender.
 
 	if h.nodeCacheCapable {
 		nodeNameSlice := make([]string, 0, len(nodes))
@@ -314,6 +324,8 @@ func (h *HTTPExtender) Filter(
 	return nodeResult, result.FailedNodes, result.FailedAndUnresolvableNodes, nil
 }
 
+// zhou: invoke Extender "PrioritizeVerb"
+
 // Prioritize based on extender implemented priority functions. Weight*priority is added
 // up for each such priority function. The returned score is added to the score computed
 // by Kubernetes scheduler. The total score is used to do the host selection.
@@ -357,6 +369,8 @@ func (h *HTTPExtender) Prioritize(pod *v1.Pod, nodes []fwk.NodeInfo) (*extenderv
 	}
 	return &result, h.weight, nil
 }
+
+// zhou: invoke Extender "BindVerb"
 
 // Bind delegates the action of binding a pod to a node to the extender.
 func (h *HTTPExtender) Bind(binding *v1.Binding) error {
@@ -423,6 +437,8 @@ func (h *HTTPExtender) send(action string, args interface{}, result interface{})
 
 	return json.NewDecoder(resp.Body).Decode(result)
 }
+
+// zhou: in case Extender defines "ManagedResources" which describe interesting resource in "container.request"
 
 // IsInterested returns true if at least one extended resource requested by
 // this pod is managed by this extender.

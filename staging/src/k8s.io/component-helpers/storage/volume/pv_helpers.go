@@ -32,6 +32,8 @@ import (
 )
 
 const (
+	// zhou:
+
 	// AnnBindCompleted Annotation applies to PVCs. It indicates that the lifecycle
 	// of the PVC has passed through the initial setup. This information changes how
 	// we interpret some observations of the state of the objects. Value of this
@@ -46,14 +48,24 @@ const (
 	// controller may not handle it correctly.
 	AnnBoundByController = "pv.kubernetes.io/bound-by-controller"
 
+	// zhou: when scheduler perform PreBind, add this annotation for "waitforfirstconsumer" PVC
+	//       and wait for PV controller.
+
 	// AnnSelectedNode annotation is added to a PVC that has been triggered by scheduler to
 	// be dynamically provisioned. Its value is the name of the selected node.
 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
+
+	// zhou: forbid dynamic provisioning for this provisioner,
+	//       but allow pre-provioning PV and static binding.
 
 	// NotSupportedProvisioner is a special provisioner name which can be set
 	// in storage class to indicate dynamic provisioning is not supported by
 	// the storage.
 	NotSupportedProvisioner = "kubernetes.io/no-provisioner"
+
+	// zhou: PV's annotation that indicate the PV has been dynamically provisioned by Volume Plugin,
+	//       including in-tree volume plugin, and CSI/external-provisoner.
+	//       in-tree provisioner has prefix "kubernetes.io/".
 
 	// AnnDynamicallyProvisioned annotation is added to a PV that has been dynamically provisioned by
 	// Kubernetes. Its value is name of volume plugin that created the volume.
@@ -61,12 +73,16 @@ const (
 	// recognize dynamically provisioned PVs in its decisions).
 	AnnDynamicallyProvisioned = "pv.kubernetes.io/provisioned-by"
 
+	// zhou: PVC and PV's annotation that indicate related with CSIMigration feature
+
 	// AnnMigratedTo annotation is added to a PVC and PV that is supposed to be
 	// dynamically provisioned/deleted by by its corresponding CSI driver
 	// through the CSIMigration feature flags. When this annotation is set the
 	// Kubernetes components will "stand-down" and the external-provisioner will
 	// act on the objects
 	AnnMigratedTo = "pv.kubernetes.io/migrated-to"
+
+	// zhou: PVC's annotation, used to triger CSI external-provisioner handle provisioning.
 
 	// AnnStorageProvisioner annotation is added to a PVC that is supposed to be dynamically
 	// provisioned. Its value is name of volume plugin that is supposed to provision
@@ -82,6 +98,8 @@ const (
 	PVDeletionInTreeProtectionFinalizer = "kubernetes.io/pv-controller"
 )
 
+// zhou:
+
 // IsDelayBindingProvisioning checks if claim provisioning with selected-node annotation
 func IsDelayBindingProvisioning(claim *v1.PersistentVolumeClaim) bool {
 	// When feature VolumeScheduling enabled,
@@ -92,8 +110,13 @@ func IsDelayBindingProvisioning(claim *v1.PersistentVolumeClaim) bool {
 	return ok
 }
 
+// zhou: if "pvc.Spec.StorageClassName" specified, then checking "sc.VolumeBindingMode"
+//       Return true if StorageClass specified "VolumeBindingWaitForFirstConsumer".
+
 // IsDelayBindingMode checks if claim is in delay binding mode.
 func IsDelayBindingMode(claim *v1.PersistentVolumeClaim, classLister storagelisters.StorageClassLister) (bool, error) {
+	// zhou: get StorageClass name
+
 	className := GetPersistentVolumeClaimClass(claim)
 	if className == "" {
 		return false, nil
@@ -113,6 +136,8 @@ func IsDelayBindingMode(claim *v1.PersistentVolumeClaim, classLister storagelist
 
 	return *class.VolumeBindingMode == storage.VolumeBindingWaitForFirstConsumer, nil
 }
+
+// zhou: static binding
 
 // GetBindVolumeToClaim returns a new volume which is bound to given claim. In
 // addition, it returns a bool which indicates whether we made modification on
@@ -144,6 +169,8 @@ func GetBindVolumeToClaim(volume *v1.PersistentVolume, claim *v1.PersistentVolum
 		dirty = true
 	}
 
+	// zhou: "pv.kubernetes.io/bound-by-controller"
+
 	// Set AnnBoundByController if it is not set yet
 	if shouldSetBoundByController && !metav1.HasAnnotation(volumeClone.ObjectMeta, AnnBoundByController) {
 		metav1.SetMetaDataAnnotation(&volumeClone.ObjectMeta, AnnBoundByController, "yes")
@@ -152,6 +179,8 @@ func GetBindVolumeToClaim(volume *v1.PersistentVolume, claim *v1.PersistentVolum
 
 	return volumeClone, dirty, nil
 }
+
+// zhou: this PV "volume" and PVC "claim" already bound with each other.
 
 // IsVolumeBoundToClaim returns true, if given volume is pre-bound or bound
 // to specific claim. Both claim.Name and claim.Namespace must be equal.
@@ -163,11 +192,16 @@ func IsVolumeBoundToClaim(volume *v1.PersistentVolume, claim *v1.PersistentVolum
 	if claim.Name != volume.Spec.ClaimRef.Name || claim.Namespace != volume.Spec.ClaimRef.Namespace {
 		return false
 	}
+	// zhou: it's fine even the uid is cleared in pv.
 	if volume.Spec.ClaimRef.UID != "" && claim.UID != volume.Spec.ClaimRef.UID {
 		return false
 	}
 	return true
 }
+
+// zhou: get the first PV which meets the criteria.
+//       This function is used by PV controller and scheduler VolumeBinding plugin.
+//       Used by both PV controller and Scheduler volumebinding plugin.
 
 // FindMatchingVolume goes through the list of volumes to find the best matching volume
 // for the claim.
@@ -198,10 +232,14 @@ func FindMatchingVolume(
 		}
 	}
 
+	// zhou: request capacity and StorageClass
+
 	var smallestVolume *v1.PersistentVolume
 	var smallestVolumeQty resource.Quantity
 	requestedQty := claim.Spec.Resources.Requests[v1.ResourceName(v1.ResourceStorage)]
 	requestedClass := GetPersistentVolumeClaimClass(claim)
+
+	// zhou: PVC could match PV via label selector.
 
 	var selector labels.Selector
 	if claim.Spec.Selector != nil {
@@ -223,14 +261,20 @@ func FindMatchingVolume(
 			// Skip volumes in the excluded list
 			continue
 		}
+
+		// zhou: the PV is already bound with other PVC
 		if volume.Spec.ClaimRef != nil && !IsVolumeBoundToClaim(volume, claim) {
 			continue
 		}
 
+		// zhou: capacity is not big enough
 		volumeQty := volume.Spec.Capacity[v1.ResourceStorage]
 		if volumeQty.Cmp(requestedQty) < 0 {
 			continue
 		}
+
+		// zhou: VolumeMode, "PersistentVolumeBlock" or "PersistentVolumeFilesystem"
+
 		// filter out mismatching volumeModes
 		if CheckVolumeModeMismatches(&claim.Spec, &volume.Spec) {
 			continue
@@ -265,6 +309,7 @@ func FindMatchingVolume(
 			}
 		}
 
+		// zhou: if the PV is already bound with this PVC, and the node affinity still matched.
 		if IsVolumeBoundToClaim(volume, claim) {
 			// If PV node affinity is invalid, return no match.
 			// This means the prebound PV (and therefore PVC)
@@ -297,6 +342,7 @@ func FindMatchingVolume(
 		} else if selector != nil && !selector.Matches(labels.Set(volume.Labels)) {
 			continue
 		}
+		// zhou: StorageClass should match also
 		if GetPersistentVolumeClass(volume) != requestedClass {
 			continue
 		}
@@ -341,6 +387,8 @@ func CheckVolumeModeMismatches(pvcSpec *v1.PersistentVolumeClaimSpec, pvSpec *v1
 	}
 	return requestedVolumeMode != pvVolumeMode
 }
+
+// zhou: PV should satisfy all the PVC's requested Acccessmodes.
 
 // CheckAccessModes returns true if PV satisfies all the PVC's requested AccessModes
 func CheckAccessModes(claim *v1.PersistentVolumeClaim, volume *v1.PersistentVolume) bool {

@@ -111,6 +111,8 @@ func setConfigDefaults(config *rest.Config) {
 	}
 }
 
+// zhou:
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *AppsV1Client) RESTClient() rest.Interface {

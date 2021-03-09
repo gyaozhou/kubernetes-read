@@ -180,6 +180,8 @@ func (m *managerImpl) Admit(attrs *lifecycle.PodAdmitAttributes) lifecycle.PodAd
 	}
 }
 
+// zhou: README,
+
 // Start starts the control loop to observe and response to low compute resources.
 func (m *managerImpl) Start(diskInfoProvider DiskInfoProvider, podFunc ActivePodsFunc, podCleanedUpFunc PodCleanedUpFunc, monitoringInterval time.Duration) {
 	thresholdHandler := func(message string) {
@@ -237,6 +239,8 @@ func (m *managerImpl) IsUnderPIDPressure() bool {
 	defer m.RUnlock()
 	return hasNodeCondition(m.nodeConditions, v1.NodePIDPressure)
 }
+
+// zhou: README,
 
 // synchronize is the main control loop that enforces eviction thresholds.
 // Returns the pod that was killed, or nil if no pod was killed.
@@ -601,6 +605,8 @@ func (m *managerImpl) containerEphemeralStorageLimitEviction(podStats statsapi.P
 	}
 	return false
 }
+
+// zhou: README,
 
 func (m *managerImpl) evictPod(pod *v1.Pod, gracePeriodOverride int64, evictMsg string, annotations map[string]string, condition *v1.PodCondition) bool {
 	// If the pod is marked as critical and static, and support for critical pod annotations is enabled,

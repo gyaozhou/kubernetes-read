@@ -219,6 +219,8 @@ func (kl *Kubelet) getAllocatedPods() []*v1.Pod {
 	return allocatedPods
 }
 
+// zhou: README, map to "pods/{podUID}/volumeDevices/kubernetes.io~csi"
+
 // makeBlockVolumes maps the raw block devices specified in the path of the container
 // Experimental
 func (kl *Kubelet) makeBlockVolumes(pod *v1.Pod, container *v1.Container, podVolumes kubecontainer.VolumeMap, blkutil volumepathhandler.BlockVolumePathHandler) ([]kubecontainer.DeviceInfo, error) {
@@ -1050,6 +1052,10 @@ func (kl *Kubelet) killPod(ctx context.Context, pod *v1.Pod, p kubecontainer.Pod
 	return nil
 }
 
+// zhou: "/var/lib/kubelet/pods/[pod uid]"
+//       "/var/lib/kubelet/pods/[pod uid]/volumes"
+//       "/var/lib/kubelet/pods/[pod uid]/plugins"
+
 // makePodDataDirs creates the dirs for the pod datas.
 func (kl *Kubelet) makePodDataDirs(pod *v1.Pod) error {
 	uid := pod.UID
@@ -1638,6 +1644,8 @@ func (kl *Kubelet) GetKubeletContainerLogs(ctx context.Context, podFullName, con
 	return kl.containerRuntime.GetContainerLogs(ctx, pod, containerID, logOptions, stdout, stderr)
 }
 
+// zhou: README, Pod Phase is deduced from its containers state.
+
 // getPhase returns the phase of a pod given its container info.
 func getPhase(pod *v1.Pod, info []v1.ContainerStatus, podIsTerminal, podHasInitialized bool) v1.PodPhase {
 	spec := pod.Spec
@@ -1861,6 +1869,8 @@ func (kl *Kubelet) determinePodResizeStatus(allocatedPod *v1.Pod, podIsTerminal 
 	return resizeStatus
 }
 
+// zhou: README,
+
 // generateAPIPodStatus creates the final API pod status for a pod, given the
 // internal pod status. This method should only be called from within sync*Pod methods.
 func (kl *Kubelet) generateAPIPodStatus(pod *v1.Pod, podStatus *kubecontainer.PodStatus, podIsTerminal bool) v1.PodStatus {
@@ -2046,6 +2056,8 @@ func (kl *Kubelet) sortPodIPs(podIPs []string) []string {
 	}
 	return ips
 }
+
+// zhou: README,
 
 // convertStatusToAPIStatus initialize an api PodStatus for the given pod from
 // the given internal pod status and the previous state of the pod from the API.

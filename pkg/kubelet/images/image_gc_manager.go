@@ -187,6 +187,8 @@ type imageRecord struct {
 	pinned bool
 }
 
+// zhou: README,
+
 // NewImageGCManager instantiates a new ImageGCManager object.
 func NewImageGCManager(runtime container.Runtime, statsProvider StatsProvider, postGCHooks []PostImageGCHook, recorder record.EventRecorder, nodeRef *v1.ObjectReference, policy ImageGCPolicy, tracerProvider trace.TracerProvider) (ImageGCManager, error) {
 	// Validate policy.
@@ -239,6 +241,8 @@ func (im *realImageGCManager) Start(ctx context.Context) {
 func (im *realImageGCManager) GetImageList() ([]container.Image, error) {
 	return im.imageCache.get(), nil
 }
+
+// zhou:
 
 func (im *realImageGCManager) detectImages(ctx context.Context, detectTime time.Time) (sets.Set[string], error) {
 	logger := klog.FromContext(ctx)
@@ -345,6 +349,8 @@ func (im *realImageGCManager) handleImageVolumes(ctx context.Context, imagesInUs
 	return nil
 }
 
+// zhou: README,
+
 func (im *realImageGCManager) GarbageCollect(ctx context.Context, beganGC time.Time) error {
 	ctx, otelSpan := im.tracer.Start(ctx, "Images/GarbageCollect")
 	logger := klog.FromContext(ctx)
@@ -360,6 +366,8 @@ func (im *realImageGCManager) GarbageCollect(ctx context.Context, beganGC time.T
 	if err != nil {
 		return err
 	}
+
+	// zhou: implemented by either cadvisor or cri
 
 	// Get disk usage on disk holding images.
 	fsStats, _, err := im.statsProvider.ImageFsStats(ctx)
@@ -473,6 +481,8 @@ func (im *realImageGCManager) DeleteUnusedImages(ctx context.Context) error {
 	im.runPostGCHooks(ctx, remainingImages, freeTime)
 	return nil
 }
+
+// zhou: README,
 
 // Tries to free bytesToFree worth of images on the disk.
 //

@@ -173,6 +173,8 @@ func calcRestartCountByLogDir(path string) (int, error) {
 	return restartCount, nil
 }
 
+// zhou: README,
+
 func (m *kubeGenericRuntimeManager) getPodRuntimeHandler(pod *v1.Pod) (podRuntimeHandler string, err error) {
 	// If RuntimeClassInImageCriAPI feature gate is enabled, pass runtimehandler
 	// information for the runtime class specified. If not runtime class is
@@ -338,6 +340,8 @@ func (m *kubeGenericRuntimeManager) startContainer(ctx context.Context, podSandb
 	return "", nil
 }
 
+// zhou: README,
+
 // generateContainerConfig generates container config for kubelet runtime v1.
 func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context, container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, podIPs []string, nsTarget *kubecontainer.ContainerID, imageVolumes kubecontainer.ImageVolumes) (*runtimeapi.ContainerConfig, func(), error) {
 	opts, cleanupAction, err := m.runtimeHelper.GenerateRunContainerOptions(ctx, pod, container, podIP, podIPs, imageVolumes)
@@ -356,6 +360,9 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context,
 	}
 
 	command, args := kubecontainer.ExpandContainerCommandAndArgs(container, opts.Envs)
+
+	// zhou:
+
 	logDir := BuildContainerLogsDirectory(m.podLogsDirectory, pod.Namespace, pod.Name, pod.UID, container.Name)
 	err = m.osInterface.MkdirAll(logDir, 0755)
 	if err != nil {
@@ -590,6 +597,8 @@ func (m *kubeGenericRuntimeManager) readLastStringFromContainerLogs(ctx context.
 	return buf.String()
 }
 
+// zhou: README,
+
 func (m *kubeGenericRuntimeManager) convertToKubeContainerStatus(ctx context.Context, status *runtimeapi.ContainerStatus) (cStatus *kubecontainer.Status) {
 	cStatus = toKubeContainerStatus(ctx, status, m.runtimeName)
 	if status.State == runtimeapi.ContainerState_CONTAINER_EXITED {
@@ -612,6 +621,8 @@ func (m *kubeGenericRuntimeManager) convertToKubeContainerStatus(ctx context.Con
 	}
 	return cStatus
 }
+
+// zhou: README,
 
 // getPodContainerStatuses gets all containers' statuses for the pod.
 func (m *kubeGenericRuntimeManager) getPodContainerStatuses(ctx context.Context, uid kubetypes.UID, name, namespace, activePodSandboxID string) ([]*kubecontainer.Status, []*kubecontainer.Status, error) {

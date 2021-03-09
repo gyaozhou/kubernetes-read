@@ -40,6 +40,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume/csi"
 )
 
+// zhou: if not overrided by cli arguments, defaultRootDir = "/var/lib/kubelet"
+
 // getRootDir returns the full path to the directory under which kubelet can
 // store data.  These functions are useful to pass interfaces to other modules
 // that may need to know where to write data without getting a whole kubelet
@@ -55,11 +57,16 @@ func (kl *Kubelet) getPodLogsDir() string {
 	return kl.podLogsDirectory
 }
 
+// zhou: "/var/lib/kubelet/pods"
+
 // getPodsDir returns the full path to the directory under which pod
 // directories are created.
 func (kl *Kubelet) getPodsDir() string {
 	return filepath.Join(kl.getRootDir(), config.DefaultKubeletPodsDirName)
 }
+
+// zhou: "/var/lib/kubelet/plugins"
+//       e.g. "/var/lib/kubelet/plugins/vxflexos.emc.dell.com/csi_sock"
 
 // getPluginsDir returns the full path to the directory under which plugin
 // directories are created.  Plugins can use these directories for data that
@@ -69,6 +76,9 @@ func (kl *Kubelet) getPluginsDir() string {
 	return filepath.Join(kl.getRootDir(), config.DefaultKubeletPluginsDirName)
 }
 
+// zhou: "/var/lib/kubelet/plugins_registry"
+//       used by CSI driver to register with kubelet.
+
 // getPluginsRegistrationDir returns the full path to the directory under which
 // plugins socket should be placed to be registered.
 // More information is available about plugin registration in the pluginwatcher
@@ -77,6 +87,9 @@ func (kl *Kubelet) getPluginsRegistrationDir() string {
 	return filepath.Join(kl.getRootDir(), config.DefaultKubeletPluginsRegistrationDirName)
 }
 
+// zhou: "/var/lib/kubelet/plugins/[plugin name]"
+//       e.g. "/var/lib/kubelet/plugins/vxflexos.emc.dell.com"
+
 // getPluginDir returns a data directory name for a given plugin name.
 // Plugins can use these directories to store data that they need to persist.
 // For per-pod plugin data, see getPodPluginDir.
@@ -84,11 +97,16 @@ func (kl *Kubelet) getPluginDir(pluginName string) string {
 	return filepath.Join(kl.getPluginsDir(), pluginName)
 }
 
+// zhou: "/var/lib/kubelet/pods/checkpoints"
+
 // getCheckpointsDir returns a data directory name for checkpoints.
 // Checkpoints can be stored in this directory for further use.
 func (kl *Kubelet) getCheckpointsDir() string {
 	return filepath.Join(kl.getRootDir(), config.DefaultKubeletCheckpointsDirName)
 }
+
+// zhou: "/var/lib/kubelet/plugins"
+//       Same with getPluginsDir()
 
 // getVolumeDevicePluginsDir returns the full path to the directory under which plugin
 // directories are created.  Plugins can use these directories for data that
@@ -98,12 +116,18 @@ func (kl *Kubelet) getVolumeDevicePluginsDir() string {
 	return filepath.Join(kl.getRootDir(), config.DefaultKubeletPluginsDirName)
 }
 
+// zhou: "/var/lib/kubelet/plugins/[plugin name]/volumeDevices"
+//       e.g. "/var/lib/kubelet/plugins/kubernetes.io/csi/volumeDevices" ??? why not plugin name.
+//       Plugin here stands for "CSIPluginName", "emptyDirPluginName", "hostPathPluginName"
+
 // getVolumeDevicePluginDir returns a data directory name for a given plugin name.
 // Plugins can use these directories to store data that they need to persist.
 // For per-pod plugin data, see getVolumeDevicePluginsDir.
 func (kl *Kubelet) getVolumeDevicePluginDir(pluginName string) string {
 	return filepath.Join(kl.getVolumeDevicePluginsDir(), pluginName, config.DefaultKubeletVolumeDevicesDirName)
 }
+
+// zhou: "/var/lib/kubelet/pods/[pod uid]"
 
 // GetPodDir returns the full path to the per-pod data directory for the
 // specified pod. This directory may not exist if the pod does not exist.
@@ -155,11 +179,15 @@ func (kl *Kubelet) GetUserNamespacesIDsPerPod() uint32 {
 	return uint32(*idsPerPod)
 }
 
+// zhou: "/var/lib/kubelet/pods/[pod uid]"
+
 // getPodDir returns the full path to the per-pod directory for the pod with
 // the given UID.
 func (kl *Kubelet) getPodDir(podUID types.UID) string {
 	return filepath.Join(kl.getPodsDir(), string(podUID))
 }
+
+// zhou: README, "/var/lib/kubelet/pods/[pod uid]/volume-subpaths"
 
 // getPodVolumesSubpathsDir returns the full path to the per-pod subpaths directory under
 // which subpath volumes are created for the specified pod.  This directory may not
@@ -168,12 +196,16 @@ func (kl *Kubelet) getPodVolumeSubpathsDir(podUID types.UID) string {
 	return filepath.Join(kl.getPodDir(podUID), config.DefaultKubeletVolumeSubpathsDirName)
 }
 
+// zhou: "/var/lib/kubelet/pods/[pod uid]/volumes"
+
 // getPodVolumesDir returns the full path to the per-pod data directory under
 // which volumes are created for the specified pod.  This directory may not
 // exist if the pod does not exist.
 func (kl *Kubelet) getPodVolumesDir(podUID types.UID) string {
 	return filepath.Join(kl.getPodDir(podUID), config.DefaultKubeletVolumesDirName)
 }
+
+// zhou: "/var/lib/kubelet/pods/[pod uid]/volumes/[plugin name]/[volume name]"
 
 // getPodVolumeDir returns the full path to the directory which represents the
 // named volume under the named plugin for specified pod.  This directory may not
@@ -182,6 +214,8 @@ func (kl *Kubelet) getPodVolumeDir(podUID types.UID, pluginName string, volumeNa
 	return filepath.Join(kl.getPodVolumesDir(podUID), pluginName, volumeName)
 }
 
+// zhou: "/var/lib/kubelet/pods/[pod uid]/volumeDevices"
+
 // getPodVolumeDevicesDir returns the full path to the per-pod data directory under
 // which volumes are created for the specified pod. This directory may not
 // exist if the pod does not exist.
@@ -189,11 +223,15 @@ func (kl *Kubelet) getPodVolumeDevicesDir(podUID types.UID) string {
 	return filepath.Join(kl.getPodDir(podUID), config.DefaultKubeletVolumeDevicesDirName)
 }
 
+// zhou: "/var/lib/kubelet/pods/[pod uid]/volumeDevices/[plugin name]"
+
 // getPodVolumeDeviceDir returns the full path to the directory which represents the
 // named plugin for specified pod. This directory may not exist if the pod does not exist.
 func (kl *Kubelet) getPodVolumeDeviceDir(podUID types.UID, pluginName string) string {
 	return filepath.Join(kl.getPodVolumeDevicesDir(podUID), pluginName)
 }
+
+// zhou: "/var/lib/kubelet/pods/[pod uid]/plugins"
 
 // getPodPluginsDir returns the full path to the per-pod data directory under
 // which plugins may store data for the specified pod.  This directory may not

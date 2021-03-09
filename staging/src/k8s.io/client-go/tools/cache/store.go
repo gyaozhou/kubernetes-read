@@ -24,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// zhou: "DeltaFIFO" also satisify "Store interface"
+
 // Store is a generic object storage and processing interface.  A
 // Store holds a map from string keys to accumulators, and has
 // operations to add, update, and delete a given object to/from the
@@ -95,6 +97,10 @@ func (k KeyError) Unwrap() error {
 // the object but not the object itself.
 type ExplicitKey string
 
+// zhou: default method to generate key for an object.
+//       In a word, use namespaced name as key.
+//       But this key is not unique within DeltaFIFO, since same object may related several actions.
+
 // MetaNamespaceKeyFunc is a convenient default KeyFunc which knows how to make
 // keys for API objects which implement meta.Interface.
 // The key uses the format <namespace>/<name> unless <namespace> is empty, then
@@ -106,9 +112,15 @@ type ExplicitKey string
 //
 // TODO maybe some day?: change Store to be keyed differently
 func MetaNamespaceKeyFunc(obj interface{}) (string, error) {
+
+	// zhou: explict pass key insead of object itself.
+
 	if key, ok := obj.(ExplicitKey); ok {
 		return string(key), nil
 	}
+
+	// zhou: common	use, Namespace/Name
+
 	objName, err := ObjectToName(obj)
 	if err != nil {
 		return "", err
@@ -152,6 +164,8 @@ func SplitMetaNamespaceKey(key string) (namespace, name string, err error) {
 
 	return "", "", fmt.Errorf("unexpected key format: %q", key)
 }
+
+// zhou: implements "type Store interface"
 
 // `*cache` implements Indexer in terms of a ThreadSafeStore and an
 // associated KeyFunc.
@@ -319,6 +333,7 @@ func NewStore(keyFunc KeyFunc, opts ...StoreOption) Store {
 	return c
 }
 
+// zhou:
 // NewIndexer returns an Indexer implemented simply with a map and a lock.
 func NewIndexer(keyFunc KeyFunc, indexers Indexers) Indexer {
 	return &cache{

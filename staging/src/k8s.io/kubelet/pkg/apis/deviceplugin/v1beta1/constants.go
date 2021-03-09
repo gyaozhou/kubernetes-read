@@ -28,6 +28,9 @@ const (
 	// Only privileged pods have access to this path
 	// Note: Placeholder until we find a "standard path"
 	DevicePluginPath = "/var/lib/kubelet/device-plugins/"
+
+	// zhou:
+
 	// KubeletSocket is the path of the Kubelet registry socket
 	KubeletSocket = DevicePluginPath + "kubelet.sock"
 

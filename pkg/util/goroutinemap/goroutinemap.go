@@ -30,6 +30,8 @@ import (
 	"k8s.io/kubernetes/pkg/util/goroutinemap/exponentialbackoff"
 )
 
+// zhou: works like task manager by named goroutine.
+
 // GoRoutineMap defines a type that can run named goroutines and track their
 // state.  It prevents the creation of multiple goroutines with the same name
 // and may prevent recreation of a goroutine until after the a backoff time
@@ -74,18 +76,21 @@ type goRoutineMap struct {
 	operations                map[string]operation
 	exponentialBackOffOnError bool
 	cond                      *sync.Cond
-	lock                      sync.RWMutex
+	lock                      sync.RWMutex // zhou: used to protect "operations"
 }
 
 // operation holds the state of a single goroutine.
 type operation struct {
-	operationPending bool
-	expBackoff       exponentialbackoff.ExponentialBackoff
+	operationPending bool                                  // zhou: true for ongoing, false for failure
+	expBackoff       exponentialbackoff.ExponentialBackoff // zhou: used to control backoff retry
 }
 
 func (grm *goRoutineMap) Run(
 	operationName string,
 	operationFunc func() error) error {
+
+	// zhou: get the map lock firstly.
+
 	grm.lock.Lock()
 	defer grm.lock.Unlock()
 
@@ -96,6 +101,8 @@ func (grm *goRoutineMap) Run(
 			return NewAlreadyExistsError(operationName)
 		}
 
+		// zhou: already failed, check whether could be retry
+
 		if err := existingOp.expBackoff.SafeToRetry(operationName); err != nil {
 			return err
 		}
@@ -103,8 +110,9 @@ func (grm *goRoutineMap) Run(
 
 	grm.operations[operationName] = operation{
 		operationPending: true,
-		expBackoff:       existingOp.expBackoff,
+		expBackoff:       existingOp.expBackoff, // zhou: keep initial value or last backoff value
 	}
+
 	go func() (err error) {
 		// Handle unhandled panics (very unlikely)
 		defer k8sRuntime.HandleCrash()
@@ -112,16 +120,22 @@ func (grm *goRoutineMap) Run(
 		defer grm.operationComplete(operationName, &err)
 		// Handle panic, if any, from operationFunc()
 		defer k8sRuntime.RecoverFromPanic(&err)
+
+		// zhou: execute user's callback function, return error
+
 		return operationFunc()
 	}()
 
 	return nil
 }
 
+// zhou: handle the completion of user's callback function.
+
 // operationComplete handles the completion of a goroutine run in the
 // goRoutineMap.
 func (grm *goRoutineMap) operationComplete(
 	operationName string, err *error) {
+
 	// Defer operations are executed in Last-In is First-Out order. In this case
 	// the lock is acquired first when operationCompletes begins, and is
 	// released when the method finishes, after the lock is released cond is
@@ -129,6 +143,8 @@ func (grm *goRoutineMap) operationComplete(
 	defer grm.cond.Signal()
 	grm.lock.Lock()
 	defer grm.lock.Unlock()
+
+	// zhou: no error happened during execution or doesn't enable backoff retry
 
 	if *err == nil || !grm.exponentialBackOffOnError {
 		// Operation completed without error, or exponentialBackOffOnError disabled
@@ -140,6 +156,8 @@ func (grm *goRoutineMap) operationComplete(
 				*err)
 		}
 	} else {
+		// zhou: failed and wait for retry
+
 		// Operation completed with error and exponentialBackOffOnError Enabled
 		existingOp := grm.operations[operationName]
 		existingOp.expBackoff.Update(err)
