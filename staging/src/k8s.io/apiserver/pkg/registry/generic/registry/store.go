@@ -81,6 +81,10 @@ type GenericStore interface {
 	GetDeleteStrategy() rest.RESTDeleteStrategy
 }
 
+// zhou: README,
+//       common implemention "k8s.io/apiserver/pkg/registry/rest/rest.go" for all kinds of object,
+//
+
 // Store implements k8s.io/apiserver/pkg/registry/rest.StandardStorage. It's
 // intended to be embeddable and allows the consumer to implement any
 // non-generic functions that are required. This object is intended to be
@@ -235,6 +239,8 @@ type Store struct {
 	// be prepared for being called more than once.
 	DestroyFunc func()
 }
+
+// zhou:
 
 // Note: the rest.StandardStorage interface aggregates the common REST verbs
 var _ rest.StandardStorage = &Store{}
@@ -419,6 +425,8 @@ func finishNothing(context.Context, bool) {}
 // generated names and a 50% probability occurs at ~4500
 // generated names.
 const maxNameGenerationCreateAttempts = 8
+
+// zhou: README, create object in store
 
 // Create inserts a new item according to the unique key from the object.
 // Note that registries may mutate the input object (e.g. in the strategy
@@ -943,6 +951,8 @@ func shouldDeleteDependents(ctx context.Context, e *Store, accessor metav1.Objec
 	return false
 }
 
+// zhou: README, handle owner/dependents objects.
+
 // deletionFinalizersForGarbageCollection analyzes the object and delete options
 // to determine whether the object is in need of finalization by the garbage
 // collector. If so, returns the set of deletion finalizers to apply and a bool
@@ -982,6 +992,8 @@ func deletionFinalizersForGarbageCollection(ctx context.Context, e *Store, acces
 	return true, newFinalizers
 }
 
+// zhou: README,
+
 // markAsDeleting sets the obj's DeletionGracePeriodSeconds to 0, and sets the
 // DeletionTimestamp to "now" if there is no existing deletionTimestamp or if the existing
 // deletionTimestamp is further in future. Finalizers are watching for such updates and will
@@ -1006,6 +1018,8 @@ func markAsDeleting(obj runtime.Object, now time.Time) (err error) {
 	objectMeta.SetDeletionGracePeriodSeconds(&zero)
 	return nil
 }
+
+// zhou: README,
 
 // updateForGracefulDeletionAndFinalizers updates the given object for
 // graceful deletion and finalization by setting the deletion timestamp and
@@ -1104,6 +1118,8 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 	}
 }
 
+// zhou: README, generic implementation for object deletion
+
 // Delete removes the item from storage.
 // options can be mutated by rest.BeforeDelete due to a graceful deletion strategy.
 func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
@@ -1113,6 +1129,9 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	}
 	obj := e.NewFunc()
 	qualifiedResource := e.qualifiedResourceFromContext(ctx)
+
+	// zhou:
+
 	if err = e.Storage.Get(ctx, key, storage.GetOptions{}, obj); err != nil {
 		return nil, false, storeerr.InterpretDeleteError(err, qualifiedResource, name)
 	}
@@ -1126,28 +1145,40 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 		preconditions.UID = options.Preconditions.UID
 		preconditions.ResourceVersion = options.Preconditions.ResourceVersion
 	}
+
+	// zhou: BeforeDelete tests whether the object can be gracefully deleted.
+	//       Check and set DeletionTimestamp and GracePeriodSeconds.
+
 	graceful, pendingGraceful, err := rest.BeforeDelete(e.DeleteStrategy, ctx, obj, options)
 	if err != nil {
 		return nil, false, err
 	}
+
 	// this means finalizers cannot be updated via DeleteOptions if a deletion is already pending
 	if pendingGraceful {
 		out, err := e.finalizeDelete(ctx, obj, false, options)
 		return out, false, err
 	}
+
 	// check if obj has pending finalizers
 	accessor, err := meta.Accessor(obj)
 	if err != nil {
 		return nil, false, apierrors.NewInternalError(err)
 	}
+
 	pendingFinalizers := len(accessor.GetFinalizers()) != 0
 	var ignoreNotFound bool
 	var deleteImmediately bool = true
 	var lastExisting, out runtime.Object
 
+	// zhou: handle owner/dependents objects
+
 	// Handle combinations of graceful deletion and finalization by issuing
 	// the correct updates.
 	shouldUpdateFinalizers, _ := deletionFinalizersForGarbageCollection(ctx, e, accessor, options)
+
+	// zhou: with these conditions, we can't delete it immediately
+
 	// TODO: remove the check, because we support no-op updates now.
 	if graceful || pendingFinalizers || shouldUpdateFinalizers {
 		err, ignoreNotFound, deleteImmediately, out, lastExisting = e.updateForGracefulDeletionAndFinalizers(ctx, name, key, options, preconditions, deleteValidation, obj)
@@ -1193,6 +1224,9 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 		}
 		return nil, false, storeerr.InterpretDeleteError(err, qualifiedResource, name)
 	}
+
+	// zhou: runs the Store's AfterDelete hook if runHooks is set
+
 	out, err = e.finalizeDelete(ctx, out, true, options)
 	return out, true, err
 }
@@ -1359,6 +1393,8 @@ func (e *Store) DeleteCollection(ctx context.Context, deleteValidation rest.Vali
 		return listObj, nil
 	}
 }
+
+// zhou: README,
 
 // finalizeDelete runs the Store's AfterDelete hook if runHooks is set and
 // returns the decorated deleted object if appropriate.

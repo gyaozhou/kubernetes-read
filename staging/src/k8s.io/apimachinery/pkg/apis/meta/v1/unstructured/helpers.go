@@ -203,6 +203,8 @@ func nestedMapNoCopy(obj map[string]interface{}, fields ...string) (map[string]i
 	return m, true, nil
 }
 
+// zhou: README,
+
 // SetNestedField sets the value of a nested field to a deep copy of the value provided.
 // Returns an error if value cannot be set because one of the nesting levels is not a map[string]interface{}.
 func SetNestedField(obj map[string]interface{}, value interface{}, fields ...string) error {

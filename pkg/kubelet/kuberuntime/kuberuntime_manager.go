@@ -126,6 +126,8 @@ type kubeGenericRuntimeManager struct {
 	// CPUCFSQuotaPeriod sets the CPU CFS quota period value, cpu.cfs_period_us, defaults to 100ms
 	cpuCFSQuotaPeriod metav1.Duration
 
+	// zhou:
+
 	// wrapped image puller.
 	imagePuller images.ImageManager
 
@@ -179,6 +181,8 @@ type KubeGenericRuntime interface {
 	kubecontainer.StreamingRuntime
 	kubecontainer.CommandRunner
 }
+
+// zhou: README,
 
 // NewKubeGenericRuntimeManager creates a new kubeGenericRuntimeManager
 func NewKubeGenericRuntimeManager(
@@ -272,6 +276,7 @@ func NewKubeGenericRuntimeManager(
 	}
 	kubeRuntimeManager.keyring = credentialprovider.NewDockerKeyring()
 
+	// zhou:
 	kubeRuntimeManager.imagePuller = images.NewImageManager(
 		kubecontainer.FilterEventRecorder(recorder),
 		kubeRuntimeManager,
@@ -819,6 +824,8 @@ func (m *kubeGenericRuntimeManager) updatePodContainerResources(pod *v1.Pod, res
 	return nil
 }
 
+// zhou: README,
+
 // computePodActions checks whether the pod spec has changed and returns the changes if true.
 func (m *kubeGenericRuntimeManager) computePodActions(ctx context.Context, pod *v1.Pod, podStatus *kubecontainer.PodStatus) podActions {
 	klog.V(5).InfoS("Syncing Pod", "pod", klog.KObj(pod))
@@ -1037,6 +1044,8 @@ func (m *kubeGenericRuntimeManager) computePodActions(ctx context.Context, pod *
 	return changes
 }
 
+// zhou: README,
+
 // SyncPod syncs the running pod into the desired pod by executing following steps:
 //
 //  1. Compute sandbox and container changes.
@@ -1149,6 +1158,8 @@ func (m *kubeGenericRuntimeManager) SyncPod(ctx context.Context, pod *v1.Pod, po
 				return
 			}
 		}
+
+		// zhou:
 
 		podSandboxID, msg, err = m.createPodSandbox(ctx, pod, podContainerChanges.Attempt)
 		if err != nil {

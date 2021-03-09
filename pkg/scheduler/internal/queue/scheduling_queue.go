@@ -88,6 +88,8 @@ const (
 // by the checking result.
 type PreEnqueueCheck func(pod *v1.Pod) bool
 
+// zhou:
+
 // SchedulingQueue is an interface for a queue to store pods waiting to be scheduled.
 // The interface follows a pattern similar to cache.FIFO and cache.Heap and
 // makes it easy to use those data structures as a SchedulingQueue.
@@ -130,9 +132,10 @@ type SchedulingQueue interface {
 	Run(logger klog.Logger)
 }
 
+// zhou: priority queue for pods to be scheduled.
+
 // NewSchedulingQueue initializes a priority queue as a new scheduling queue.
-func NewSchedulingQueue(
-	lessFn framework.LessFunc,
+func NewSchedulingQueue(lessFn framework.LessFunc,
 	informerFactory informers.SharedInformerFactory,
 	opts ...Option) SchedulingQueue {
 	return NewPriorityQueue(lessFn, informerFactory, opts...)
@@ -142,6 +145,8 @@ func NewSchedulingQueue(
 func NominatedNodeName(pod *v1.Pod) string {
 	return pod.Status.NominatedNodeName
 }
+
+// zhou: README, core of pending Pod PriorityQueue
 
 // PriorityQueue implements a scheduling queue.
 // The head of PriorityQueue is the highest priority pending pod. This structure

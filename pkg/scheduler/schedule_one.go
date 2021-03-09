@@ -61,9 +61,14 @@ const (
 	numberOfHighestScoredNodesToReport = 3
 )
 
+// zhou: README,
+
 // ScheduleOne does the entire scheduling workflow for a single pod. It is serialized on the scheduling algorithm's host fitting.
 func (sched *Scheduler) ScheduleOne(ctx context.Context) {
 	logger := klog.FromContext(ctx)
+
+	// zhou: get next pod to be scheduled
+
 	podInfo, err := sched.NextPod(logger)
 	if err != nil {
 		logger.Error(err, "Error while retrieving next pod from scheduling queue")
@@ -107,11 +112,15 @@ func (sched *Scheduler) ScheduleOne(ctx context.Context) {
 	schedulingCycleCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// zhou: shared goroutine to run scheduling for this pod.
+
 	scheduleResult, assumedPodInfo, status := sched.schedulingCycle(schedulingCycleCtx, state, fwk, podInfo, start, podsToActivate)
 	if !status.IsSuccess() {
 		sched.FailureHandler(schedulingCycleCtx, fwk, assumedPodInfo, status, scheduleResult.nominatingInfo, start)
 		return
 	}
+
+	// zhou: dedicated goroutine to run binding for this pod.
 
 	// bind the pod to its host asynchronously (we can do this b/c of the assumption step above).
 	go func() {
@@ -134,6 +143,8 @@ func (sched *Scheduler) ScheduleOne(ctx context.Context) {
 
 var clearNominatedNode = &framework.NominatingInfo{NominatingMode: framework.ModeOverride, NominatedNodeName: ""}
 
+// zhou: README,
+
 // schedulingCycle tries to schedule a single Pod.
 func (sched *Scheduler) schedulingCycle(
 	ctx context.Context,
@@ -144,6 +155,9 @@ func (sched *Scheduler) schedulingCycle(
 	podsToActivate *framework.PodsToActivate,
 ) (ScheduleResult, *framework.QueuedPodInfo, *framework.Status) {
 	logger := klog.FromContext(ctx)
+
+	// zhou:
+
 	pod := podInfo.Pod
 	scheduleResult, err := sched.SchedulePod(ctx, fwk, state, pod)
 	if err != nil {
@@ -170,6 +184,8 @@ func (sched *Scheduler) schedulingCycle(
 			logger.V(3).Info("No PostFilter plugins are registered, so no preemption will be performed")
 			return ScheduleResult{}, podInfo, framework.NewStatus(framework.Unschedulable).WithError(err)
 		}
+
+		// zhou: "PostFilter"
 
 		// Run PostFilter plugins to attempt to make the pod schedulable in a future scheduling cycle.
 		result, status := fwk.RunPostFilterPlugins(ctx, state, pod, fitError.Diagnosis.NodeToStatusMap)
@@ -394,6 +410,8 @@ func (sched *Scheduler) skipPodSchedule(ctx context.Context, fwk framework.Frame
 	return isAssumed
 }
 
+// zhou: README,
+
 // schedulePod tries to schedule the given pod to one of the nodes in the node list.
 // If it succeeds, it will return the name of the node.
 // If it fails, it will return a FitError with reasons.
@@ -408,6 +426,8 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	if sched.nodeInfoSnapshot.NumNodes() == 0 {
 		return result, ErrNoNodesAvailable
 	}
+
+	// zhou:
 
 	feasibleNodes, diagnosis, err := sched.findNodesThatFitPod(ctx, fwk, state, pod)
 	if err != nil {
@@ -447,6 +467,8 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	}, err
 }
 
+// zhou: README,
+
 // Filters the nodes to find the ones that fit the pod based on the framework
 // filter plugins and filter extenders.
 func (sched *Scheduler) findNodesThatFitPod(ctx context.Context, fwk framework.Framework, state *framework.CycleState, pod *v1.Pod) ([]*framework.NodeInfo, framework.Diagnosis, error) {
@@ -459,6 +481,9 @@ func (sched *Scheduler) findNodesThatFitPod(ctx context.Context, fwk framework.F
 	if err != nil {
 		return nil, diagnosis, err
 	}
+
+	// zhou: PreFilter
+
 	// Run "prefilter" plugins.
 	preRes, s, unscheduledPlugins := fwk.RunPreFilterPlugins(ctx, state, pod)
 	diagnosis.UnschedulablePlugins = unscheduledPlugins
@@ -504,6 +529,9 @@ func (sched *Scheduler) findNodesThatFitPod(ctx context.Context, fwk framework.F
 			}
 		}
 	}
+
+	// zhou:
+
 	feasibleNodes, err := sched.findNodesThatPassFilters(ctx, fwk, state, pod, &diagnosis, nodes)
 	// always try to update the sched.nextStartNodeIndex regardless of whether an error has occurred
 	// this is helpful to make sure that all the nodes have a chance to be searched
@@ -512,6 +540,8 @@ func (sched *Scheduler) findNodesThatFitPod(ctx context.Context, fwk framework.F
 	if err != nil {
 		return nil, diagnosis, err
 	}
+
+	// zhou:
 
 	feasibleNodesAfterExtender, err := findNodesThatPassExtenders(ctx, sched.Extenders, pod, feasibleNodes, diagnosis.NodeToStatusMap)
 	if err != nil {
@@ -578,6 +608,8 @@ func (sched *Scheduler) hasExtenderFilters() bool {
 	return false
 }
 
+// zhou: README,
+
 // findNodesThatPassFilters finds the nodes that fit the filter plugins.
 func (sched *Scheduler) findNodesThatPassFilters(
 	ctx context.Context,
@@ -617,6 +649,9 @@ func (sched *Scheduler) findNodesThatPassFilters(
 		// We check the nodes starting from where we left off in the previous scheduling cycle,
 		// this is to make sure all nodes have the same chance of being examined across pods.
 		nodeInfo := nodes[(sched.nextStartNodeIndex+i)%numAllNodes]
+
+		// zhou:
+
 		status := fwk.RunFilterPluginsWithNominatedPods(ctx, state, pod, nodeInfo)
 		if status.Code() == framework.Error {
 			errCh.SendErrorWithCancel(status.AsError(), cancel)
@@ -692,6 +727,8 @@ func (sched *Scheduler) numFeasibleNodesToFind(percentageOfNodesToScore *int32, 
 	return numNodes
 }
 
+// zhou: used to perform Extenders' "FilterVerb"
+
 func findNodesThatPassExtenders(ctx context.Context, extenders []framework.Extender, pod *v1.Pod, feasibleNodes []*framework.NodeInfo, statuses framework.NodeToStatusMap) ([]*framework.NodeInfo, error) {
 	logger := klog.FromContext(ctx)
 	// Extenders are called sequentially.
@@ -701,9 +738,14 @@ func findNodesThatPassExtenders(ctx context.Context, extenders []framework.Exten
 		if len(feasibleNodes) == 0 {
 			break
 		}
+
+		// zhou: in case Extender defines "ManagedResources" which describe interesting resource in "container.request"
+
 		if !extender.IsInterested(pod) {
 			continue
 		}
+
+		// zhou: invoke Extender "FilterVerb" and get result
 
 		// Status of failed nodes in failedAndUnresolvableMap will be added or overwritten in <statuses>,
 		// so that the scheduler framework can respect the UnschedulableAndUnresolvable status for
@@ -812,6 +854,9 @@ func prioritizeNodes(
 					metrics.Goroutines.WithLabelValues(metrics.PrioritizingExtender).Dec()
 					wg.Done()
 				}()
+
+				// zhou: invoke Extender "PrioritizeVerb"
+
 				prioritizedList, weight, err := extenders[extIndex].Prioritize(pod, nodes)
 				if err != nil {
 					// Prioritization errors from extender can be ignored, let k8s/other extenders determine the priorities
@@ -864,6 +909,8 @@ func prioritizeNodes(
 }
 
 var errEmptyPriorityList = errors.New("empty priorityList")
+
+// zhou: README,
 
 // selectHost takes a prioritized list of nodes and then picks one
 // in a reservoir sampling manner from the nodes that had the highest score.
@@ -976,6 +1023,8 @@ func (sched *Scheduler) bind(ctx context.Context, fwk framework.Framework, assum
 	}
 	return fwk.RunBindPlugins(ctx, state, assumed, targetNode)
 }
+
+// zhou: invoke Extender "BindVerb"
 
 // TODO(#87159): Move this to a Plugin.
 func (sched *Scheduler) extendersBinding(logger klog.Logger, pod *v1.Pod, node string) (bool, error) {

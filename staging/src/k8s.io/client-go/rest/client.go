@@ -37,6 +37,8 @@ const (
 	envBackoffDuration = "KUBE_CLIENT_BACKOFF_DURATION"
 )
 
+// zhou:
+
 // Interface captures the set of operations for generically interacting with Kubernetes REST apis.
 type Interface interface {
 	GetRateLimiter() flowcontrol.RateLimiter
@@ -70,6 +72,8 @@ type ClientContentConfig struct {
 	// supported media types.
 	Negotiator runtime.ClientNegotiator
 }
+
+// zhou: README,
 
 // RESTClient imposes common Kubernetes API conventions on a set of resource paths.
 // The baseURL is expected to point to an HTTP or HTTPS path that is the parent
@@ -152,6 +156,8 @@ func readExpBackoffConfig() BackoffManager {
 			time.Duration(backoffBaseInt)*time.Second,
 			time.Duration(backoffDurationInt)*time.Second)}
 }
+
+// zhou: initial a new REST request.
 
 // Verb begins a request with a verb (GET, POST, PUT, DELETE).
 //

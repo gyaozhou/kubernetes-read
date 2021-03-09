@@ -37,6 +37,8 @@ const (
 	execMask = os.FileMode(0110)
 )
 
+// zhou: README,
+
 // SetVolumeOwnership modifies the given volume to be owned by
 // fsGroup, and sets SetGid so that newly created files are owned by
 // fsGroup. If fsGroup is nil nothing is done.

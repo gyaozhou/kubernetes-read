@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/diff"
 )
 
+// zhou: disable by default.
 var mutationDetectionEnabled = false
 
 func init() {

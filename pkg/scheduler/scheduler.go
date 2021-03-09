@@ -60,6 +60,8 @@ const (
 // ErrNoNodesAvailable is used to describe the error that no nodes available to schedule pods.
 var ErrNoNodesAvailable = fmt.Errorf("no nodes available to schedule pods")
 
+// zhou: core struct of scheduler
+
 // Scheduler watches for new unscheduled pods. It attempts to find
 // nodes that they fit on and writes bindings back to the api server.
 type Scheduler struct {
@@ -77,6 +79,8 @@ type Scheduler struct {
 
 	// FailureHandler is called upon a scheduling failure.
 	FailureHandler FailureHandlerFn
+
+	// zhou: entry point of schedule a pod
 
 	// SchedulePod tries to schedule the given pod to one of the nodes in the node list.
 	// Return a struct of ScheduleResult with the name of suggested host on success,
@@ -108,6 +112,8 @@ type Scheduler struct {
 	// registeredHandlers contains the registrations of all handlers. It's used to check if all handlers have finished syncing before the scheduling cycles start.
 	registeredHandlers []cache.ResourceEventHandlerRegistration
 }
+
+// zhou:
 
 func (sched *Scheduler) applyDefaultHandlers() {
 	sched.SchedulePod = sched.schedulePod
@@ -249,6 +255,8 @@ var defaultSchedulerOptions = schedulerOptions{
 	applyDefaultProfile: true,
 }
 
+// zhou: README, "kube-scheduler"
+
 // New returns a Scheduler
 func New(ctx context.Context,
 	client clientset.Interface,
@@ -275,12 +283,16 @@ func New(ctx context.Context,
 		options.profiles = cfg.Profiles
 	}
 
+	// zhou: create in-tree registry, and merge with out of tree Registry
+
 	registry := frameworkplugins.NewInTreeRegistry()
 	if err := registry.Merge(options.frameworkOutOfTreeRegistry); err != nil {
 		return nil, err
 	}
 
 	metrics.Register()
+
+	// zhou: scheduler extention
 
 	extenders, err := buildExtenders(logger, options.extenders, options.profiles)
 	if err != nil {
@@ -374,6 +386,8 @@ func New(ctx context.Context,
 	sched.NextPod = podQueue.Pop
 	sched.applyDefaultHandlers()
 
+	// zhou:
+
 	if err = addAllEventHandlers(sched, informerFactory, dynInformerFactory, resourceClaimCache, unionedGVKs(queueingHintsPerProfile)); err != nil {
 		return nil, fmt.Errorf("adding event handlers: %w", err)
 	}
@@ -386,6 +400,8 @@ func New(ctx context.Context,
 var defaultQueueingHintFn = func(_ klog.Logger, _ *v1.Pod, _, _ interface{}) (framework.QueueingHint, error) {
 	return framework.Queue, nil
 }
+
+// zhou: README, scheduler framewowrk need to understand the events that each plugin take care.
 
 func buildQueueingHintMap(ctx context.Context, es []framework.EnqueueExtensions) (internalqueue.QueueingHintMap, error) {
 	queueingHintMap := make(internalqueue.QueueingHintMap)
@@ -456,8 +472,13 @@ func buildQueueingHintMap(ctx context.Context, es []framework.EnqueueExtensions)
 	return queueingHintMap, nil
 }
 
+// zhou: component Scheduler entry point
+
 // Run begins watching and scheduling. It starts scheduling and blocked until the context is done.
 func (sched *Scheduler) Run(ctx context.Context) {
+
+	// zhou:
+
 	logger := klog.FromContext(ctx)
 	sched.SchedulingQueue.Run(logger)
 
@@ -487,6 +508,8 @@ func NewInformerFactory(cs clientset.Interface, resyncPeriod time.Duration) info
 	return informerFactory
 }
 
+// zhou: build Scheduler Extenders according to config passed to "kube-scheduler"
+
 func buildExtenders(logger klog.Logger, extenders []schedulerapi.Extender, profiles []schedulerapi.KubeSchedulerProfile) ([]framework.Extender, error) {
 	var fExtenders []framework.Extender
 	if len(extenders) == 0 {
@@ -496,6 +519,9 @@ func buildExtenders(logger klog.Logger, extenders []schedulerapi.Extender, profi
 	var ignoredExtendedResources []string
 	var ignorableExtenders []framework.Extender
 	for i := range extenders {
+
+		// zhou:
+
 		logger.V(2).Info("Creating extender", "extender", extenders[i])
 		extender, err := NewHTTPExtender(&extenders[i])
 		if err != nil {
@@ -526,6 +552,9 @@ func buildExtenders(logger klog.Logger, extenders []schedulerapi.Extender, profi
 		prof := &profiles[i]
 		var found = false
 		for k := range prof.PluginConfig {
+
+			// zhou: in case of Plugin "NodeResourcesFit"
+
 			if prof.PluginConfig[k].Name == noderesources.Name {
 				// Update the existing args
 				pc := &prof.PluginConfig[k]

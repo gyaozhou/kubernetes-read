@@ -40,6 +40,9 @@ func newDaemonSetControllerDescriptor() *ControllerDescriptor {
 		initFunc: startDaemonSetController,
 	}
 }
+
+// zhou:
+
 func startDaemonSetController(ctx context.Context, controllerContext ControllerContext, controllerName string) (controller.Interface, bool, error) {
 	dsc, err := daemon.NewDaemonSetsController(
 		ctx,

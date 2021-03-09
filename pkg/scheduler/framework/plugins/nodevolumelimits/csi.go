@@ -130,6 +130,8 @@ func (pl *CSILimits) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
 }
 
+// zhou: get storagev1.CSINode to fetch the CSI "VolumeNodeResources"
+
 // Filter invoked at the filter extension point.
 func (pl *CSILimits) Filter(ctx context.Context, _ *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
 	// If the new pod doesn't have any volume attached to it, the predicate will always be true
@@ -194,6 +196,9 @@ func (pl *CSILimits) Filter(ctx context.Context, _ *framework.CycleState, pod *v
 			logger.V(5).Info("Found plugin volume limits", "node", node.Name, "volumeLimitKey", volumeLimitKey,
 				"maxLimits", maxVolumeLimit, "currentVolumeCount", currentVolumeCount, "newVolumeCount", count,
 				"pod", klog.KObj(pod))
+
+			// zhou: can't schedule to this node due to attached volume limit.
+
 			if currentVolumeCount+count > int(maxVolumeLimit) {
 				return framework.NewStatus(framework.Unschedulable, ErrReasonMaxVolumeCountExceeded)
 			}
@@ -202,6 +207,8 @@ func (pl *CSILimits) Filter(ctx context.Context, _ *framework.CycleState, pod *v
 
 	return nil
 }
+
+// zhou: gather volumes of this new Pod
 
 func (pl *CSILimits) filterAttachableVolumes(
 	logger klog.Logger, pod *v1.Pod, csiNode *storagev1.CSINode, newPod bool, result map[string]string) error {
@@ -427,6 +434,8 @@ func NewCSI(_ context.Context, _ runtime.Object, handle framework.Handle, fts fe
 		translator:           csiTranslator,
 	}, nil
 }
+
+// zhou: get attached volume limit according to node or csinode
 
 func getVolumeLimits(nodeInfo *framework.NodeInfo, csiNode *storagev1.CSINode) map[v1.ResourceName]int64 {
 	// TODO: stop getting values from Node object in v1.18

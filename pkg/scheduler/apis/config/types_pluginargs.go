@@ -147,6 +147,8 @@ type ResourceSpec struct {
 type VolumeBindingArgs struct {
 	metav1.TypeMeta
 
+	// zhou: default value is 600
+
 	// BindTimeoutSeconds is the timeout in seconds in volume binding operation.
 	// Value must be non-negative integer. The value zero indicates no waiting.
 	// If this value is nil, the default value will be used.
@@ -167,6 +169,8 @@ type VolumeBindingArgs struct {
 	// +optional
 	Shape []UtilizationShapePoint
 }
+
+// zhou: additional Node Affinity requirement, on top of ".spec.NodeAffinity"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

@@ -193,6 +193,8 @@ func NewActualStateOfWorld(volumePluginMgr *volume.VolumePluginMgr) ActualStateO
 	}
 }
 
+// zhou: README,
+
 type actualStateOfWorld struct {
 	// attachedVolumes is a map containing the set of volumes the attach/detach
 	// controller believes to be successfully attached to the nodes it is

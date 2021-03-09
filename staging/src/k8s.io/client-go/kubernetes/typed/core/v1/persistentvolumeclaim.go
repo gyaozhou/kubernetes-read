@@ -33,6 +33,7 @@ import (
 // PersistentVolumeClaimsGetter has a method to return a PersistentVolumeClaimInterface.
 // A group's client should implement this interface.
 type PersistentVolumeClaimsGetter interface {
+	// zhou: implemented in "kubernetes-read/staging/src/k8s.io/client-go/kubernetes/typed/core/v1/core_client.go"
 	PersistentVolumeClaims(namespace string) PersistentVolumeClaimInterface
 }
 

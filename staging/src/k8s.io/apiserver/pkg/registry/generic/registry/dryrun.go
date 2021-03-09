@@ -27,6 +27,8 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 )
 
+// zhou:
+
 type DryRunnableStorage struct {
 	Storage storage.Interface
 	Codec   runtime.Codec
@@ -45,6 +47,8 @@ func (s *DryRunnableStorage) Create(ctx context.Context, key string, obj, out ru
 	}
 	return s.Storage.Create(ctx, key, obj, out, ttl)
 }
+
+// zhou:
 
 func (s *DryRunnableStorage) Delete(ctx context.Context, key string, out runtime.Object, preconditions *storage.Preconditions, deleteValidation storage.ValidateObjectFunc, dryRun bool, cachedExistingObject runtime.Object) error {
 	if dryRun {

@@ -46,6 +46,8 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/util/assumecache"
 )
 
+// zhou: README,
+
 func (sched *Scheduler) onStorageClassAdd(obj interface{}) {
 	start := time.Now()
 	defer metrics.EventHandlingLatency.WithLabelValues(framework.StorageClassAdd.Label).Observe(metrics.SinceInSeconds(start))
@@ -345,6 +347,8 @@ func (sched *Scheduler) WaitForHandlersSync(ctx context.Context) error {
 		return true, nil
 	})
 }
+
+// zhou: README,
 
 // addAllEventHandlers is a helper function used in tests and in Scheduler
 // to add event handlers for various informers.

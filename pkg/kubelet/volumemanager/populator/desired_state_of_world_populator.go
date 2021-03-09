@@ -120,6 +120,7 @@ func NewDesiredStateOfWorldPopulator(
 	}
 }
 
+// zhou:
 type desiredStateOfWorldPopulator struct {
 	kubeClient               clientset.Interface
 	loopSleepDuration        time.Duration
@@ -141,14 +142,17 @@ type processedPods struct {
 	sync.RWMutex
 }
 
+// zhou: go routine
 func (dswp *desiredStateOfWorldPopulator) Run(sourcesReady config.SourcesReady, stopCh <-chan struct{}) {
 	// Wait for the completion of a loop that started after sources are all ready, then set hasAddedPods accordingly
 	klog.InfoS("Desired state populator starts to run")
+
 	wait.PollUntil(dswp.loopSleepDuration, func() (bool, error) {
 		done := sourcesReady.AllReady()
 		dswp.populatorLoop()
 		return done, nil
 	}, stopCh)
+
 	dswp.hasAddedPodsLock.Lock()
 	if !dswp.hasAddedPods {
 		klog.InfoS("Finished populating initial desired state of world")
@@ -204,6 +208,8 @@ func (dswp *desiredStateOfWorldPopulator) findAndAddNewPods() {
 		dswp.processPodVolumes(pod, mountedVolumesForPod)
 	}
 }
+
+// zhou: README, core.
 
 // Iterate through all pods in desired state of world, and remove if they no
 // longer exist
@@ -450,6 +456,8 @@ func (dswp *desiredStateOfWorldPopulator) deleteProcessedPod(
 
 	delete(dswp.pods.processedPods, podName)
 }
+
+// zhou: README,
 
 // createVolumeSpec creates and returns a mutable volume.Spec object for the
 // specified volume. It dereference any PVC to get PV objects, if needed.

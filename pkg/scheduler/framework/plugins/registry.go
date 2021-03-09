@@ -41,10 +41,15 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 )
 
+// zhou: README, create in tree registry
+
 // NewInTreeRegistry builds the registry with all the in-tree plugins.
 // A scheduler that runs out of tree plugins can register additional plugins
 // through the WithFrameworkOutOfTreeRegistry option.
 func NewInTreeRegistry() runtime.Registry {
+
+	// zhou: check feature gate state
+
 	fts := plfeature.Features{
 		EnableDRAControlPlaneController:              feature.DefaultFeatureGate.Enabled(features.DRAControlPlaneController),
 		EnableDynamicResourceAllocation:              feature.DefaultFeatureGate.Enabled(features.DynamicResourceAllocation),
@@ -55,6 +60,8 @@ func NewInTreeRegistry() runtime.Registry {
 		EnableSidecarContainers:                      feature.DefaultFeatureGate.Enabled(features.SidecarContainers),
 		EnableSchedulingQueueHint:                    feature.DefaultFeatureGate.Enabled(features.SchedulerQueueingHints),
 	}
+
+	// zhou: !!! initilize scheduler plugins
 
 	registry := runtime.Registry{
 		dynamicresources.Name:                runtime.FactoryAdapter(fts, dynamicresources.New),
@@ -76,9 +83,9 @@ func NewInTreeRegistry() runtime.Registry {
 		nodevolumelimits.AzureDiskName:       runtime.FactoryAdapter(fts, nodevolumelimits.NewAzureDisk),
 		nodevolumelimits.CinderName:          runtime.FactoryAdapter(fts, nodevolumelimits.NewCinder),
 		interpodaffinity.Name:                interpodaffinity.New,
-		queuesort.Name:                       queuesort.New,
+		queuesort.Name:                       queuesort.New, // zhou: priority queue
 		defaultbinder.Name:                   defaultbinder.New,
-		defaultpreemption.Name:               runtime.FactoryAdapter(fts, defaultpreemption.New),
+		defaultpreemption.Name:               runtime.FactoryAdapter(fts, defaultpreemption.New), // zhou: priority preemption
 		schedulinggates.Name:                 runtime.FactoryAdapter(fts, schedulinggates.New),
 	}
 

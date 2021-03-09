@@ -58,6 +58,8 @@ func getDefaultServer() string {
 	return "http://localhost:8080"
 }
 
+// zhou:
+
 // ClientConfig is used to make it easy to get an api server client
 type ClientConfig interface {
 	// RawConfig returns the merged result of all overrides
@@ -169,6 +171,8 @@ func (config *DirectClientConfig) MergedRawConfig() (clientcmdapi.Config, error)
 	merged.Clusters[configClusterName] = &configClusterInfo
 	return *merged, nil
 }
+
+// zhou: README,
 
 // ClientConfig implements ClientConfig
 func (config *DirectClientConfig) ClientConfig() (*restclient.Config, error) {
@@ -649,6 +653,8 @@ func (config *inClusterClientConfig) Possible() bool {
 		err == nil && !fi.IsDir()
 }
 
+// zhou: README,
+
 // BuildConfigFromFlags is a helper function that builds configs from a master
 // url or a kubeconfig filepath. These are passed in as command line flags for cluster
 // components. Warnings should reflect this usage. If neither masterUrl or kubeconfigPath
@@ -663,6 +669,7 @@ func BuildConfigFromFlags(masterUrl, kubeconfigPath string) (*restclient.Config,
 		}
 		klog.Warning("error creating inClusterConfig, falling back to default config: ", err)
 	}
+
 	return NewNonInteractiveDeferredLoadingClientConfig(
 		&ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
 		&ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterUrl}}).ClientConfig()

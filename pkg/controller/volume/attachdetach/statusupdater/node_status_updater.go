@@ -58,6 +58,8 @@ type nodeStatusUpdater struct {
 	actualStateOfWorld cache.ActualStateOfWorld
 }
 
+// zhou: README, update nodes' status according the actual state of the world after attach volumes
+
 func (nsu *nodeStatusUpdater) UpdateNodeStatuses(logger klog.Logger) error {
 	var nodeIssues int
 	// TODO: investigate right behavior if nodeName is empty
@@ -75,6 +77,8 @@ func (nsu *nodeStatusUpdater) UpdateNodeStatuses(logger klog.Logger) error {
 	return nil
 }
 
+// zhou: README, update node status before detach the volume
+
 func (nsu *nodeStatusUpdater) UpdateNodeStatusForNode(logger klog.Logger, nodeName types.NodeName) error {
 	needsUpdate, attachedVolumes := nsu.actualStateOfWorld.GetVolumesToReportAttachedForNode(logger, nodeName)
 	if !needsUpdate {
@@ -82,6 +86,8 @@ func (nsu *nodeStatusUpdater) UpdateNodeStatusForNode(logger klog.Logger, nodeNa
 	}
 	return nsu.processNodeVolumes(logger, nodeName, attachedVolumes)
 }
+
+// zhou:
 
 func (nsu *nodeStatusUpdater) processNodeVolumes(logger klog.Logger, nodeName types.NodeName, attachedVolumes []v1.AttachedVolume) error {
 	nodeObj, err := nsu.nodeLister.Get(string(nodeName))
@@ -117,6 +123,8 @@ func (nsu *nodeStatusUpdater) processNodeVolumes(logger klog.Logger, nodeName ty
 	}
 	return nil
 }
+
+// zhou:
 
 func (nsu *nodeStatusUpdater) updateNodeStatus(logger klog.Logger, nodeName types.NodeName, nodeObj *v1.Node, attachedVolumes []v1.AttachedVolume) error {
 	node := nodeObj.DeepCopy()

@@ -37,6 +37,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// zhou:
+
 // UnstructuredConverter is an interface for converting between interface{}
 // and map[string]interface representation.
 type UnstructuredConverter interface {
@@ -231,6 +233,8 @@ func (c *fromUnstructuredContext) pushKey(key string) {
 
 }
 
+// zhou: README,
+
 // FromUnstructuredWithValidation converts an object from map[string]interface{} representation into a concrete type.
 // It uses encoding/json/Unmarshaler if object implements it or reflection if not.
 // It takes a validationDirective that indicates how to behave when it encounters unknown fields.
@@ -267,6 +271,8 @@ func (c *unstructuredConverter) FromUnstructuredWithValidation(u map[string]inte
 	}
 	return nil
 }
+
+// zhou: README,
 
 // FromUnstructured converts an object from map[string]interface{} representation into a concrete type.
 // It uses encoding/json/Unmarshaler if object implements it or reflection if not.
@@ -568,6 +574,8 @@ func interfaceFromUnstructured(sv, dv reflect.Value) error {
 	dv.Set(sv)
 	return nil
 }
+
+// zhou: README,
 
 // ToUnstructured converts an object into map[string]interface{} representation.
 // It uses encoding/json/Marshaler if object implements it or reflection if not.
