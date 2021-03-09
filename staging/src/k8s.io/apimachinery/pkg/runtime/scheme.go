@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// zhou: README,
+
 // Scheme defines methods for serializing and deserializing API objects, a type
 // registry for converting group, version, and kind information to and from Go
 // schemas, and mappings between Go schemas of different versions. A scheme is the
@@ -86,6 +88,8 @@ type Scheme struct {
 
 // FieldLabelConversionFunc converts a field selector to internal representation.
 type FieldLabelConversionFunc func(label, value string) (internalLabel, internalValue string, err error)
+
+// zhou:
 
 // NewScheme creates a new Scheme. This scheme is pluggable by default.
 func NewScheme() *Scheme {

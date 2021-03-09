@@ -37,6 +37,8 @@ type DeploymentsGetter interface {
 	Deployments(namespace string) DeploymentInterface
 }
 
+// zhou:
+
 // DeploymentInterface has methods to work with Deployment resources.
 type DeploymentInterface interface {
 	Create(ctx context.Context, deployment *v1.Deployment, opts metav1.CreateOptions) (*v1.Deployment, error)

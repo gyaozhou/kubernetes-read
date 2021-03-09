@@ -134,6 +134,7 @@ func (rc *reconciler) syncStates() {
 	rc.attacherDetacher.VerifyVolumesAreAttached(volumesPerNode, rc.actualStateOfWorld)
 }
 
+// zhou: AD controller
 func (rc *reconciler) reconcile() {
 	// Detaches are triggered before attaches so that volumes referenced by
 	// pods that are rescheduled to a different node are detached first.

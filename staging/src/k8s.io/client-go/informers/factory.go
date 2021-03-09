@@ -92,10 +92,14 @@ func WithNamespace(namespace string) SharedInformerOption {
 	}
 }
 
+// zhou:
+
 // NewSharedInformerFactory constructs a new instance of sharedInformerFactory for all namespaces.
 func NewSharedInformerFactory(client kubernetes.Interface, defaultResync time.Duration) SharedInformerFactory {
 	return NewSharedInformerFactoryWithOptions(client, defaultResync)
 }
+
+// zhou:
 
 // NewFilteredSharedInformerFactory constructs a new instance of sharedInformerFactory.
 // Listers obtained via this SharedInformerFactory will be subject to the same filters
@@ -181,6 +185,8 @@ func (f *sharedInformerFactory) InformerFor(obj runtime.Object, newFunc internal
 
 	return informer
 }
+
+// zhou:
 
 // SharedInformerFactory provides shared informers for resources in all known
 // API group versions.

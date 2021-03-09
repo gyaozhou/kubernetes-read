@@ -604,6 +604,8 @@ func (config *inClusterClientConfig) Possible() bool {
 		err == nil && !fi.IsDir()
 }
 
+// zhou:
+
 // BuildConfigFromFlags is a helper function that builds configs from a master
 // url or a kubeconfig filepath. These are passed in as command line flags for cluster
 // components. Warnings should reflect this usage. If neither masterUrl or kubeconfigPath

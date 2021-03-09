@@ -2910,6 +2910,8 @@ type PodReadinessGate struct {
 	ConditionType PodConditionType `json:"conditionType" protobuf:"bytes,1,opt,name=conditionType,casttype=PodConditionType"`
 }
 
+// zhou:
+
 // PodSpec is a description of a pod.
 type PodSpec struct {
 	// List of volumes that can be mounted by containers belonging to the pod.
@@ -3653,6 +3655,8 @@ type PodStatusResult struct {
 	// +optional
 	Status PodStatus `json:"status,omitempty" protobuf:"bytes,2,opt,name=status"`
 }
+
+// zhou:
 
 // +genclient
 // +genclient:method=GetEphemeralContainers,verb=get,subresource=ephemeralcontainers,result=EphemeralContainers
@@ -4871,6 +4875,8 @@ type NodeAddress struct {
 
 // ResourceName is the name identifying various resources in a ResourceList.
 type ResourceName string
+
+// zhou:
 
 // Resource names must be not more than 63 characters, consisting of upper- or lower-case alphanumeric characters,
 // with the -, _, and . characters allowed anywhere, except the first or last character.

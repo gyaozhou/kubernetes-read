@@ -105,6 +105,8 @@ const (
 	FinalizerDeleteDependents string = "foregroundDeletion"
 )
 
+// zhou:
+
 // ObjectMeta is metadata that all persisted resources must have, which includes all objects
 // users must create.
 type ObjectMeta struct {

@@ -69,6 +69,7 @@ import (
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 )
 
+// zhou: defines Group and Version
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	AdmissionregistrationV1() admissionregistrationv1.AdmissionregistrationV1Interface
@@ -387,6 +388,8 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	}
 	return c.DiscoveryClient
 }
+
+// zhou:
 
 // NewForConfig creates a new Clientset for the given config.
 // If config's RateLimiter is not set and QPS and Burst are acceptable,

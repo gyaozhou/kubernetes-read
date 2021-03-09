@@ -153,6 +153,8 @@ func readExpBackoffConfig() BackoffManager {
 			time.Duration(backoffDurationInt)*time.Second)}
 }
 
+// zhou: new url request
+
 // Verb begins a request with a verb (GET, POST, PUT, DELETE).
 //
 // Example usage of RESTClient's request building interface:

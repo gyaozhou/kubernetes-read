@@ -36,6 +36,8 @@ type PodsGetter interface {
 	Pods(namespace string) PodInterface
 }
 
+// zhou:
+
 // PodInterface has methods to work with Pod resources.
 type PodInterface interface {
 	Create(ctx context.Context, pod *v1.Pod, opts metav1.CreateOptions) (*v1.Pod, error)

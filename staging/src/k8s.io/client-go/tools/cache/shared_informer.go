@@ -31,6 +31,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// zhou:
+
 // SharedInformer provides eventually consistent linkage of its
 // clients to the authoritative state of a given collection of
 // objects.  An object is identified by its API group, kind/resource,
@@ -181,6 +183,8 @@ type SharedInformer interface {
 	// offloaded.
 	SetWatchErrorHandler(handler WatchErrorHandler) error
 }
+
+// zhou:
 
 // SharedIndexInformer provides add and get Indexers ability based on SharedInformer.
 type SharedIndexInformer interface {

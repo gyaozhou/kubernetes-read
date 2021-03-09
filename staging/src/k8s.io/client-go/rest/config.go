@@ -48,6 +48,8 @@ const (
 
 var ErrNotInCluster = errors.New("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
 
+// zhou:
+
 // Config holds the common attributes that can be passed to a Kubernetes client on
 // initialization.
 type Config struct {

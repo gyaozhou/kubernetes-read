@@ -26,6 +26,8 @@ type ObjectMetaAccessor interface {
 	GetObjectMeta() Object
 }
 
+// zhou: README,
+
 // Object lets you work with object metadata from any of the versioned or
 // internal API objects. Attempting to set or retrieve a field on an object that does
 // not support that field (Name, UID, Namespace on lists) will be a no-op and return

@@ -118,6 +118,8 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	storagev1alpha1.AddToScheme,
 }
 
+// zhou: README,
+
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
 // of clientsets, like in:
 //
