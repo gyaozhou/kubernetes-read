@@ -54,6 +54,8 @@ type localVolumePlugin struct {
 	recorder    record.EventRecorder
 }
 
+// zhou: Local PV doesn't support "volume.AttachableVolumePlugin".
+
 var _ volume.VolumePlugin = &localVolumePlugin{}
 var _ volume.PersistentVolumePlugin = &localVolumePlugin{}
 var _ volume.BlockVolumePlugin = &localVolumePlugin{}
@@ -79,6 +81,8 @@ func (plugin *localVolumePlugin) GetVolumeName(spec *volume.Spec) (string, error
 	return spec.Name(), nil
 }
 
+// zhou: work as prober callback to identify Local PV.
+
 func (plugin *localVolumePlugin) CanSupport(spec *volume.Spec) bool {
 	// This volume is only supported as a PersistentVolumeSource
 	return (spec.PersistentVolume != nil && spec.PersistentVolume.Spec.Local != nil)
@@ -96,12 +100,16 @@ func (plugin *localVolumePlugin) SupportsSELinuxContextMount(spec *volume.Spec) 
 	return false, nil
 }
 
+// zhou: only one AccessMode supported.
+
 func (plugin *localVolumePlugin) GetAccessModes() []v1.PersistentVolumeAccessMode {
 	// The current meaning of AccessMode is how many nodes can attach to it, not how many pods can mount it
 	return []v1.PersistentVolumeAccessMode{
 		v1.ReadWriteOnce,
 	}
 }
+
+// zhou: check Local PV, it could be a directory or block device in local node.
 
 func getVolumeSource(spec *volume.Spec) (*v1.LocalVolumeSource, bool, error) {
 	if spec.PersistentVolume != nil && spec.PersistentVolume.Spec.Local != nil {
@@ -110,6 +118,8 @@ func getVolumeSource(spec *volume.Spec) (*v1.LocalVolumeSource, bool, error) {
 
 	return nil, false, fmt.Errorf("Spec does not reference a Local volume type")
 }
+
+// zhou: used in Filesystem volume case,
 
 func (plugin *localVolumePlugin) NewMounter(spec *volume.Spec, pod *v1.Pod, _ volume.VolumeOptions) (volume.Mounter, error) {
 	_, readOnly, err := getVolumeSource(spec)
@@ -144,6 +154,8 @@ func (plugin *localVolumePlugin) NewMounter(spec *volume.Spec, pod *v1.Pod, _ vo
 
 }
 
+// zhou: used in Filesystem volume case,
+
 func (plugin *localVolumePlugin) NewUnmounter(volName string, podUID types.UID) (volume.Unmounter, error) {
 	return &localVolumeUnmounter{
 		localVolume: &localVolume{
@@ -154,6 +166,9 @@ func (plugin *localVolumePlugin) NewUnmounter(volName string, podUID types.UID) 
 		},
 	}, nil
 }
+
+// zhou: used in Block volume case
+//       used to map block device in global path to Pod.
 
 func (plugin *localVolumePlugin) NewBlockVolumeMapper(spec *volume.Spec, pod *v1.Pod,
 	_ volume.VolumeOptions) (volume.BlockVolumeMapper, error) {
@@ -166,7 +181,7 @@ func (plugin *localVolumePlugin) NewBlockVolumeMapper(spec *volume.Spec, pod *v1
 		localVolume: &localVolume{
 			podUID:     pod.UID,
 			volName:    spec.Name(),
-			globalPath: volumeSource.Path,
+			globalPath: volumeSource.Path, // zhou: block device global path
 			plugin:     plugin,
 		},
 		readOnly: readOnly,
@@ -180,6 +195,8 @@ func (plugin *localVolumePlugin) NewBlockVolumeMapper(spec *volume.Spec, pod *v1
 
 	return mapper, nil
 }
+
+// zhou: used in Block volume case,
 
 func (plugin *localVolumePlugin) NewBlockVolumeUnmapper(volName string,
 	podUID types.UID) (volume.BlockVolumeUnmapper, error) {
@@ -283,8 +300,14 @@ func (plugin *localVolumePlugin) getGlobalLocalPath(spec *volume.Spec) (string, 
 	}
 	switch fileType {
 	case hostutil.FileTypeDirectory:
+
+		// zhou: it's already be filesystem.
+
 		return spec.PersistentVolume.Spec.Local.Path, nil
 	case hostutil.FileTypeBlockDev:
+
+		// zhou: block device will be mount here as filesystem
+
 		return filepath.Join(plugin.generateBlockDeviceBaseGlobalPath(), spec.Name()), nil
 	default:
 		return "", fmt.Errorf("only directory and block device are supported")
@@ -301,6 +324,8 @@ type deviceMounter struct {
 
 var _ volume.DeviceMounter = &deviceMounter{}
 
+// zhou:
+
 func (plugin *localVolumePlugin) CanDeviceMount(spec *volume.Spec) (bool, error) {
 	return true, nil
 }
@@ -316,6 +341,8 @@ func (plugin *localVolumePlugin) NewDeviceMounter() (volume.DeviceMounter, error
 		hostUtil: kvh.GetHostUtil(),
 	}, nil
 }
+
+// zhou: need to perform OS cmd "mount"
 
 func (dm *deviceMounter) mountLocalBlockDevice(spec *volume.Spec, devicePath string, deviceMountPath string) error {
 	klog.V(4).Infof("local: mounting device %s to %s", devicePath, deviceMountPath)
@@ -358,10 +385,15 @@ func (dm *deviceMounter) mountLocalBlockDevice(spec *volume.Spec, devicePath str
 	return nil
 }
 
+// zhou: NodeStageVolume(), should only be invoked when PVC specify volumeMode "Filesystem"
+
 func (dm *deviceMounter) MountDevice(spec *volume.Spec, devicePath string, deviceMountPath string, _ volume.DeviceMounterArgs) error {
 	if spec.PersistentVolume.Spec.Local == nil || len(spec.PersistentVolume.Spec.Local.Path) == 0 {
 		return fmt.Errorf("local volume source is nil or local path is not set")
 	}
+
+	// zhou: check Block Device or directory
+
 	fileType, err := dm.hostUtil.GetFileType(spec.PersistentVolume.Spec.Local.Path)
 	if err != nil {
 		return err
@@ -444,6 +476,8 @@ func getVolumeSourceReadOnly(spec *volume.Spec) (bool, error) {
 
 	return false, fmt.Errorf("spec does not reference a Local volume type")
 }
+
+// zhou: used to in case of Filesystem Volume
 
 func (dm *deviceMounter) GetDeviceMountPath(spec *volume.Spec) (string, error) {
 	return dm.plugin.getGlobalLocalPath(spec)
@@ -691,6 +725,8 @@ func (l *localVolume) GetGlobalMapPath(spec *volume.Spec) (string, error) {
 	return filepath.Join(l.plugin.host.GetVolumeDevicePluginDir(utilstrings.EscapeQualifiedName(localVolumePluginName)),
 		l.volName), nil
 }
+
+// zhou: block device path in Pod
 
 // GetPodDeviceMapPath returns pod device map path and volume name.
 // path: pods/{podUid}/volumeDevices/kubernetes.io~local-volume

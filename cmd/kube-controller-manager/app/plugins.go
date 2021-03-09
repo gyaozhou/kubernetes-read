@@ -40,6 +40,8 @@ import (
 	"k8s.io/utils/exec"
 )
 
+// zhou: README, collects all buildin volumes plugins.
+
 // ProbeAttachableVolumePlugins collects all volume plugins for the attach/
 // detach controller.
 // The list of plugins is manually compiled. This code and the plugin
@@ -56,6 +58,9 @@ func ProbeAttachableVolumePlugins(logger klog.Logger) ([]volume.VolumePlugin, er
 	allPlugins = append(allPlugins, csi.ProbeVolumePlugins()...)
 	return allPlugins, nil
 }
+
+// zhou: used to dynamically discover Flexvolume plugins, replaced by CSI.
+//       "Currently only Flexvolume plugins are dynamically discoverable."
 
 // GetDynamicPluginProber gets the probers of dynamically discoverable plugins
 // for the attach/detach controller.
@@ -75,6 +80,8 @@ func ProbeExpandableVolumePlugins(logger klog.Logger, config persistentvolumecon
 	allPlugins = append(allPlugins, fc.ProbeVolumePlugins()...)
 	return allPlugins, nil
 }
+
+// zhou: README,
 
 // ProbeControllerVolumePlugins collects all persistent volume plugins into an
 // easy to use list. Only volume plugins that implement any of

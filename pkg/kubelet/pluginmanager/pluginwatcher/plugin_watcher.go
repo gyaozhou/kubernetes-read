@@ -56,6 +56,8 @@ func (w *Watcher) Start(stopCh <-chan struct{}) error {
 		return err
 	}
 
+	// zhou: why not utilize "NewFsnotifyWatcher()"
+
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to start plugin fsWatcher, err: %v", err)
@@ -106,6 +108,8 @@ func (w *Watcher) init() error {
 	return nil
 }
 
+// zhou: README,
+
 // Walks through the plugin directory discover any existing plugin sockets.
 // Ignore all errors except root dir not being walkable
 func (w *Watcher) traversePluginDir(dir string) error {
@@ -152,6 +156,9 @@ func (w *Watcher) traversePluginDir(dir string) error {
 	})
 }
 
+// zhou: triggered by Plugin sock file created/updated
+//       DO NOT handle ".xxx", dir, non unix socket.
+
 // Handle filesystem notify event.
 // Files names:
 // - MUST NOT start with a '.'
@@ -178,11 +185,17 @@ func (w *Watcher) handleCreateEvent(event fsnotify.Event) error {
 			return nil
 		}
 
+		// zhou: handle new Plugin
+
 		return w.handlePluginRegistration(event.Name)
 	}
 
+	// zhou: Walks through the plugin directory discover any existing plugin sockets.
+
 	return w.traversePluginDir(event.Name)
 }
+
+// zhou: handle new Plugin
 
 func (w *Watcher) handlePluginRegistration(socketPath string) error {
 	socketPath = getSocketPath(socketPath)

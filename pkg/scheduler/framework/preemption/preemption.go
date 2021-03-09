@@ -100,6 +100,8 @@ func (cl *candidateList) get() []Candidate {
 	return cl.items[:cl.size()]
 }
 
+// zhou: README, define the Preemption plugin interface.
+
 // Interface is expected to be implemented by different preemption plugins as all those member
 // methods might have different behavior compared with the default preemption.
 type Interface interface {
@@ -130,6 +132,8 @@ type Evaluator struct {
 	State      *framework.CycleState
 	Interface
 }
+
+// zhou: README,
 
 // Preempt returns a PostFilterResult carrying suggested nominatedNodeName, along with a Status.
 // The semantics of returned <PostFilterResult, Status> varies on different scenarios:
@@ -249,6 +253,8 @@ func (ev *Evaluator) findCandidates(ctx context.Context, pod *v1.Pod, m framewor
 	return candidates, nodeStatuses, err
 }
 
+// zhou: README, invoke Extender "PrioritizeVerb"
+
 // callExtenders calls given <extenders> to select the list of feasible candidates.
 // We will only check <candidates> with extenders that support preemption.
 // Extenders which do not support preemption may later prevent preemptor from being scheduled on the nominated
@@ -342,6 +348,8 @@ func (ev *Evaluator) SelectCandidate(ctx context.Context, candidates []Candidate
 	return candidates[0]
 }
 
+// zhou: README,
+
 // prepareCandidate does some preparation work before nominating the selected candidate:
 // - Evict the victim pods
 // - Reject the victim pods if they are in waitingPod map
@@ -379,6 +387,9 @@ func (ev *Evaluator) prepareCandidate(ctx context.Context, c Candidate, pod *v1.
 					}
 				}
 			}
+
+			// zhou:
+
 			if err := util.DeletePod(ctx, cs, victim); err != nil {
 				logger.Error(err, "Preempted pod", "pod", klog.KObj(victim), "preemptor", klog.KObj(pod))
 				errCh.SendErrorWithCancel(err, cancel)

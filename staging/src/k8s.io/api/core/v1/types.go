@@ -32,17 +32,27 @@ const (
 	NamespaceNodeLease string = "kube-node-lease"
 )
 
+// zhou: part of Pod spec.
+
 // Volume represents a named volume in a pod that may be accessed by any container in the pod.
 type Volume struct {
 	// name of the volume.
 	// Must be a DNS_LABEL and unique within the pod.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+
+	// zhou: anonymous field !!!
+
 	// volumeSource represents the location and type of the mounted volume.
 	// If not specified, the Volume is implied to be an EmptyDir.
 	// This implied behavior is deprecated and will be removed in a future version.
 	VolumeSource `json:",inline" protobuf:"bytes,2,opt,name=volumeSource"`
 }
+
+// zhou: used in Pod.Spec.Volume, Pod buildin volume source support.
+//       It's different from "PersistentVolumeSource" in PV.Spec.
+//       All these options except PVC/ConfigMap/CSIEphemeral/Ephemeral are not recommended used.
+//       We are prefer to use PV to describe source of volume.
 
 // Represents the source of a volume to mount.
 // Only one of its members may be specified.
@@ -77,10 +87,14 @@ type VolumeSource struct {
 	// into the Pod's container.
 	// +optional
 	GitRepo *GitRepoVolumeSource `json:"gitRepo,omitempty" protobuf:"bytes,5,opt,name=gitRepo"`
+
+	// zhou: Secret is used to fill volume
+
 	// secret represents a secret that should populate this volume.
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
 	// +optional
 	Secret *SecretVolumeSource `json:"secret,omitempty" protobuf:"bytes,6,opt,name=secret"`
+
 	// nfs represents an NFS mount on the host that shares a pod's lifetime
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs
 	// +optional
@@ -94,11 +108,15 @@ type VolumeSource struct {
 	// More info: https://examples.k8s.io/volumes/glusterfs/README.md
 	// +optional
 	Glusterfs *GlusterfsVolumeSource `json:"glusterfs,omitempty" protobuf:"bytes,9,opt,name=glusterfs"`
+
+	// zhou: ordinary path CSI dynamic provisiong.
+
 	// persistentVolumeClaimVolumeSource represents a reference to a
 	// PersistentVolumeClaim in the same namespace.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	PersistentVolumeClaim *PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty" protobuf:"bytes,10,opt,name=persistentVolumeClaim"`
+
 	// rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
 	// More info: https://examples.k8s.io/volumes/rbd/README.md
 	// +optional
@@ -126,9 +144,13 @@ type VolumeSource struct {
 	// azureFile represents an Azure File Service mount on the host and bind mount to the pod.
 	// +optional
 	AzureFile *AzureFileVolumeSource `json:"azureFile,omitempty" protobuf:"bytes,18,opt,name=azureFile"`
+
+	// zhou: ConfigMap is used to fill volume
+
 	// configMap represents a configMap that should populate this volume
 	// +optional
 	ConfigMap *ConfigMapVolumeSource `json:"configMap,omitempty" protobuf:"bytes,19,opt,name=configMap"`
+
 	// vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine
 	// +optional
 	VsphereVolume *VsphereVirtualDiskVolumeSource `json:"vsphereVolume,omitempty" protobuf:"bytes,20,opt,name=vsphereVolume"`
@@ -151,9 +173,16 @@ type VolumeSource struct {
 	// storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.
 	// +optional
 	StorageOS *StorageOSVolumeSource `json:"storageos,omitempty" protobuf:"bytes,27,opt,name=storageos"`
+
+	// zhou: CSI ephemeral storage, NOT normal CSI provisioned volume.
+	//       Specify the provisioner directly like volume plugins above.
+
 	// csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers (Beta feature).
 	// +optional
 	CSI *CSIVolumeSource `json:"csi,omitempty" protobuf:"bytes,28,opt,name=csi"`
+
+	// zhou: PVC request a CSI ephemeral storage, which provisioning according to StorageClass.
+
 	// ephemeral represents a volume that is handled by a cluster storage driver.
 	// The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
 	// and deleted when the pod is removed.
@@ -197,6 +226,8 @@ type PersistentVolumeClaimVolumeSource struct {
 	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,2,opt,name=readOnly"`
 }
 
+// zhou: used to describe backend volume of PV
+
 // PersistentVolumeSource is similar to VolumeSource but meant for the
 // administrator who creates PVs. Exactly one of its members must be set.
 type PersistentVolumeSource struct {
@@ -210,6 +241,9 @@ type PersistentVolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
 	// +optional
 	AWSElasticBlockStore *AWSElasticBlockStoreVolumeSource `json:"awsElasticBlockStore,omitempty" protobuf:"bytes,2,opt,name=awsElasticBlockStore"`
+
+	// zhou: hostpath volume represent using PV
+
 	// hostPath represents a directory on the host.
 	// Provisioned by a developer or tester.
 	// This is useful for single-node development and testing only!
@@ -217,15 +251,18 @@ type PersistentVolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
 	// +optional
 	HostPath *HostPathVolumeSource `json:"hostPath,omitempty" protobuf:"bytes,3,opt,name=hostPath"`
+
 	// glusterfs represents a Glusterfs volume that is attached to a host and
 	// exposed to the pod. Provisioned by an admin.
 	// More info: https://examples.k8s.io/volumes/glusterfs/README.md
 	// +optional
 	Glusterfs *GlusterfsPersistentVolumeSource `json:"glusterfs,omitempty" protobuf:"bytes,4,opt,name=glusterfs"`
+
 	// nfs represents an NFS mount on the host. Provisioned by an admin.
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#nfs
 	// +optional
 	NFS *NFSVolumeSource `json:"nfs,omitempty" protobuf:"bytes,5,opt,name=nfs"`
+
 	// rbd represents a Rados Block Device mount on the host that shares a pod's lifetime.
 	// More info: https://examples.k8s.io/volumes/rbd/README.md
 	// +optional
@@ -271,13 +308,20 @@ type PersistentVolumeSource struct {
 	// scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.
 	// +optional
 	ScaleIO *ScaleIOPersistentVolumeSource `json:"scaleIO,omitempty" protobuf:"bytes,19,opt,name=scaleIO"`
+
+	// zhou: local volume represent using PV
+
 	// local represents directly-attached storage with node affinity
 	// +optional
 	Local *LocalVolumeSource `json:"local,omitempty" protobuf:"bytes,20,opt,name=local"`
+
 	// storageOS represents a StorageOS volume that is attached to the kubelet's host machine and mounted into the pod
 	// More info: https://examples.k8s.io/volumes/storageos/README.md
 	// +optional
 	StorageOS *StorageOSPersistentVolumeSource `json:"storageos,omitempty" protobuf:"bytes,21,opt,name=storageos"`
+
+	// zhou: ordinary path, third party CSI driver volume represent using PV
+
 	// csi represents storage that is handled by an external CSI driver (Beta feature).
 	// +optional
 	CSI *CSIPersistentVolumeSource `json:"csi,omitempty" protobuf:"bytes,22,opt,name=csi"`
@@ -296,6 +340,8 @@ const (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.0
+
+// zhou:
 
 // PersistentVolume (PV) is a storage resource provisioned by an administrator.
 // It is analogous to a node.
@@ -321,19 +367,30 @@ type PersistentVolume struct {
 	Status PersistentVolumeStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
+// zhou:
+
 // PersistentVolumeSpec is the specification of a persistent volume.
 type PersistentVolumeSpec struct {
 	// capacity is the description of the persistent volume's resources and capacity.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#capacity
 	// +optional
 	Capacity ResourceList `json:"capacity,omitempty" protobuf:"bytes,1,rep,name=capacity,casttype=ResourceList,castkey=ResourceName"`
+
+	// zhou: anonymous field, indicate the volume type!!!
+
 	// persistentVolumeSource is the actual volume backing the persistent volume.
 	PersistentVolumeSource `json:",inline" protobuf:"bytes,2,opt,name=persistentVolumeSource"`
+
+	// zhou: define the access mode could be consumed.
+
 	// accessModes contains all ways the volume can be mounted.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes
 	// +optional
 	// +listType=atomic
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,3,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
+
+	// zhou: should only PVC be referred here.
+
 	// claimRef is part of a bi-directional binding between PersistentVolume and PersistentVolumeClaim.
 	// Expected to be non-nil when bound.
 	// claim.VolumeName is the authoritative bind between PV and PVC.
@@ -341,6 +398,7 @@ type PersistentVolumeSpec struct {
 	// +optional
 	// +structType=granular
 	ClaimRef *ObjectReference `json:"claimRef,omitempty" protobuf:"bytes,4,opt,name=claimRef"`
+
 	// persistentVolumeReclaimPolicy defines what happens to a persistent volume when released from its claim.
 	// Valid options are Retain (default for manually created PersistentVolumes), Delete (default
 	// for dynamically provisioned PersistentVolumes), and Recycle (deprecated).
@@ -348,6 +406,9 @@ type PersistentVolumeSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#reclaiming
 	// +optional
 	PersistentVolumeReclaimPolicy PersistentVolumeReclaimPolicy `json:"persistentVolumeReclaimPolicy,omitempty" protobuf:"bytes,5,opt,name=persistentVolumeReclaimPolicy,casttype=PersistentVolumeReclaimPolicy"`
+
+	// zhou: used in PV controller to perform binding logic.
+
 	// storageClassName is the name of StorageClass to which this persistent volume belongs. Empty value
 	// means that this volume does not belong to any StorageClass.
 	// +optional
@@ -358,10 +419,16 @@ type PersistentVolumeSpec struct {
 	// +optional
 	// +listType=atomic
 	MountOptions []string `json:"mountOptions,omitempty" protobuf:"bytes,7,opt,name=mountOptions"`
+
+	// zhou: default is Filesystem
+
 	// volumeMode defines if a volume is intended to be used with a formatted filesystem
 	// or to remain in raw block state. Value of Filesystem is implied when not included in spec.
 	// +optional
 	VolumeMode *PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,8,opt,name=volumeMode,casttype=PersistentVolumeMode"`
+
+	// zhou: could set node affinity for PV
+
 	// nodeAffinity defines constraints that limit what nodes this volume can be accessed from.
 	// This field influences the scheduling of pods that use this volume.
 	// +optional
@@ -399,6 +466,8 @@ const (
 	// The default policy is Retain.
 	PersistentVolumeReclaimRetain PersistentVolumeReclaimPolicy = "Retain"
 )
+
+// zhou:
 
 // PersistentVolumeMode describes how a volume is intended to be consumed, either Block or Filesystem.
 // +enum
@@ -447,6 +516,8 @@ type PersistentVolumeList struct {
 	Items []PersistentVolume `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou:
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.0
@@ -486,6 +557,8 @@ type PersistentVolumeClaimList struct {
 	Items []PersistentVolumeClaim `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou: VolumeName is filled by external provisioning sidecar
+
 // PersistentVolumeClaimSpec describes the common attributes of storage devices
 // and allows a Source for provider-specific attributes
 type PersistentVolumeClaimSpec struct {
@@ -494,9 +567,14 @@ type PersistentVolumeClaimSpec struct {
 	// +optional
 	// +listType=atomic
 	AccessModes []PersistentVolumeAccessMode `json:"accessModes,omitempty" protobuf:"bytes,1,rep,name=accessModes,casttype=PersistentVolumeAccessMode"`
+
+	// zhou: not be supported by external-provisioner ???
+	//       Could be used to match PV.
+
 	// selector is a label query over volumes to consider for binding.
 	// +optional
 	Selector *metav1.LabelSelector `json:"selector,omitempty" protobuf:"bytes,4,opt,name=selector"`
+
 	// resources represents the minimum resources the volume should have.
 	// If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
 	// that are lower than previous value but must still be higher than capacity recorded in the
@@ -504,17 +582,27 @@ type PersistentVolumeClaimSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
 	// +optional
 	Resources VolumeResourceRequirements `json:"resources,omitempty" protobuf:"bytes,2,opt,name=resources"`
+
+	// zhou: once PVC bound with PV, "VolumeName" is used to refer to PV.
+
 	// volumeName is the binding reference to the PersistentVolume backing this claim.
 	// +optional
 	VolumeName string `json:"volumeName,omitempty" protobuf:"bytes,3,opt,name=volumeName"`
+
+	// zhou:
+
 	// storageClassName is the name of the StorageClass required by the claim.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
 	// +optional
 	StorageClassName *string `json:"storageClassName,omitempty" protobuf:"bytes,5,opt,name=storageClassName"`
+
 	// volumeMode defines what type of volume is required by the claim.
 	// Value of Filesystem is implied when not included in claim spec.
 	// +optional
 	VolumeMode *PersistentVolumeMode `json:"volumeMode,omitempty" protobuf:"bytes,6,opt,name=volumeMode,casttype=PersistentVolumeMode"`
+
+	// zhou:
+
 	// dataSource field can be used to specify either:
 	// * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
 	// * An existing PVC (PersistentVolumeClaim)
@@ -525,6 +613,7 @@ type PersistentVolumeClaimSpec struct {
 	// If the namespace is specified, then dataSourceRef will not be copied to dataSource.
 	// +optional
 	DataSource *TypedLocalObjectReference `json:"dataSource,omitempty" protobuf:"bytes,7,opt,name=dataSource"`
+
 	// dataSourceRef specifies the object from which to populate the volume with data, if a non-empty
 	// volume is desired. This may be any object from a non-empty API group (non
 	// core object) or a PersistentVolumeClaim object.
@@ -779,6 +868,8 @@ type PersistentVolumeClaimStatus struct {
 	ModifyVolumeStatus *ModifyVolumeStatus `json:"modifyVolumeStatus,omitempty" protobuf:"bytes,9,opt,name=modifyVolumeStatus"`
 }
 
+// zhou: who will validate the access mode?
+
 // +enum
 type PersistentVolumeAccessMode string
 
@@ -813,6 +904,8 @@ const (
 	VolumeFailed PersistentVolumePhase = "Failed"
 )
 
+// zhou: PVC state Pending -> Bound -> Lost
+
 // +enum
 type PersistentVolumeClaimPhase string
 
@@ -826,6 +919,8 @@ const (
 	// volume does not exist any longer and all data on it was lost.
 	ClaimLost PersistentVolumeClaimPhase = "Lost"
 )
+
+// zhou: these devices could be used in hostpath, not only for File or Block device.
 
 // +enum
 type HostPathType string
@@ -847,6 +942,9 @@ const (
 	HostPathSocket HostPathType = "Socket"
 	// A character device must exist at the given path
 	HostPathCharDev HostPathType = "CharDevice"
+
+	// zhou: HostPath Volume to mount host Raw Block device.
+
 	// A block device must exist at the given path
 	HostPathBlockDev HostPathType = "BlockDevice"
 )
@@ -1101,6 +1199,7 @@ type CephFSVolumeSource struct {
 	ReadOnly bool `json:"readOnly,omitempty" protobuf:"varint,6,opt,name=readOnly"`
 }
 
+// zhou:
 // SecretReference represents a Secret Reference. It has enough information to retrieve secret
 // in any namespace
 // +structType=atomic
@@ -1154,6 +1253,8 @@ type FlockerVolumeSource struct {
 	// +optional
 	DatasetUUID string `json:"datasetUUID,omitempty" protobuf:"bytes,2,opt,name=datasetUUID"`
 }
+
+// zhou:
 
 // StorageMedium defines ways that storage can be allocated to a volume.
 type StorageMedium string
@@ -1292,6 +1393,8 @@ type FlexVolumeSource struct {
 	// +optional
 	Options map[string]string `json:"options,omitempty" protobuf:"bytes,5,rep,name=options"`
 }
+
+// zhou: EBS
 
 // Represents a Persistent Disk resource in AWS.
 //
@@ -1985,8 +2088,13 @@ type KeyToPath struct {
 	Mode *int32 `json:"mode,omitempty" protobuf:"varint,3,opt,name=mode"`
 }
 
+// zhou: could be directory or block device with filesystem to be mount.
+
 // Local represents directly-attached storage with node affinity (Beta feature)
 type LocalVolumeSource struct {
+
+	// zhou: path on the host, the path with container will be specified in container.VolumeMounts
+
 	// path of the full path to the volume on the node.
 	// It can be either a directory or block device (disk, partition, ...).
 	Path string `json:"path" protobuf:"bytes,1,opt,name=path"`
@@ -1999,11 +2107,15 @@ type LocalVolumeSource struct {
 	FSType *string `json:"fsType,omitempty" protobuf:"bytes,2,opt,name=fsType"`
 }
 
+// zhou: ordinary path, third party CSI driver volume represent using PV
+
 // Represents storage that is managed by an external CSI volume driver (Beta feature)
 type CSIPersistentVolumeSource struct {
 	// driver is the name of the driver to use for this volume.
 	// Required.
 	Driver string `json:"driver" protobuf:"bytes,1,opt,name=driver"`
+
+	// zhou: usually volume name/id in storage provider.
 
 	// volumeHandle is the unique volume name returned by the CSI volume
 	// plugin’s CreateVolume to refer to the volume on all subsequent calls.
@@ -2019,6 +2131,8 @@ type CSIPersistentVolumeSource struct {
 	// Ex. "ext4", "xfs", "ntfs".
 	// +optional
 	FSType string `json:"fsType,omitempty" protobuf:"bytes,4,opt,name=fsType"`
+
+	// zhou: all things below are copied from StorageClass.
 
 	// volumeAttributes of the volume to publish.
 	// +optional
@@ -2065,6 +2179,8 @@ type CSIPersistentVolumeSource struct {
 	NodeExpandSecretRef *SecretReference `json:"nodeExpandSecretRef,omitempty" protobuf:"bytes,10,opt,name=nodeExpandSecretRef"`
 }
 
+// zhou: CSI Ephemeral Inline Volume, will include parameters like StorageClass.
+
 // Represents a source location of a volume to mount, managed by an external CSI driver
 type CSIVolumeSource struct {
 	// driver is the name of the CSI driver that handles this volume.
@@ -2082,6 +2198,8 @@ type CSIVolumeSource struct {
 	// +optional
 	FSType *string `json:"fsType,omitempty" protobuf:"bytes,3,opt,name=fsType"`
 
+	// zhou: like StorageClass
+
 	// volumeAttributes stores driver-specific properties that are passed to the CSI
 	// driver. Consult your driver's documentation for supported values.
 	// +optional
@@ -2095,6 +2213,8 @@ type CSIVolumeSource struct {
 	// +optional
 	NodePublishSecretRef *LocalObjectReference `json:"nodePublishSecretRef,omitempty" protobuf:"bytes,5,opt,name=nodePublishSecretRef"`
 }
+
+// zhou: used in Generic ephemeral inline volumes
 
 // Represents an ephemeral volume that is handled by a normal storage driver.
 type EphemeralVolumeSource struct {
@@ -2219,6 +2339,8 @@ type VolumeMount struct {
 	SubPathExpr string `json:"subPathExpr,omitempty" protobuf:"bytes,6,opt,name=subPathExpr"`
 }
 
+// zhou: after initial mounting, how to handle new internal folders mount events.
+
 // MountPropagationMode describes mount propagation.
 // +enum
 type MountPropagationMode string
@@ -2256,6 +2378,8 @@ const (
 	// RecursiveReadOnlyEnabled enables recursive-readonly mode, or raise an error.
 	RecursiveReadOnlyEnabled RecursiveReadOnlyMode = "Enabled"
 )
+
+// zhou: specify a device path within container.
 
 // volumeDevice describes a mapping of a raw block device within a container.
 type VolumeDevice struct {
@@ -2557,6 +2681,8 @@ type ContainerResizePolicy struct {
 	RestartPolicy ResourceResizeRestartPolicy `json:"restartPolicy" protobuf:"bytes,2,opt,name=restartPolicy,casttype=ResourceResizeRestartPolicy"`
 }
 
+// zhou:
+
 // PreemptionPolicy describes a policy for if/when to preempt a pod.
 // +enum
 type PreemptionPolicy string
@@ -2658,6 +2784,8 @@ const (
 	TerminationMessagePathDefault string = "/dev/termination-log"
 )
 
+// zhou:
+
 // A single application container that you want to run within a pod.
 type Container struct {
 	// Name of the container specified as a DNS_LABEL.
@@ -2739,6 +2867,9 @@ type Container struct {
 	// +optional
 	// +listType=atomic
 	ResizePolicy []ContainerResizePolicy `json:"resizePolicy,omitempty" protobuf:"bytes,23,rep,name=resizePolicy"`
+
+	// zhou: only applicable for init containers.
+
 	// RestartPolicy defines the restart behavior of individual containers in a pod.
 	// This field may only be set for init containers, and the only allowed value is "Always".
 	// For non-init containers or when this field is not specified,
@@ -2757,6 +2888,9 @@ type Container struct {
 	// +featureGate=SidecarContainers
 	// +optional
 	RestartPolicy *ContainerRestartPolicy `json:"restartPolicy,omitempty" protobuf:"bytes,24,opt,name=restartPolicy,casttype=ContainerRestartPolicy"`
+
+	// zhou: volume with filesystem
+
 	// Pod volumes to mount into the container's filesystem.
 	// Cannot be updated.
 	// +optional
@@ -2765,6 +2899,9 @@ type Container struct {
 	// +listType=map
 	// +listMapKey=mountPath
 	VolumeMounts []VolumeMount `json:"volumeMounts,omitempty" patchStrategy:"merge" patchMergeKey:"mountPath" protobuf:"bytes,9,rep,name=volumeMounts"`
+
+	// zhou: block devices
+
 	// volumeDevices is the list of block devices to be used by the container.
 	// +patchMergeKey=devicePath
 	// +patchStrategy=merge
@@ -2822,6 +2959,9 @@ type Container struct {
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
 	// +optional
 	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
+
+	// zhou:
+
 	// SecurityContext defines the security options the container should be run with.
 	// If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
@@ -2888,6 +3028,8 @@ type LifecycleHandler struct {
 	// +optional
 	Sleep *SleepAction `json:"sleep,omitempty" protobuf:"bytes,4,opt,name=sleep"`
 }
+
+// zhou: no more than one hook could be defined.
 
 // Lifecycle describes actions that the management system should take in response to container lifecycle
 // events. For the PostStart and PreStop lifecycle handlers, management of the container blocks
@@ -2964,6 +3106,8 @@ type ContainerStateTerminated struct {
 	// +optional
 	ContainerID string `json:"containerID,omitempty" protobuf:"bytes,7,opt,name=containerID"`
 }
+
+// zhou: container has its own state different from Pod's phase
 
 // ContainerState holds a possible state of container.
 // Only one of its members may be specified.
@@ -3080,6 +3224,8 @@ type LinuxContainerUser struct {
 	SupplementalGroups []int64 `json:"supplementalGroups,omitempty" protobuf:"varint,3,rep,name=supplementalGroups"`
 }
 
+// zhou: "Note: When a Pod is being deleted, it is shown as Terminating by some kubectl commands. This Terminating status is not one of the Pod phases."
+
 // PodPhase is a label for the condition of a pod at the current time.
 // +enum
 type PodPhase string
@@ -3093,6 +3239,9 @@ const (
 	// PodRunning means the pod has been bound to a node and all of the containers have been started.
 	// At least one container is still running or is in the process of being restarted.
 	PodRunning PodPhase = "Running"
+
+	// zhou: Pod already terminated with success result.
+
 	// PodSucceeded means that all containers in the pod have voluntarily terminated
 	// with a container exit code of 0, and the system is not going to restart any of these containers.
 	PodSucceeded PodPhase = "Succeeded"
@@ -3149,6 +3298,8 @@ const (
 	// disruption was initiated by scheduler's preemption.
 	PodReasonPreemptionByScheduler = "PreemptionByScheduler"
 )
+
+// zhou: pod internal detailed state.
 
 // PodCondition contains details for the current condition of this pod.
 type PodCondition struct {
@@ -3256,6 +3407,8 @@ const (
 	DefaultTerminationGracePeriodSeconds = 30
 )
 
+// zhou: Pod's NodeSelector
+
 // A node selector represents the union of the results of one or more label queries
 // over a set of nodes; that is, it represents the OR of the selectors represented
 // by the node selector terms.
@@ -3313,6 +3466,8 @@ const (
 	NodeSelectorOpLt           NodeSelectorOperator = "Lt"
 )
 
+// zhou: used by Scheduler to select node. All requirements of them should be matched.
+
 // A topology selector term represents the result of label queries.
 // A null or empty topology selector term matches no objects.
 // The requirements of them are ANDed.
@@ -3339,6 +3494,8 @@ type TopologySelectorLabelRequirement struct {
 	Values []string `json:"values" protobuf:"bytes,2,rep,name=values"`
 }
 
+// zhou:
+
 // Affinity is a group of affinity scheduling rules.
 type Affinity struct {
 	// Describes node affinity scheduling rules for the pod.
@@ -3351,6 +3508,8 @@ type Affinity struct {
 	// +optional
 	PodAntiAffinity *PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
 }
+
+// zhou: Pod affinity strategy
 
 // Pod affinity is a group of inter pod affinity scheduling rules.
 type PodAffinity struct {
@@ -3494,6 +3653,8 @@ type PodAffinityTerm struct {
 	MismatchLabelKeys []string `json:"mismatchLabelKeys,omitempty" protobuf:"bytes,6,opt,name=mismatchLabelKeys"`
 }
 
+// zhou: Node affinity strategy
+
 // Node affinity is a group of node affinity scheduling rules.
 type NodeAffinity struct {
 	// NOT YET IMPLEMENTED. TODO: Uncomment field once it is implemented.
@@ -3512,6 +3673,9 @@ type NodeAffinity struct {
 	// may or may not try to eventually evict the pod from its node.
 	// +optional
 	RequiredDuringSchedulingIgnoredDuringExecution *NodeSelector `json:"requiredDuringSchedulingIgnoredDuringExecution,omitempty" protobuf:"bytes,1,opt,name=requiredDuringSchedulingIgnoredDuringExecution"`
+
+	// zhou: weight to impact scheduler
+
 	// The scheduler will prefer to schedule pods to nodes that satisfy
 	// the affinity expressions specified by this field, but it may choose
 	// a node that violates one or more of the expressions. The node that is
@@ -3553,6 +3717,10 @@ type Taint struct {
 	TimeAdded *metav1.Time `json:"timeAdded,omitempty" protobuf:"bytes,4,opt,name=timeAdded"`
 }
 
+// zhou: only these effects could be used.
+//       "TaintEffectNoSchedule" and "TaintEffectNoExecute" will impact scheduler's filter.
+//       "TaintEffectPreferNoSchedule" will impact scheduler's score.
+
 // +enum
 type TaintEffect string
 
@@ -3576,6 +3744,8 @@ const (
 	// Currently enforced by NodeController.
 	TaintEffectNoExecute TaintEffect = "NoExecute"
 )
+
+// zhou: README,
 
 // The pod this Toleration is attached to tolerates any taint that matches
 // the triple <key,value,effect> using the matching operator <operator>.
@@ -3620,6 +3790,8 @@ type PodReadinessGate struct {
 	// ConditionType refers to a condition in the pod's condition list with matching type.
 	ConditionType PodConditionType `json:"conditionType" protobuf:"bytes,1,opt,name=conditionType,casttype=PodConditionType"`
 }
+
+// zhou:
 
 // PodSpec is a description of a pod.
 type PodSpec struct {
@@ -3697,6 +3869,9 @@ type PodSpec struct {
 	// explicitly to 'ClusterFirstWithHostNet'.
 	// +optional
 	DNSPolicy DNSPolicy `json:"dnsPolicy,omitempty" protobuf:"bytes,6,opt,name=dnsPolicy,casttype=DNSPolicy"`
+
+	// zhou:
+
 	// NodeSelector is a selector which must be true for the pod to fit on a node.
 	// Selector which must match a node's labels for the pod to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -3748,10 +3923,16 @@ type PodSpec struct {
 	// +k8s:conversion-gen=false
 	// +optional
 	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty" protobuf:"varint,27,opt,name=shareProcessNamespace"`
+
+	// zhou:
+
 	// SecurityContext holds pod-level security attributes and common container settings.
 	// Optional: Defaults to empty.  See type description for default values of each field.
 	// +optional
 	SecurityContext *PodSecurityContext `json:"securityContext,omitempty" protobuf:"bytes,14,opt,name=securityContext"`
+
+	// zhou: could also be specified in ServiceAccount
+
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
@@ -3769,9 +3950,13 @@ type PodSpec struct {
 	// If not specified, the pod will not have a domainname at all.
 	// +optional
 	Subdomain string `json:"subdomain,omitempty" protobuf:"bytes,17,opt,name=subdomain"`
+
+	// zhou: pod affinity
+
 	// If specified, the pod's scheduling constraints
 	// +optional
 	Affinity *Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
+
 	// If specified, the pod will be dispatched by specified scheduler.
 	// If not specified, the pod will be dispatched by default scheduler.
 	// +optional
@@ -3788,6 +3973,10 @@ type PodSpec struct {
 	// +listType=map
 	// +listMapKey=ip
 	HostAliases []HostAlias `json:"hostAliases,omitempty" patchStrategy:"merge" patchMergeKey:"ip" protobuf:"bytes,23,rep,name=hostAliases"`
+
+	// zhou: "Priority" can not set by user explictly. It is filled by Priority Admission Controller
+	//       according to "PriorityClassName".
+
 	// If specified, indicates the pod's priority. "system-node-critical" and
 	// "system-cluster-critical" are two special keywords which indicate the
 	// highest priorities with the former being the highest priority. Any other
@@ -3803,11 +3992,15 @@ type PodSpec struct {
 	// The higher the value, the higher the priority.
 	// +optional
 	Priority *int32 `json:"priority,omitempty" protobuf:"bytes,25,opt,name=priority"`
+
 	// Specifies the DNS parameters of a pod.
 	// Parameters specified here will be merged to the generated DNS
 	// configuration based on DNSPolicy.
 	// +optional
 	DNSConfig *PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+
+	// zhou: "ReadinessGates", README
+
 	// If specified, all readiness gates will be evaluated for pod readiness.
 	// A pod is ready when all its containers are ready AND
 	// all conditions specified in the readiness gates have status equal to "True"
@@ -3815,6 +4008,9 @@ type PodSpec struct {
 	// +optional
 	// +listType=atomic
 	ReadinessGates []PodReadinessGate `json:"readinessGates,omitempty" protobuf:"bytes,28,opt,name=readinessGates"`
+
+	// zhou: "RuntimeClassName" can not set by user explictly. It is filled by RuntimeClass Admission Controller
+
 	// RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used
 	// to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run.
 	// If unset or empty, the "legacy" RuntimeClass will be used, which is an implicit class with an
@@ -3822,11 +4018,19 @@ type PodSpec struct {
 	// More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
 	// +optional
 	RuntimeClassName *string `json:"runtimeClassName,omitempty" protobuf:"bytes,29,opt,name=runtimeClassName"`
+
+	// zhou: pass Service name as env variables to Pod.
+	//       In case too much Service defined, such error will happen due to too much env variables in exec cmd.
+	//       "standard_init_linux.go:228: exec user process caused: argument list too long".
+
 	// EnableServiceLinks indicates whether information about services should be injected into pod's
 	// environment variables, matching the syntax of Docker links.
 	// Optional: Defaults to true.
 	// +optional
 	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty" protobuf:"varint,30,opt,name=enableServiceLinks"`
+
+	// zhou:
+
 	// PreemptionPolicy is the Policy for preempting pods with lower priority.
 	// One of Never, PreemptLowerPriority.
 	// Defaults to PreemptLowerPriority if unset.
@@ -3841,6 +4045,9 @@ type PodSpec struct {
 	// More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md
 	// +optional
 	Overhead ResourceList `json:"overhead,omitempty" protobuf:"bytes,32,opt,name=overhead"`
+
+	// zhou:
+
 	// TopologySpreadConstraints describes how a group of pods ought to spread across topology
 	// domains. Scheduler will schedule pods in a way which abides by the constraints.
 	// All topologySpreadConstraints are ANDed.
@@ -3851,6 +4058,7 @@ type PodSpec struct {
 	// +listMapKey=topologyKey
 	// +listMapKey=whenUnsatisfiable
 	TopologySpreadConstraints []TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey" protobuf:"bytes,33,opt,name=topologySpreadConstraints"`
+
 	// If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default).
 	// In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname).
 	// In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN.
@@ -4212,6 +4420,8 @@ const (
 	SupplementalGroupsPolicyStrict SupplementalGroupsPolicy = "Strict"
 )
 
+// zhou: README,
+
 // PodSecurityContext holds pod-level security attributes and common container settings.
 // Some fields are also present in container.securityContext.  Field values of
 // container.securityContext take precedence over field values of PodSecurityContext.
@@ -4542,6 +4752,9 @@ type EphemeralContainerCommon struct {
 	// Lifecycle is not allowed for ephemeral containers.
 	// +optional
 	Lifecycle *Lifecycle `json:"lifecycle,omitempty" protobuf:"bytes,12,opt,name=lifecycle"`
+
+	// zhou:
+
 	// Optional: Path at which the file to which the container's termination message
 	// will be written is mounted into the container's filesystem.
 	// Message written is intended to be brief final status, such as an assertion failure message.
@@ -4623,6 +4836,8 @@ type EphemeralContainer struct {
 	// +optional
 	TargetContainerName string `json:"targetContainerName,omitempty" protobuf:"bytes,2,opt,name=targetContainerName"`
 }
+
+// zhou:
 
 // PodStatus represents information about the status of a pod. Status may trail the actual
 // state of a system, especially if the node that hosts the pod cannot contact the control
@@ -4709,6 +4924,8 @@ type PodStatus struct {
 	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty" protobuf:"bytes,7,opt,name=startTime"`
 
+	// zhou: containers' state
+
 	// The list has one entry per init container in the manifest. The most recent successful
 	// init container will have ready = true, the most recently started container will have
 	// startTime set.
@@ -4766,6 +4983,8 @@ type PodStatusResult struct {
 	// +optional
 	Status PodStatus `json:"status,omitempty" protobuf:"bytes,2,opt,name=status"`
 }
+
+// zhou:
 
 // +genclient
 // +genclient:method=UpdateEphemeralContainers,verb=update,subresource=ephemeralcontainers
@@ -5048,6 +5267,8 @@ const (
 	// to 'NodePort' type.
 	ServiceTypeLoadBalancer ServiceType = "LoadBalancer"
 
+	// zhou: trigger a CNAME recodrd in cluster DNS, like CoreDNS.
+
 	// ServiceTypeExternalName means a service consists of only a reference to
 	// an external name that kubedns or equivalent will return as a CNAME
 	// record, with no exposing or proxying of any pods involved.
@@ -5077,6 +5298,9 @@ type ServiceInternalTrafficPolicyType = ServiceInternalTrafficPolicy
 // and LoadBalancer IPs.
 // +enum
 type ServiceExternalTrafficPolicy string
+
+// zhou: which is used to prevent unnecessary network hops between nodes when external traffic arrives
+//       in the cluster.
 
 const (
 	// ServiceExternalTrafficPolicyCluster routes traffic to all endpoints.
@@ -5214,6 +5438,8 @@ const (
 // +enum
 type IPFamilyPolicyType = IPFamilyPolicy
 
+// zhou:
+
 // ServiceSpec describes the attributes that a user creates on a service.
 type ServiceSpec struct {
 	// The list of ports that are exposed by this service.
@@ -5225,6 +5451,8 @@ type ServiceSpec struct {
 	// +listMapKey=protocol
 	Ports []ServicePort `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"port" protobuf:"bytes,1,rep,name=ports"`
 
+	// zhou:
+
 	// Route service traffic to pods with label keys and values matching this
 	// selector. If empty or not present, the service is assumed to have an
 	// external process managing its endpoints, which Kubernetes will not
@@ -5234,6 +5462,8 @@ type ServiceSpec struct {
 	// +optional
 	// +mapType=atomic
 	Selector map[string]string `json:"selector,omitempty" protobuf:"bytes,2,rep,name=selector"`
+
+	// zhou: README,
 
 	// clusterIP is the IP address of the service and is usually assigned
 	// randomly. If an address is specified manually, is in-range (as per
@@ -5299,6 +5529,8 @@ type ServiceSpec struct {
 	// +optional
 	Type ServiceType `json:"type,omitempty" protobuf:"bytes,4,opt,name=type,casttype=ServiceType"`
 
+	// zhou: README, used to expose service outside.
+
 	// externalIPs is a list of IP addresses for which nodes in the cluster
 	// will also accept traffic for this service.  These IPs are not managed by
 	// Kubernetes.  The user is responsible for ensuring that traffic arrives
@@ -5334,12 +5566,16 @@ type ServiceSpec struct {
 	// +listType=atomic
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty" protobuf:"bytes,9,opt,name=loadBalancerSourceRanges"`
 
+	// zhou: used in ExternalName Service
+
 	// externalName is the external reference that discovery mechanisms will
 	// return as an alias for this service (e.g. a DNS CNAME record). No
 	// proxying will be involved.  Must be a lowercase RFC-1123 hostname
 	// (https://tools.ietf.org/html/rfc1123) and requires `type` to be "ExternalName".
 	// +optional
 	ExternalName string `json:"externalName,omitempty" protobuf:"bytes,10,opt,name=externalName"`
+
+	// zhou:
 
 	// externalTrafficPolicy describes how nodes distribute service traffic they
 	// receive on one of the Service's "externally-facing" addresses (NodePorts,
@@ -5370,6 +5606,14 @@ type ServiceSpec struct {
 	// +optional
 	HealthCheckNodePort int32 `json:"healthCheckNodePort,omitempty" protobuf:"bytes,12,opt,name=healthCheckNodePort"`
 
+	// zhou: used to respect or disregard the Readines of Pod.
+	//       False: will not publish the NotReady Pods' Addresses.
+	//              Common use case.
+	//       True: will publish the NotReady Addresses.
+	//  		   Used in StatufullSet's Headless Service.
+	//             In this case, all endpoints are considered "ready" even if the Pods themselves are not.
+	//             Then, Pod discovery can be done through the Endpoints or EndpointSlice resources.
+
 	// publishNotReadyAddresses indicates that any agent which deals with endpoints for this
 	// Service should disregard any indications of ready/not-ready.
 	// The primary use case for setting this field is for a StatefulSet's Headless Service to
@@ -5380,6 +5624,8 @@ type ServiceSpec struct {
 	// through the Endpoints or EndpointSlice resources can safely assume this behavior.
 	// +optional
 	PublishNotReadyAddresses bool `json:"publishNotReadyAddresses,omitempty" protobuf:"varint,13,opt,name=publishNotReadyAddresses"`
+
+	// zhou:
 
 	// sessionAffinityConfig contains the configurations of session affinity.
 	// +optional
@@ -5445,6 +5691,8 @@ type ServiceSpec struct {
 	// +optional
 	LoadBalancerClass *string `json:"loadBalancerClass,omitempty" protobuf:"bytes,21,opt,name=loadBalancerClass"`
 
+	// zhou:
+
 	// InternalTrafficPolicy describes how nodes distribute service traffic they
 	// receive on the ClusterIP. If set to "Local", the proxy will assume that pods
 	// only want to talk to endpoints of the service on the same node as the pod,
@@ -5466,6 +5714,8 @@ type ServiceSpec struct {
 	TrafficDistribution *string `json:"trafficDistribution,omitempty" protobuf:"bytes,23,opt,name=trafficDistribution"`
 }
 
+// zhou:
+
 // ServicePort contains information on service's port.
 type ServicePort struct {
 	// The name of this port within the service. This must be a DNS_LABEL.
@@ -5475,6 +5725,8 @@ type ServicePort struct {
 	// Optional if only one ServicePort is defined on this service.
 	// +optional
 	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+
+	// zhou: kube-proxy need to understhand the protocol to setup iptable.
 
 	// The IP protocol for this port. Supports "TCP", "UDP", and "SCTP".
 	// Default is TCP.
@@ -5503,6 +5755,8 @@ type ServicePort struct {
 	// The port that will be exposed by this service.
 	Port int32 `json:"port" protobuf:"varint,3,opt,name=port"`
 
+	// zhou: clusterIP=None means headless service, just for discovery.
+
 	// Number or name of the port to access on the pods targeted by the service.
 	// Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.
 	// If this is a string, it will be looked up as a named port in the
@@ -5526,6 +5780,8 @@ type ServicePort struct {
 	// +optional
 	NodePort int32 `json:"nodePort,omitempty" protobuf:"varint,5,opt,name=nodePort"`
 }
+
+// zhou:
 
 // +genclient
 // +genclient:skipVerbs=deleteCollection
@@ -5576,6 +5832,8 @@ type ServiceList struct {
 	Items []Service `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou:
+
 // +genclient
 // +genclient:method=CreateToken,verb=create,subresource=token,input=k8s.io/api/authentication/v1.TokenRequest,result=k8s.io/api/authentication/v1.TokenRequest
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -5592,6 +5850,8 @@ type ServiceAccount struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
+	// zhou: Mountable secrets.
+
 	// Secrets is a list of the secrets in the same namespace that pods running using this ServiceAccount are allowed to use.
 	// Pods are only limited to this list if this service account has a "kubernetes.io/enforce-mountable-secrets" annotation set to "true".
 	// This field should not be used to find auto-generated service account token secrets for use outside of pods.
@@ -5604,6 +5864,8 @@ type ServiceAccount struct {
 	// +listMapKey=name
 	Secrets []ObjectReference `json:"secrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=secrets"`
 
+	// zhou: "Image pull secrets"
+
 	// ImagePullSecrets is a list of references to secrets in the same namespace to use for pulling any images
 	// in pods that reference this ServiceAccount. ImagePullSecrets are distinct from Secrets because Secrets
 	// can be mounted in the pod, but ImagePullSecrets are only accessed by the kubelet.
@@ -5611,6 +5873,8 @@ type ServiceAccount struct {
 	// +optional
 	// +listType=atomic
 	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty" protobuf:"bytes,3,rep,name=imagePullSecrets"`
+
+	// zhou:
 
 	// AutomountServiceAccountToken indicates whether pods running as this service account should have an API token automatically mounted.
 	// Can be overridden at the pod level.
@@ -5670,6 +5934,8 @@ type Endpoints struct {
 	Subsets []EndpointSubset `json:"subsets,omitempty" protobuf:"bytes,2,rep,name=subsets"`
 }
 
+// zhou: a group of addresses with same ports.
+
 // EndpointSubset is a group of addresses with a common set of ports. The
 // expanded set of endpoints is the Cartesian product of Addresses x Ports.
 // For example, given:
@@ -5689,12 +5955,18 @@ type EndpointSubset struct {
 	// +optional
 	// +listType=atomic
 	Addresses []EndpointAddress `json:"addresses,omitempty" protobuf:"bytes,1,rep,name=addresses"`
+
+	// zhou: Readiness Probe is defined but to response with 200 OK.
+
 	// IP addresses which offer the related ports but are not currently marked as ready
 	// because they have not yet finished starting, have recently failed a readiness check,
 	// or have recently failed a liveness check.
 	// +optional
 	// +listType=atomic
 	NotReadyAddresses []EndpointAddress `json:"notReadyAddresses,omitempty" protobuf:"bytes,2,rep,name=notReadyAddresses"`
+
+	// zhou: common Ports on above addresses.
+
 	// Port numbers available on the related IP addresses.
 	// +optional
 	// +listType=atomic
@@ -5966,8 +6238,12 @@ type NodeConfigStatus struct {
 	Error string `json:"error,omitempty" protobuf:"bytes,4,opt,name=error"`
 }
 
+// zhou: lots of information
+
 // NodeStatus is information about the current status of a node.
 type NodeStatus struct {
+	// zhou: total resource owned by this node.
+
 	// Capacity represents the total resources of a node.
 	// More info: https://kubernetes.io/docs/reference/node/node-status/#capacity
 	// +optional
@@ -6008,10 +6284,16 @@ type NodeStatus struct {
 	// Endpoints of daemons running on the Node.
 	// +optional
 	DaemonEndpoints NodeDaemonEndpoints `json:"daemonEndpoints,omitempty" protobuf:"bytes,6,opt,name=daemonEndpoints"`
+
+	// zhou:
+
 	// Set of ids/uuids to uniquely identify the node.
 	// More info: https://kubernetes.io/docs/concepts/nodes/node/#info
 	// +optional
 	NodeInfo NodeSystemInfo `json:"nodeInfo,omitempty" protobuf:"bytes,7,opt,name=nodeInfo"`
+
+	// zhou: images used by containers in this node
+
 	// List of container images on this node
 	// +optional
 	// +listType=atomic
@@ -6020,6 +6302,9 @@ type NodeStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumesInUse []UniqueVolumeName `json:"volumesInUse,omitempty" protobuf:"bytes,9,rep,name=volumesInUse"`
+
+	// zhou: attached volume on this node.
+
 	// List of volumes that are attached to the node.
 	// +optional
 	// +listType=atomic
@@ -6196,6 +6481,8 @@ type NodeAddress struct {
 // ResourceName is the name identifying various resources in a ResourceList.
 type ResourceName string
 
+// zhou: resource type
+
 // Resource names must be not more than 63 characters, consisting of upper- or lower-case alphanumeric characters,
 // with the -, _, and . characters allowed anywhere, except the first or last character.
 // The default convention, matching that for annotations, is to use lower-case names, with dashes, rather than
@@ -6223,6 +6510,8 @@ const (
 
 // ResourceList is a set of (resource name, quantity) pairs.
 type ResourceList map[ResourceName]resource.Quantity
+
+// zhou:
 
 // +genclient
 // +genclient:nonNamespaced
@@ -6723,6 +7012,8 @@ const (
 	EventTypeWarning string = "Warning"
 )
 
+// zhou:
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.0
@@ -6870,6 +7161,8 @@ type LimitRangeSpec struct {
 	// +listType=atomic
 	Limits []LimitRangeItem `json:"limits" protobuf:"bytes,1,rep,name=limits"`
 }
+
+// zhou: README,
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -7036,6 +7329,8 @@ type ResourceQuotaStatus struct {
 	// +optional
 	Used ResourceList `json:"used,omitempty" protobuf:"bytes,2,rep,name=used,casttype=ResourceList,castkey=ResourceName"`
 }
+
+// zhou: README,
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -7224,6 +7519,8 @@ type SecretList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.2
 
+// zhou:
+
 // ConfigMap holds configuration data for pods to consume.
 type ConfigMap struct {
 	metav1.TypeMeta `json:",inline"`
@@ -7391,6 +7688,8 @@ type DownwardAPIProjection struct {
 	// +listType=atomic
 	Items []DownwardAPIVolumeFile `json:"items,omitempty" protobuf:"bytes,1,rep,name=items"`
 }
+
+// zhou: README,
 
 // SecurityContext holds security configuration that will be applied to a container.
 // Some fields are present in both SecurityContext and PodSecurityContext.  When both

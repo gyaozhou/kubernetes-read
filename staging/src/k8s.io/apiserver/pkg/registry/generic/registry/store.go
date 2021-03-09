@@ -81,6 +81,12 @@ type GenericStore interface {
 	GetDeleteStrategy() rest.RESTDeleteStrategy
 }
 
+// zhou: README, implement k8s.io/apiserver/pkg/registry/rest/rest.go "type StandardStorage interface{}"
+//       provide a mechanism to perform graceful clean up work before remove object from
+//       etcd (Storage/Interface).
+//       Any object which want to be persistent, need embeded this "Store struct".
+//       e.g. "pkg/registry/core/pod/storage/storage.go" for Pod persistent.
+
 // Store implements k8s.io/apiserver/pkg/registry/rest.StandardStorage. It's
 // intended to be embeddable and allows the consumer to implement any
 // non-generic functions that are required. This object is intended to be
@@ -406,6 +412,8 @@ func finishNothing(context.Context, bool) {}
 // generated names and a 50% probability occurs at ~4500
 // generated names.
 const maxNameGenerationCreateAttempts = 8
+
+// zhou: README, create object in store
 
 // Create inserts a new item according to the unique key from the object.
 // Note that registries may mutate the input object (e.g. in the strategy
@@ -969,6 +977,8 @@ func deletionFinalizersForGarbageCollection(ctx context.Context, e *Store, acces
 	return true, newFinalizers
 }
 
+// zhou: README,
+
 // markAsDeleting sets the obj's DeletionGracePeriodSeconds to 0, and sets the
 // DeletionTimestamp to "now" if there is no existing deletionTimestamp or if the existing
 // deletionTimestamp is further in future. Finalizers are watching for such updates and will
@@ -993,6 +1003,8 @@ func markAsDeleting(obj runtime.Object, now time.Time) (err error) {
 	objectMeta.SetDeletionGracePeriodSeconds(&zero)
 	return nil
 }
+
+// zhou: README,
 
 // updateForGracefulDeletionAndFinalizers updates the given object for
 // graceful deletion and finalization by setting the deletion timestamp and
@@ -1090,6 +1102,8 @@ func (e *Store) updateForGracefulDeletionAndFinalizers(ctx context.Context, name
 		return storeerr.InterpretUpdateError(err, e.qualifiedResourceFromContext(ctx), name), false, false, out, lastExisting
 	}
 }
+
+// zhou: README, generic implementation for object deletion
 
 // Delete removes the item from storage.
 // options can be mutated by rest.BeforeDelete due to a graceful deletion strategy.

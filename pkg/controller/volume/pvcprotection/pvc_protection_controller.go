@@ -54,6 +54,10 @@ type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 }
 
+// zhou: watch PVC add/update events
+//       watch Pod add/delete/update events.
+//       handle finalizer "kubernetes.io/pvc-protection"
+
 // NewPVCProtectionController returns a new instance of PVCProtectionController.
 func NewPVCProtectionController(logger klog.Logger, pvcInformer coreinformers.PersistentVolumeClaimInformer, podInformer coreinformers.PodInformer, cl clientset.Interface) (*Controller, error) {
 	e := &Controller{
@@ -147,6 +151,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
+// zhou: handle PVC queue
+
 func (c *Controller) processPVC(ctx context.Context, pvcNamespace, pvcName string) error {
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Processing PVC", "PVC", klog.KRef(pvcNamespace, pvcName))
@@ -163,6 +169,8 @@ func (c *Controller) processPVC(ctx context.Context, pvcNamespace, pvcName strin
 	if err != nil {
 		return err
 	}
+
+	// zhou: remove finalizer if PVC is being deleted and no active Pod is using it.
 
 	if protectionutil.IsDeletionCandidate(pvc, volumeutil.PVCProtectionFinalizer) {
 		// PVC should be deleted. Check if it's used and remove finalizer if
@@ -212,6 +220,8 @@ func (c *Controller) removeFinalizer(ctx context.Context, pvc *v1.PersistentVolu
 	logger.V(3).Info("Removed protection finalizer from PVC", "PVC", klog.KObj(pvc))
 	return nil
 }
+
+// zhou: is any active Pod is using this PVC
 
 func (c *Controller) isBeingUsed(ctx context.Context, pvc *v1.PersistentVolumeClaim) (bool, error) {
 	// Look for a Pod using pvc in the Informer's cache. If one is found the
@@ -323,6 +333,8 @@ func podIsShutDown(pod *v1.Pod) bool {
 	return pod.DeletionTimestamp != nil && pod.DeletionGracePeriodSeconds != nil && *pod.DeletionGracePeriodSeconds == 0
 }
 
+// zhou: add PVC to queue
+
 // pvcAddedUpdated reacts to pvc added/updated events
 func (c *Controller) pvcAddedUpdated(logger klog.Logger, obj interface{}) {
 	pvc, ok := obj.(*v1.PersistentVolumeClaim)
@@ -341,6 +353,8 @@ func (c *Controller) pvcAddedUpdated(logger klog.Logger, obj interface{}) {
 		c.queue.Add(key)
 	}
 }
+
+// zhou: add Pod dependent PVC to queue.
 
 // podAddedDeletedUpdated reacts to Pod events
 func (c *Controller) podAddedDeletedUpdated(logger klog.Logger, old, new interface{}, deleted bool) {
@@ -377,6 +391,8 @@ func (*Controller) parsePod(obj interface{}) *v1.Pod {
 	}
 	return pod
 }
+
+// zhou: if Pod was deleted, enqueue dependent PVC.
 
 func (c *Controller) enqueuePVCs(logger klog.Logger, pod *v1.Pod, deleted bool) {
 	// Filter out pods that can't help us to remove a finalizer on PVC

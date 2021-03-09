@@ -93,6 +93,8 @@ func defaultRequestRetryFn(maxRetries int) WithRetry {
 	return &withRetry{maxRetries: maxRetries}
 }
 
+// zhou: README, hold every a a REST api request needed.
+
 // Request allows for building up a request to a server in a chained fashion.
 // Any errors are stored until the end of your call, so you only have to
 // check once.
@@ -1097,6 +1099,8 @@ func newDNSMetricsTrace(ctx context.Context) *httptrace.ClientTrace {
 	}
 }
 
+// zhou: README, "fn" used to parse response
+
 // request connects to the server and invokes the provided function when a server response is
 // received. It handles retry behavior and up front validation of requests. It will invoke
 // fn at most once. It will return an error if a problem occurred prior to connecting to the
@@ -1190,6 +1194,8 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 		}
 	}
 }
+
+// zhou: README,
 
 // Do formats and executes the request. Returns a Result object for easy response
 // processing.
@@ -1492,6 +1498,8 @@ func (r Result) ContentType(contentType *string) Result {
 	*contentType = r.contentType
 	return r
 }
+
+// zhou: README,
 
 // Into stores the result into obj, if possible. If obj is nil it is ignored.
 // If the returned object is of type Status and has .Status != StatusSuccess, the

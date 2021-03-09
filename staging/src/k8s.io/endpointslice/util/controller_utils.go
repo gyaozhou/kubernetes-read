@@ -47,6 +47,8 @@ var semanticIgnoreResourceVersion = conversion.EqualitiesOrDie(
 	},
 )
 
+// zhou: return Service Namespaced Name if Pod matching its Selector
+
 // GetPodServiceMemberships returns a set of Service keys for Services that have
 // a selector matching the given pod.
 func GetPodServiceMemberships(serviceLister v1listers.ServiceLister, pod *v1.Pod) (sets.String, error) {
@@ -61,10 +63,14 @@ func GetPodServiceMemberships(serviceLister v1listers.ServiceLister, pod *v1.Pod
 			// if the service has a nil selector this means selectors match nothing, not everything.
 			continue
 		}
+
+		// zhou: get Namespace/Name in normal case
+
 		key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(service)
 		if err != nil {
 			return nil, err
 		}
+
 		if labels.ValidatedSetSelector(service.Spec.Selector).Matches(labels.Set(pod.Labels)) {
 			set.Insert(key)
 		}
@@ -87,6 +93,8 @@ func deepHashObjectToString(objectToWrite interface{}) string {
 	deepHashObject(hasher, objectToWrite)
 	return hex.EncodeToString(hasher.Sum(nil)[0:])
 }
+
+// zhou: README,
 
 // ShouldPodBeInEndpoints returns true if a specified pod should be in an
 // Endpoints or EndpointSlice resource. Terminating pods are only included if

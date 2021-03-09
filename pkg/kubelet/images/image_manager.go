@@ -41,6 +41,8 @@ type ImagePodPullingTimeRecorder interface {
 	RecordImageFinishedPulling(podUID types.UID)
 }
 
+// zhou: README,
+
 // imageManager provides the functionalities for image pulling.
 type imageManager struct {
 	recorder     record.EventRecorder
@@ -97,6 +99,8 @@ func (m *imageManager) logIt(ref *v1.ObjectReference, eventtype, event, prefix, 
 	}
 }
 
+// zhou: README, used by "startContainer()" to pull the image.
+
 // EnsureImageExists pulls the image for the specified pod and container, and returns
 // (imageRef, error message, error).
 func (m *imageManager) EnsureImageExists(ctx context.Context, pod *v1.Pod, container *v1.Container, pullSecrets []v1.Secret, podSandboxConfig *runtimeapi.PodSandboxConfig, podRuntimeHandler string) (string, string, error) {
@@ -134,6 +138,8 @@ func (m *imageManager) EnsureImageExists(ctx context.Context, pod *v1.Pod, conta
 		m.logIt(ref, v1.EventTypeWarning, events.FailedToInspectImage, logPrefix, msg, klog.Warning)
 		return "", msg, ErrImageInspect
 	}
+
+	// zhou:
 
 	present := imageRef != ""
 	if !shouldPullImage(container, present) {

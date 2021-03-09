@@ -139,6 +139,8 @@ const (
 	// terminated and container runtime not being ready is logged without verbosity guard.
 	nodeReadyGracePeriod = 120 * time.Second
 
+	// zhou: container logs path
+
 	// DefaultContainerLogsDir is the location of container logs.
 	DefaultContainerLogsDir = "/var/log/containers"
 
@@ -219,6 +221,8 @@ func getContainerEtcHostsPath() string {
 	return linuxEtcHostsPath
 }
 
+// zhou:
+
 // SyncHandler is an interface implemented by Kubelet, for testability
 type SyncHandler interface {
 	HandlePodAdditions(pods []*v1.Pod)
@@ -232,6 +236,8 @@ type SyncHandler interface {
 // Option is a functional option type for Kubelet
 type Option func(*Kubelet)
 
+// zhou: "kubelet.Kubelet struct" implements it.
+
 // Bootstrap is a bootstrapping interface for kubelet, targets the initialization protocol
 type Bootstrap interface {
 	GetConfiguration() kubeletconfiginternal.KubeletConfiguration
@@ -243,6 +249,8 @@ type Bootstrap interface {
 	Run(<-chan kubetypes.PodUpdate)
 	RunOnce(<-chan kubetypes.PodUpdate) ([]RunPodResult, error)
 }
+
+// zhou: OS related capabilities.
 
 // Dependencies is a bin for things we might consider "injected dependencies" -- objects constructed
 // at runtime that are necessary for running the Kubelet. This is a temporary solution for grouping
@@ -268,7 +276,7 @@ type Dependencies struct {
 	Recorder                  record.EventRecorder
 	Subpather                 subpath.Interface
 	TracerProvider            trace.TracerProvider
-	VolumePlugins             []volume.VolumePlugin
+	VolumePlugins             []volume.VolumePlugin // zhou: volume plugins supported in local os
 	DynamicPluginProber       volume.DynamicPluginProber
 	TLSOptions                *server.TLSOptions
 	RemoteRuntimeService      internalapi.RuntimeService
@@ -279,9 +287,12 @@ type Dependencies struct {
 	useLegacyCadvisorStats bool
 }
 
+// zhou: README, Pod Configuration comes from apiserver/file/url.
+
 // makePodSourceConfig creates a config.PodConfig from the given
 // KubeletConfiguration or returns an error.
 func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, kubeDeps *Dependencies, nodeName types.NodeName, nodeHasSynced func() bool) (*config.PodConfig, error) {
+
 	manifestURLHeader := make(http.Header)
 	if len(kubeCfg.StaticPodURLHeader) > 0 {
 		for k, v := range kubeCfg.StaticPodURLHeader {
@@ -316,6 +327,8 @@ func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, ku
 	return cfg, nil
 }
 
+// zhou: README,
+
 // PreInitRuntimeService will init runtime service before RunKubelet.
 func PreInitRuntimeService(kubeCfg *kubeletconfiginternal.KubeletConfiguration, kubeDeps *Dependencies) error {
 	remoteImageEndpoint := kubeCfg.ImageServiceEndpoint
@@ -341,6 +354,8 @@ func PreInitRuntimeService(kubeCfg *kubeletconfiginternal.KubeletConfiguration, 
 
 	return nil
 }
+
+// zhou: README, create kubelet object "Kubelet" which integrated all required internal modules.
 
 // NewMainKubelet instantiates a new Kubelet object along with all the required internal modules.
 // No initialization of Kubelet and its modules should happen here.
@@ -413,6 +428,10 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		klog.InfoS("Kubelet is running in standalone mode, will skip API server sync")
 	}
 
+	// zhou: "PodConfig is a configuration mux that merges many sources of pod configuration into
+	//        a single consistent structure, and then delivers incremental change notifications to
+	//        listeners in order."
+
 	if kubeDeps.PodConfig == nil {
 		var err error
 		kubeDeps.PodConfig, err = makePodSourceConfig(kubeCfg, kubeDeps, nodeName, nodeHasSynced)
@@ -421,6 +440,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		}
 	}
 
+	// zhou: container GC policy
 	containerGCPolicy := kubecontainer.GCPolicy{
 		MinAge:             minimumGCAge.Duration,
 		MaxPerPodContainer: int(maxPerPodContainerCount),
@@ -430,6 +450,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	daemonEndpoints := &v1.NodeDaemonEndpoints{
 		KubeletEndpoint: v1.DaemonEndpoint{Port: kubeCfg.Port},
 	}
+
+	// zhou: image GC policy
 
 	imageGCPolicy := images.ImageGCPolicy{
 		MinAge:               kubeCfg.ImageMinimumGCAge.Duration,
@@ -442,6 +464,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	} else if kubeCfg.ImageMaximumGCAge.Duration != 0 {
 		klog.InfoS("ImageMaximumGCAge flag enabled, but corresponding feature gate is not enabled. Ignoring flag.")
 	}
+
+	// zhou: pod eviction related
 
 	enforceNodeAllocatable := kubeCfg.EnforceNodeAllocatable
 	if experimentalNodeAllocatableIgnoreEvictionThreshold {
@@ -460,6 +484,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		PodCgroupRoot:            kubeDeps.ContainerManager.GetPodCgroupRoot(),
 	}
 
+	// zhou: Service related
 	var serviceLister corelisters.ServiceLister
 	var serviceHasSynced cache.InformerSynced
 	if kubeDeps.KubeClient != nil {
@@ -485,6 +510,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		Namespace: "",
 	}
 
+	// zhou: OOM related
 	oomWatcher, err := oomwatcher.NewWatcher(kubeDeps.Recorder)
 	if err != nil {
 		if inuserns.RunningInUserNS() {
@@ -502,6 +528,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		}
 	}
 
+	// zhou: DNS related
 	clusterDNS := make([]net.IP, 0, len(kubeCfg.ClusterDNS))
 	for _, ipEntry := range kubeCfg.ClusterDNS {
 		ip := netutils.ParseIPSloppy(ipEntry)
@@ -525,6 +552,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	}
 
 	tracer := kubeDeps.TracerProvider.Tracer(instrumentationScope)
+
+	// zhou:
 
 	klet := &Kubelet{
 		hostname:                       hostname,
@@ -581,10 +610,15 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		klet.cloudResourceSyncManager = cloudresource.NewSyncManager(klet.cloud, nodeName, klet.nodeStatusUpdateFrequency)
 	}
 
+	// zhou: used for Secret volume and ConfigMap volume content refresh.
+
 	var secretManager secret.Manager
 	var configMapManager configmap.Manager
 	if klet.kubeClient != nil {
 		switch kubeCfg.ConfigMapAndSecretChangeDetectionStrategy {
+
+		// zhou: this is the default strategy, keep local cache always keep udpated.
+
 		case kubeletconfiginternal.WatchChangeDetectionStrategy:
 			secretManager = secret.NewWatchingSecretManager(klet.kubeClient, klet.resyncInterval)
 			configMapManager = configmap.NewWatchingConfigMapManager(klet.kubeClient, klet.resyncInterval)
@@ -613,6 +647,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	machineInfo.Timestamp = time.Time{}
 	klet.setCachedMachineInfo(machineInfo)
 
+	// zhou: backOffPeriod == 10s, MaxContainerBackOff == 300s
+
 	imageBackOff := flowcontrol.NewBackOff(backOffPeriod, MaxContainerBackOff)
 
 	klet.livenessManager = proberesults.NewManager()
@@ -620,8 +656,14 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	klet.startupManager = proberesults.NewManager()
 	klet.podCache = kubecontainer.NewCache()
 
+	// zhou: Pod Manager "stores and manages access to pods, maintaining the mappings
+	//       between static pods and mirror pods."
+
 	klet.mirrorPodClient = kubepod.NewBasicMirrorClient(klet.kubeClient, string(nodeName), nodeLister)
 	klet.podManager = kubepod.NewBasicPodManager()
+
+	// zhou: Pod Status Manager "is the Source of truth for kubelet pod status, ..."
+	//       "It also syncs updates back to the API server."
 
 	klet.statusManager = status.NewManager(klet.kubeClient, klet.podManager, klet, kubeDeps.PodStartupLatencyTracker, klet.getRootDir())
 
@@ -649,6 +691,9 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 
 	klet.reasonCache = NewReasonCache()
 	klet.workQueue = queue.NewBasicWorkQueue(klet.clock)
+
+	// zhou: README,
+
 	klet.podWorkers = newPodWorkers(
 		klet,
 		kubeDeps.Recorder,
@@ -658,6 +703,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		klet.podCache,
 	)
 
+	// zhou: "KubeGenericRuntime is a interface contains interfaces for container runtime and command."
 	runtime, err := kuberuntime.NewKubeGenericRuntimeManager(
 		kubecontainer.FilterEventRecorder(kubeDeps.Recorder),
 		klet.livenessManager,
@@ -708,6 +754,9 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	hostStatsProvider := stats.NewHostStatsProvider(kubecontainer.RealOS{}, func(podUID types.UID) string {
 		return getEtcHostsPath(klet.getPodDir(podUID))
 	}, podLogsDirectory)
+
+	// zhou: either cadvisor or cri
+
 	if kubeDeps.useLegacyCadvisorStats {
 		klet.StatsProvider = stats.NewCadvisorStatsProvider(
 			klet.cadvisor,
@@ -775,6 +824,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	klet.containerGC = containerGC
 	klet.containerDeletor = newPodContainerDeletor(klet.containerRuntime, max(containerGCPolicy.MaxPerPodContainer, minDeadContainerInPod))
 
+	// zhou: image gc manager
+
 	// setup imageManager
 	imageManager, err := images.NewImageGCManager(klet.containerRuntime, klet.StatsProvider, kubeDeps.Recorder, nodeRef, imageGCPolicy, kubeDeps.TracerProvider)
 	if err != nil {
@@ -810,6 +861,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	if kubeDeps.ProbeManager != nil {
 		klet.probeManager = kubeDeps.ProbeManager
 	} else {
+		// zhou: used to probe pod
 		klet.probeManager = prober.NewManager(
 			klet.statusManager,
 			klet.livenessManager,
@@ -836,6 +888,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		klog.InfoS("Not starting ClusterTrustBundle informer because we are in static kubelet mode")
 	}
 
+	// zhou: init and get VolumePluginMgr, which used to find and invoke VolumePlugin's methods.
+
 	// NewInitializedVolumePluginMgr initializes some storageErrors on the Kubelet runtimeState (in csi_plugin.go init)
 	// which affects node ready status. This function must be called before Kubelet is initialized so that the Node
 	// ReadyState is accurate with the storage state.
@@ -844,6 +898,10 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	if err != nil {
 		return nil, err
 	}
+
+	// zhou: Plugin Manager will handle "CSIPlugin", "DevicePlugin" and "DRAPlugin".
+	//       "/var/lib/kubelet/plugins_registry"
+
 	klet.pluginManager = pluginmanager.NewPluginManager(
 		klet.getPluginsRegistrationDir(), /* sockDir */
 		kubeDeps.Recorder,
@@ -856,6 +914,8 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 		// so that service name could be resolved
 		klet.dnsConfigurer.SetupDNSinContainerizedMounter(experimentalMounterPath)
 	}
+
+	// zhou:
 
 	// setup volumeManager
 	klet.volumeManager = volumemanager.NewVolumeManager(
@@ -1134,6 +1194,8 @@ type Kubelet struct {
 	// Policy for handling garbage collection of dead containers.
 	containerGC kubecontainer.GC
 
+	// zhou:
+
 	// Manager for image garbage collection.
 	imageManager images.ImageGCManager
 
@@ -1162,6 +1224,8 @@ type Kubelet struct {
 
 	// Streaming runtime handles container streaming.
 	streamingRuntime kubecontainer.StreamingRuntime
+
+	// zhou: CRI runtime service
 
 	// Container runtime service (needed by container runtime Start()).
 	runtimeService internalapi.RuntimeService
@@ -1318,6 +1382,8 @@ type Kubelet struct {
 	// StatsProvider provides the node and the container stats.
 	StatsProvider *stats.Provider
 
+	// zhou: manager CSIPlugin, DevicePlugin and DRAPlugin.
+
 	// pluginmanager runs a set of asynchronous loops that figure out which
 	// plugins need to be registered/unregistered based on this node and makes it so.
 	pluginManager pluginmanager.PluginManager
@@ -1436,9 +1502,14 @@ func (kl *Kubelet) setupDataDirs() error {
 	return nil
 }
 
+// zhou: start goroutines for garbage collection
+
 // StartGarbageCollection starts garbage collection threads.
 func (kl *Kubelet) StartGarbageCollection() {
 	loggedContainerGCFailure := false
+
+	// zhou: container GC goroutine.
+
 	go wait.Until(func() {
 		ctx := context.Background()
 		if err := kl.containerGC.GarbageCollect(ctx); err != nil {
@@ -1463,6 +1534,8 @@ func (kl *Kubelet) StartGarbageCollection() {
 		klog.V(2).InfoS("ImageGCHighThresholdPercent is set 100 and ImageMaximumGCAge is 0, Disable image GC")
 		return
 	}
+
+	// zhou: image GC goroutine
 
 	prevImageGCFailed := false
 	beganGC := time.Now()
@@ -1533,6 +1606,8 @@ func (kl *Kubelet) initializeModules() error {
 	return nil
 }
 
+// zhou: README, after container runtime running, initialize some dependent modules.
+
 // initializeRuntimeDependentModules will initialize internal modules that require the container runtime to be up.
 func (kl *Kubelet) initializeRuntimeDependentModules() {
 	if err := kl.cadvisor.Start(); err != nil {
@@ -1544,6 +1619,7 @@ func (kl *Kubelet) initializeRuntimeDependentModules() {
 	// trigger on-demand stats collection once so that we have capacity information for ephemeral storage.
 	// ignore any errors, since if stats collection is not successful, the container manager will fail to start below.
 	kl.StatsProvider.GetCgroupStats("/", true)
+
 	// Start container manager.
 	node, err := kl.getNodeAnyWay()
 	if err != nil {
@@ -1557,24 +1633,38 @@ func (kl *Kubelet) initializeRuntimeDependentModules() {
 		klog.ErrorS(err, "Failed to start ContainerManager")
 		os.Exit(1)
 	}
+
 	// eviction manager must start after cadvisor because it needs to know if the container runtime has a dedicated imagefs
 	kl.evictionManager.Start(kl.StatsProvider, kl.GetActivePods, kl.PodIsFinished, evictionMonitoringPeriod)
 
 	// container log manager must start after container runtime is up to retrieve information from container runtime
 	// and inform container to reopen log file after log rotation.
 	kl.containerLogManager.Start()
+
+	// zhou: CSI Plugin handler
+
 	// Adding Registration Callback function for CSI Driver
 	kl.pluginManager.AddHandler(pluginwatcherapi.CSIPlugin, plugincache.PluginHandler(csi.PluginHandler))
+
+	// zhou: DRA Plugin handler
+
 	// Adding Registration Callback function for DRA Plugin
 	if utilfeature.DefaultFeatureGate.Enabled(features.DynamicResourceAllocation) {
 		kl.pluginManager.AddHandler(pluginwatcherapi.DRAPlugin, plugincache.PluginHandler(draplugin.NewRegistrationHandler(kl.kubeClient, kl.getNodeAnyWay)))
 	}
+
+	// zhou: Device Plugin handler
+
 	// Adding Registration Callback function for Device Manager
 	kl.pluginManager.AddHandler(pluginwatcherapi.DevicePlugin, kl.containerManager.GetPluginRegistrationHandler())
+
+	// zhou:
 
 	// Start the plugin manager
 	klog.V(4).InfoS("Starting plugin manager")
 	go kl.pluginManager.Run(kl.sourcesReady, wait.NeverStop)
+
+	// zhou: Shutdown Manager
 
 	err = kl.shutdownManager.Start()
 	if err != nil {
@@ -1582,6 +1672,8 @@ func (kl *Kubelet) initializeRuntimeDependentModules() {
 		klog.ErrorS(err, "Failed to start node shutdown manager")
 	}
 }
+
+// zhou: README, core
 
 // Run starts the kubelet reacting to config updates
 func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
@@ -1636,6 +1728,8 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 		os.Exit(1)
 	}
 
+	// zhou:
+
 	// Start volume manager
 	go kl.volumeManager.Run(kl.sourcesReady, wait.NeverStop)
 
@@ -1655,6 +1749,9 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 		// start syncing lease
 		go kl.nodeLeaseController.Run(context.Background())
 	}
+
+	// zhou: execute "kl.updateRuntimeUp()" every 5s.
+
 	go wait.Until(kl.updateRuntimeUp, 5*time.Second, wait.NeverStop)
 
 	// Set up iptables util rules
@@ -1670,6 +1767,8 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 		kl.runtimeClassManager.Start(wait.NeverStop)
 	}
 
+	// zhou: !!!
+
 	// Start the pod lifecycle event generator.
 	kl.pleg.Start()
 
@@ -1678,8 +1777,12 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 		kl.eventedPleg.Start()
 	}
 
+	// zhou:
+
 	kl.syncLoop(ctx, updates, kl)
 }
+
+// zhou: README, try to bring up a pod with its dependency.
 
 // SyncPod is the transaction script for the sync of a single pod (setting up)
 // a pod. This method is reentrant and expected to converge a pod towards the
@@ -1789,6 +1892,8 @@ func (kl *Kubelet) SyncPod(ctx context.Context, updateType kubetypes.SyncPodType
 		return isTerminal, nil
 	}
 
+	// zhou:
+
 	// Record the time it takes for the pod to become running
 	// since kubelet first saw the pod if firstSeenTime is set.
 	existingStatus, ok := kl.statusManager.GetPodStatus(pod.UID)
@@ -1798,6 +1903,8 @@ func (kl *Kubelet) SyncPod(ctx context.Context, updateType kubetypes.SyncPodType
 	}
 
 	kl.statusManager.SetPodStatus(pod, apiPodStatus)
+
+	// zhou:
 
 	// If the network plugin is not ready, only start the pod if it uses the host network
 	if err := kl.runtimeState.networkErrors(); err != nil && !kubecontainer.IsHostNetworkPod(pod) {
@@ -1814,6 +1921,8 @@ func (kl *Kubelet) SyncPod(ctx context.Context, updateType kubetypes.SyncPodType
 			kl.configMapManager.RegisterPod(pod)
 		}
 	}
+
+	// zhou:
 
 	// Create Cgroups for the pod and apply resource parameters
 	// to them if cgroups-per-qos flag is enabled.
@@ -1868,6 +1977,8 @@ func (kl *Kubelet) SyncPod(ctx context.Context, updateType kubetypes.SyncPodType
 		}
 	}
 
+	// zhou:
+
 	// Create Mirror Pod for Static Pod if it doesn't already exist
 	if kubetypes.IsStaticPod(pod) {
 		deleted := false
@@ -1901,12 +2012,16 @@ func (kl *Kubelet) SyncPod(ctx context.Context, updateType kubetypes.SyncPodType
 		}
 	}
 
+	// zhou: mkdir for pod data.
+
 	// Make data directories for the pod
 	if err := kl.makePodDataDirs(pod); err != nil {
 		kl.recorder.Eventf(pod, v1.EventTypeWarning, events.FailedToMakePodDataDirectories, "error making pod data directories: %v", err)
 		klog.ErrorS(err, "Unable to make pod data directories for pod", "pod", klog.KObj(pod))
 		return false, err
 	}
+
+	// zhou: volume preparation!!! "blocks until they are all attached and mounted"
 
 	// Wait for volumes to attach/mount
 	if err := kl.volumeManager.WaitForAttachAndMount(ctx, pod); err != nil {
@@ -1966,6 +2081,8 @@ func (kl *Kubelet) SyncPod(ctx context.Context, updateType kubetypes.SyncPodType
 
 	return false, nil
 }
+
+// zhou: README,
 
 // SyncTerminatingPod is expected to terminate all running containers in a pod. Once this method
 // returns without error, the pod is considered to be terminated and it will be safe to clean up any
@@ -2103,6 +2220,8 @@ func (kl *Kubelet) SyncTerminatingRuntimePod(_ context.Context, runningPod *kube
 	klog.V(4).InfoS("Pod termination stopped all running orphaned containers", "pod", klog.KObj(pod), "podUID", pod.UID)
 	return nil
 }
+
+// zhou: README,
 
 // SyncTerminatedPod cleans up a pod that has terminated (has no running containers).
 // The invocations in this call are expected to tear down all pod resources.
@@ -2285,6 +2404,8 @@ func (kl *Kubelet) canAdmitPod(pods []*v1.Pod, pod *v1.Pod) (bool, string, strin
 	return true, "", ""
 }
 
+// zhou: README,
+
 // syncLoop is the main loop for processing changes. It watches for changes from
 // three channels (file, apiserver, and http) and creates a union of them. For
 // any new change seen, will run a sync against desired state and running state. If
@@ -2292,13 +2413,17 @@ func (kl *Kubelet) canAdmitPod(pods []*v1.Pod, pod *v1.Pod) (bool, string, strin
 // state every sync-frequency seconds. Never returns.
 func (kl *Kubelet) syncLoop(ctx context.Context, updates <-chan kubetypes.PodUpdate, handler SyncHandler) {
 	klog.InfoS("Starting kubelet main sync loop")
+
 	// The syncTicker wakes up kubelet to checks if there are any pod workers
 	// that need to be sync'd. A one-second period is sufficient because the
 	// sync interval is defaulted to 10s.
 	syncTicker := time.NewTicker(time.Second)
 	defer syncTicker.Stop()
+
+	// zhou: 2s timer used to clean up pod.
 	housekeepingTicker := time.NewTicker(housekeepingPeriod)
 	defer housekeepingTicker.Stop()
+
 	plegCh := kl.pleg.Watch()
 	const (
 		base   = 100 * time.Millisecond
@@ -2325,12 +2450,16 @@ func (kl *Kubelet) syncLoop(ctx context.Context, updates <-chan kubetypes.PodUpd
 		duration = base
 
 		kl.syncLoopMonitor.Store(kl.clock.Now())
+
+		// zhou: channals
 		if !kl.syncLoopIteration(ctx, updates, handler, syncTicker.C, housekeepingTicker.C, plegCh) {
 			break
 		}
 		kl.syncLoopMonitor.Store(kl.clock.Now())
 	}
 }
+
+// zhou: README,
 
 // syncLoopIteration reads from various channels and dispatches pods to the
 // given handler.
@@ -2366,6 +2495,7 @@ func (kl *Kubelet) syncLoop(ctx context.Context, updates <-chan kubetypes.PodUpd
 //     containers have failed health checks
 func (kl *Kubelet) syncLoopIteration(ctx context.Context, configCh <-chan kubetypes.PodUpdate, handler SyncHandler,
 	syncCh <-chan time.Time, housekeepingCh <-chan time.Time, plegCh <-chan *pleg.PodLifecycleEvent) bool {
+
 	select {
 	case u, open := <-configCh:
 		// Update from a config source; dispatch it to the right handler
@@ -2435,6 +2565,7 @@ func (kl *Kubelet) syncLoopIteration(ctx context.Context, configCh <-chan kubety
 			handleProbeSync(kl, update, handler, "liveness", "unhealthy")
 		}
 	case update := <-kl.readinessManager.Updates():
+		// zhou: readiness probe
 		ready := update.Result == proberesults.Success
 		kl.statusManager.SetContainerReadiness(update.PodUID, update.ContainerID, ready)
 
@@ -2484,6 +2615,8 @@ func handleProbeSync(kl *Kubelet, update proberesults.Update, handler SyncHandle
 	klog.V(1).InfoS("SyncLoop (probe)", "probe", probe, "status", status, "pod", klog.KObj(pod))
 	handler.HandlePodSyncs([]*v1.Pod{pod})
 }
+
+// zhou: README,
 
 // HandlePodAdditions is the callback in SyncHandler for pods being added from
 // a config source.
@@ -2577,6 +2710,8 @@ func (kl *Kubelet) updateContainerResourceAllocation(pod *v1.Pod) {
 	}
 }
 
+// zhou: README,
+
 // HandlePodUpdates is the callback in the SyncHandler interface for pods
 // being updated from a config source.
 func (kl *Kubelet) HandlePodUpdates(pods []*v1.Pod) {
@@ -2600,6 +2735,8 @@ func (kl *Kubelet) HandlePodUpdates(pods []*v1.Pod) {
 		})
 	}
 }
+
+// zhou: README,
 
 // HandlePodRemoves is the callback in the SyncHandler interface for pods
 // being removed from a config source.
@@ -2630,6 +2767,8 @@ func (kl *Kubelet) HandlePodRemoves(pods []*v1.Pod) {
 		}
 	}
 }
+
+// zhou: README,
 
 // HandlePodReconcile is the callback in the SyncHandler interface for pods
 // that should be reconciled. Pods are reconciled when only the status of the
@@ -2828,6 +2967,8 @@ func (kl *Kubelet) LatestLoopEntryTime() time.Time {
 	return val.(time.Time)
 }
 
+// zhou: README,
+
 // updateRuntimeUp calls the container runtime status callback, initializing
 // the runtime dependent modules when the container runtime first comes up,
 // and returns an error if the status check fails.  If the status check is OK,
@@ -2869,6 +3010,9 @@ func (kl *Kubelet) updateRuntimeUp() {
 		return
 	}
 
+	// zhou: for the container runtime running at first time, perform such
+	//       "kl.initializeRuntimeDependentModules" initilization.
+
 	kl.runtimeState.setRuntimeState(nil)
 	kl.runtimeState.setRuntimeHandlers(s.Handlers)
 	kl.oneTimeInitializer.Do(kl.initializeRuntimeDependentModules)
@@ -2879,6 +3023,8 @@ func (kl *Kubelet) updateRuntimeUp() {
 func (kl *Kubelet) GetConfiguration() kubeletconfiginternal.KubeletConfiguration {
 	return kl.kubeletConfiguration
 }
+
+// zhou: README,
 
 // BirthCry sends an event that the kubelet has started up.
 func (kl *Kubelet) BirthCry() {

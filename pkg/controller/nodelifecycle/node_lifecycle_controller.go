@@ -66,6 +66,8 @@ func init() {
 	Register()
 }
 
+// zhou: README,
+
 var (
 	// UnreachableTaintTemplate is the taint for when a node becomes unreachable.
 	UnreachableTaintTemplate = &v1.Taint{
@@ -214,6 +216,8 @@ type podUpdateItem struct {
 	namespace string
 	name      string
 }
+
+// zhou: README, node lifecycle controller
 
 // Controller is the controller that manages node's life cycle.
 type Controller struct {
@@ -454,6 +458,8 @@ func NewNodeLifecycleController(
 	return nc, nil
 }
 
+// zhou: README,
+
 // Run starts an asynchronous loop that monitors the status of cluster nodes.
 func (nc *Controller) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
@@ -478,6 +484,8 @@ func (nc *Controller) Run(ctx context.Context) {
 	if !cache.WaitForNamedCacheSync("taint", ctx.Done(), nc.leaseInformerSynced, nc.nodeInformerSynced, nc.podInformerSynced, nc.daemonSetInformerSynced) {
 		return
 	}
+
+	// zhou: run taint eviction controller
 
 	if !utilfeature.DefaultFeatureGate.Enabled(features.SeparateTaintEvictionController) {
 		logger.Info("Starting", "controller", taintEvictionController)
@@ -659,6 +667,8 @@ func (nc *Controller) doNoExecuteTaintingPass(ctx context.Context) {
 		})
 	}
 }
+
+// zhou: README,
 
 // monitorNodeHealth verifies node health are constantly updated by kubelet, and if not, post "NodeReady==ConditionUnknown".
 // This function will

@@ -548,6 +548,8 @@ func (iss *ImageStateSummary) Snapshot() *ImageStateSummary {
 	}
 }
 
+// zhou: aggregated information for a node.
+
 // NodeInfo is node level aggregated information.
 type NodeInfo struct {
 	// Overall node information.

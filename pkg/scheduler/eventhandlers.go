@@ -46,6 +46,8 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/util/assumecache"
 )
 
+// zhou: README,
+
 func (sched *Scheduler) onStorageClassAdd(obj interface{}) {
 	logger := sched.logger
 	sc, ok := obj.(*storagev1.StorageClass)
@@ -282,6 +284,8 @@ func (sched *Scheduler) WaitForHandlersSync(ctx context.Context) error {
 		return true, nil
 	})
 }
+
+// zhou: README,
 
 // addAllEventHandlers is a helper function used in tests and in Scheduler
 // to add event handlers for various informers.

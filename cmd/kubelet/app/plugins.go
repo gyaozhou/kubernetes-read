@@ -38,6 +38,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume/secret"
 )
 
+// zhou: collects all volume plugins supported in kubelet.
+
 // ProbeVolumePlugins collects all volume plugins into an easy to use list.
 func ProbeVolumePlugins(featureGate featuregate.FeatureGate) ([]volume.VolumePlugin, error) {
 	allPlugins := []volume.VolumePlugin{}
@@ -49,6 +51,7 @@ func ProbeVolumePlugins(featureGate featuregate.FeatureGate) ([]volume.VolumePlu
 	// Kubelet does not currently need to configure volume plugins.
 	// If/when it does, see kube-controller-manager/app/plugins.go for example of using volume.VolumeConfig
 	var err error
+	// zhou: legacy volume plugins, will be moved out of in-tree finnally.
 	allPlugins, err = appendLegacyProviderVolumes(allPlugins, featureGate)
 	if err != nil {
 		return allPlugins, err

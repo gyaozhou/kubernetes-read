@@ -77,6 +77,8 @@ type Selector interface {
 // Sharing this saves 1 alloc per use; this is safe because it's immutable.
 var sharedEverythingSelector Selector = internalSelector{}
 
+// zhou: matchs all labels
+
 // Everything returns a selector that matches all labels.
 func Everything() Selector {
 	return sharedEverythingSelector
@@ -962,6 +964,8 @@ func ParseToRequirements(selector string, opts ...field.PathOption) ([]Requireme
 	return parse(selector, field.ToPath(opts...))
 }
 
+// zhou: check Selector Matching the Labels.
+
 // ValidatedSetSelector wraps a Set, allowing it to implement the Selector interface. Unlike
 // Set.AsSelectorPreValidated (which copies the input Set), this type simply wraps the underlying
 // Set. As a result, it is substantially more efficient. A nil and empty Sets are considered
@@ -976,6 +980,9 @@ type ValidatedSetSelector Set
 
 func (s ValidatedSetSelector) Matches(labels Labels) bool {
 	for k, v := range s {
+
+		// zhou: "labels" must have all the key/value pair defined in "s"
+
 		if !labels.Has(k) || v != labels.Get(k) {
 			return false
 		}

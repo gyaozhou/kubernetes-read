@@ -169,6 +169,8 @@ func calcRestartCountByLogDir(path string) (int, error) {
 	return restartCount, nil
 }
 
+// zhou: README,
+
 // startContainer starts a container and returns a message indicates why it is failed on error.
 // It starts the container through the following steps:
 // * pull the image
@@ -316,6 +318,8 @@ func (m *kubeGenericRuntimeManager) startContainer(ctx context.Context, podSandb
 	return "", nil
 }
 
+// zhou: README,
+
 // generateContainerConfig generates container config for kubelet runtime v1.
 func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context, container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, podIPs []string, nsTarget *kubecontainer.ContainerID) (*runtimeapi.ContainerConfig, func(), error) {
 	opts, cleanupAction, err := m.runtimeHelper.GenerateRunContainerOptions(ctx, pod, container, podIP, podIPs)
@@ -334,6 +338,9 @@ func (m *kubeGenericRuntimeManager) generateContainerConfig(ctx context.Context,
 	}
 
 	command, args := kubecontainer.ExpandContainerCommandAndArgs(container, opts.Envs)
+
+	// zhou:
+
 	logDir := BuildContainerLogsDirectory(m.podLogsDirectory, pod.Namespace, pod.Name, pod.UID, container.Name)
 	err = m.osInterface.MkdirAll(logDir, 0755)
 	if err != nil {
@@ -540,6 +547,8 @@ func (m *kubeGenericRuntimeManager) readLastStringFromContainerLogs(path string)
 	return buf.String()
 }
 
+// zhou: README,
+
 func (m *kubeGenericRuntimeManager) convertToKubeContainerStatus(status *runtimeapi.ContainerStatus) (cStatus *kubecontainer.Status) {
 	cStatus = toKubeContainerStatus(status, m.runtimeName)
 	if status.State == runtimeapi.ContainerState_CONTAINER_EXITED {
@@ -562,6 +571,8 @@ func (m *kubeGenericRuntimeManager) convertToKubeContainerStatus(status *runtime
 	}
 	return cStatus
 }
+
+// zhou: README,
 
 // getPodContainerStatuses gets all containers' statuses for the pod.
 func (m *kubeGenericRuntimeManager) getPodContainerStatuses(ctx context.Context, uid kubetypes.UID, name, namespace string) ([]*kubecontainer.Status, error) {

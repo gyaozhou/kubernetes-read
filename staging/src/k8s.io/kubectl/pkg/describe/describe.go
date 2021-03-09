@@ -2484,6 +2484,8 @@ type DaemonSetDescriber struct {
 	clientset.Interface
 }
 
+// zhou: describe DaemonSet
+
 func (d *DaemonSetDescriber) Describe(namespace, name string, describerSettings DescriberSettings) (string, error) {
 	dc := d.AppsV1().DaemonSets(namespace)
 	pc := d.CoreV1().Pods(namespace)
@@ -2497,6 +2499,9 @@ func (d *DaemonSetDescriber) Describe(namespace, name string, describerSettings 
 	if err != nil {
 		return "", err
 	}
+
+	// zhou: get more pod details
+
 	running, waiting, succeeded, failed, err := getPodStatusForController(pc, selector, daemon.UID, describerSettings)
 	if err != nil {
 		return "", err
@@ -2509,6 +2514,8 @@ func (d *DaemonSetDescriber) Describe(namespace, name string, describerSettings 
 
 	return describeDaemonSet(daemon, events, running, waiting, succeeded, failed)
 }
+
+// zhou:
 
 func describeDaemonSet(daemon *appsv1.DaemonSet, events *corev1.EventList, running, waiting, succeeded, failed int) (string, error) {
 	return tabbedString(func(out io.Writer) error {
@@ -4414,6 +4421,8 @@ func printReplicaSetsByLabels(matchingRSs []*appsv1.ReplicaSet) string {
 	}
 	return list
 }
+
+// zhou:
 
 func getPodStatusForController(c corev1client.PodInterface, selector labels.Selector, uid types.UID, settings DescriberSettings) (
 	running, waiting, succeeded, failed int, err error) {

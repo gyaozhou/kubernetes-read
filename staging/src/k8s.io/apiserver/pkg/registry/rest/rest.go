@@ -154,6 +154,9 @@ type TableConvertor interface {
 	ConvertToTable(ctx context.Context, object runtime.Object, tableOptions runtime.Object) (*metav1.Table, error)
 }
 
+// zhou: "k8s.io/apiserver/pkg/registry/generic/registry/store.go" provide a generic implementation.
+//       Each object should embeded genericregistry.Store, and override any method in case needed.
+
 // GracefulDeleter knows how to pass deletion options to allow delayed deletion of a
 // RESTful object.
 type GracefulDeleter interface {
@@ -196,6 +199,8 @@ type Creater interface {
 	// Create creates a new version of a resource.
 	Create(ctx context.Context, obj runtime.Object, createValidation ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error)
 }
+
+// zhou:
 
 // NamedCreater is an object that can create an instance of a RESTful object using a name parameter.
 type NamedCreater interface {
@@ -286,6 +291,8 @@ type Watcher interface {
 	// particular version.
 	Watch(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error)
 }
+
+// zhou: define each HTTP verb corresponding interface which implemented in store.
 
 // StandardStorage is an interface covering the common verbs. Provided for testing whether a
 // resource satisfies the normal storage methods. Use Storage when passing opaque storage objects.

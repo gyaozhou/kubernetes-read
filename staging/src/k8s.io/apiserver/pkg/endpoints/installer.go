@@ -188,6 +188,8 @@ var toDiscoveryKubeVerb = map[string]string{
 	"WATCHLIST":        "watch",
 }
 
+// zhou:
+
 // Install handlers for API resources.
 func (a *APIInstaller) Install() ([]metav1.APIResource, []*storageversion.ResourceInfo, *restful.WebService, []error) {
 	var apiResources []metav1.APIResource
@@ -280,6 +282,8 @@ func GetResourceKind(groupVersion schema.GroupVersion, storage rest.Storage, typ
 	// group is guaranteed to match based on the check above
 	return fqKindToRegister, nil
 }
+
+// zhou: README, apiserver handler
 
 func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storage, ws *restful.WebService) (*metav1.APIResource, *storageversion.ResourceInfo, error) {
 	admit := a.group.Admit

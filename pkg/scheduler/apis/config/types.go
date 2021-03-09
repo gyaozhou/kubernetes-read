@@ -31,6 +31,8 @@ const (
 	DefaultKubeSchedulerPort = 10259
 )
 
+// zhou:
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // KubeSchedulerConfiguration configures a scheduler
@@ -79,11 +81,16 @@ type KubeSchedulerConfiguration struct {
 	// the default value (10s) will be used.
 	PodMaxBackoffSeconds int64
 
+	// zhou: user can define scheduler name and customize plugins for each scheduler.
+	//       What user specified in "pod.spec.SchedulerName" comes here.
+
 	// Profiles are scheduling profiles that kube-scheduler supports. Pods can
 	// choose to be scheduled under a particular profile by setting its associated
 	// scheduler name. Pods that don't specify any scheduler name are scheduled
 	// with the "default-scheduler" profile, if present here.
 	Profiles []KubeSchedulerProfile
+
+	// zhou: used to define Scheduler Extender
 
 	// Extenders are the list of scheduler extenders, each holding the values of how to communicate
 	// with the extender. These extenders are shared by all scheduler profiles.
@@ -95,6 +102,8 @@ type KubeSchedulerConfiguration struct {
 	// Defaults to false.
 	DelayCacheUntilActive bool
 }
+
+// zhou:
 
 // KubeSchedulerProfile is a scheduling profile.
 type KubeSchedulerProfile struct {
@@ -113,6 +122,8 @@ type KubeSchedulerProfile struct {
 	// nodes will be scored. It will override global PercentageOfNodesToScore. If it is empty,
 	// global PercentageOfNodesToScore will be used.
 	PercentageOfNodesToScore *int32
+
+	// zhou: disable or enable Scheduler Framework Plugins or their extension points.
 
 	// Plugins specify the set of plugins that should be enabled or disabled.
 	// Enabled plugins are the ones that should be enabled in addition to the
@@ -254,9 +265,14 @@ func (p *Plugins) Names() []string {
 	return sets.List(n)
 }
 
+// zhou: README,
+
 // Extender holds the parameters used to communicate with the extender. If a verb is unspecified/empty,
 // it is assumed that the extender chose not to provide that extension.
 type Extender struct {
+
+	// zhou: URLPrefix + Verb = API
+
 	// URLPrefix at which the extender is available
 	URLPrefix string
 	// Verb for the filter call, empty if not supported. This verb is appended to the URLPrefix when issuing the filter call to extender.
@@ -274,15 +290,27 @@ type Extender struct {
 	BindVerb string
 	// EnableHTTPS specifies whether https should be used to communicate with the extender
 	EnableHTTPS bool
+
+	// zhou: Extender provide https service
+
 	// TLSConfig specifies the transport layer security config
 	TLSConfig *ExtenderTLSConfig
+
 	// HTTPTimeout specifies the timeout duration for a call to the extender. Filter timeout fails the scheduling of the pod. Prioritize
 	// timeout is ignored, k8s/other extenders priorities are used to select the node.
 	HTTPTimeout metav1.Duration
+
+	// zhou: Extender could fetch object "Node" details by itself, only pass Node name only.
+	//       Otherwise, extender framework will pass whole object Node.
+	//       I suppose, by this way, improve communication efficiency.
+
 	// NodeCacheCapable specifies that the extender is capable of caching node information,
 	// so the scheduler should only send minimal information about the eligible nodes
 	// assuming that the extender already cached full details of all nodes in the cluster
 	NodeCacheCapable bool
+
+	// zhou: used set interesting resource type in container. Only impact Plugin "NodeResourcesFit"
+
 	// ManagedResources is a list of extended resources that are managed by
 	// this extender.
 	// - A pod will be sent to the extender on the Filter, Prioritize and Bind
@@ -293,6 +321,9 @@ type Extender struct {
 	//   will skip checking the resource in predicates.
 	// +optional
 	ManagedResources []ExtenderManagedResource
+
+	// zhou: the policy when Extender is not reachable.
+
 	// Ignorable specifies if the extender is ignorable, i.e. scheduling should not
 	// fail when the extender returns an error or is not reachable.
 	Ignorable bool

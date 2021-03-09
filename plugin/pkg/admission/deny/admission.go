@@ -26,6 +26,8 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
+// zhou: deprecated
+
 // PluginName indicates name of admission plugin.
 const PluginName = "AlwaysDeny"
 

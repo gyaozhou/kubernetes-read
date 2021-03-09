@@ -37,8 +37,8 @@ import (
 // NodeAffinity is a plugin that checks if a pod node selector matches the node label.
 type NodeAffinity struct {
 	handle              framework.Handle
-	addedNodeSelector   *nodeaffinity.NodeSelector
-	addedPrefSchedTerms *nodeaffinity.PreferredSchedulingTerms
+	addedNodeSelector   *nodeaffinity.NodeSelector             // zhou: additional Node Affinity requirement
+	addedPrefSchedTerms *nodeaffinity.PreferredSchedulingTerms // zhou: additional Node Affinity requirement
 }
 
 var _ framework.PreFilterPlugin = &NodeAffinity{}
@@ -81,6 +81,8 @@ func (s *preFilterState) Clone() framework.StateData {
 	return s
 }
 
+// zhou: Node add or update may trigger unschedulable pod schedulable.
+
 // EventsToRegister returns the possible events that may make a Pod
 // failed by this plugin schedulable.
 func (pl *NodeAffinity) EventsToRegister() []framework.ClusterEventWithHint {
@@ -88,6 +90,8 @@ func (pl *NodeAffinity) EventsToRegister() []framework.ClusterEventWithHint {
 		{Event: framework.ClusterEvent{Resource: framework.Node, ActionType: framework.Add | framework.Update}, QueueingHintFn: pl.isSchedulableAfterNodeChange},
 	}
 }
+
+// zhou: handle Node change event
 
 // isSchedulableAfterNodeChange is invoked whenever a node changed. It checks whether
 // that change made a previously unschedulable pod schedulable.
@@ -101,6 +105,8 @@ func (pl *NodeAffinity) isSchedulableAfterNodeChange(logger klog.Logger, pod *v1
 		logger.V(4).Info("added or modified node didn't match scheduler-enforced node affinity and this event won't make the Pod schedulable", "pod", klog.KObj(pod), "node", klog.KObj(modifiedNode))
 		return framework.QueueSkip, nil
 	}
+
+	// zhou: consolidate Pod's "NodeSelector" and "NodeAffinity", check whether this Node is matched.
 
 	requiredNodeAffinity := nodeaffinity.GetRequiredNodeAffinity(pod)
 	isMatched, err := requiredNodeAffinity.Match(modifiedNode)
@@ -119,16 +125,23 @@ func (pl *NodeAffinity) isSchedulableAfterNodeChange(logger klog.Logger, pod *v1
 	return framework.QueueSkip, nil
 }
 
+// zhou: candidate node list
+
 // PreFilter builds and writes cycle state used by Filter.
 func (pl *NodeAffinity) PreFilter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod) (*framework.PreFilterResult, *framework.Status) {
 	affinity := pod.Spec.Affinity
 	noNodeAffinity := (affinity == nil ||
 		affinity.NodeAffinity == nil ||
 		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil)
+
+	// zhou: nothing need to do, all nodes are fine.
+
 	if noNodeAffinity && pl.addedNodeSelector == nil && pod.Spec.NodeSelector == nil {
 		// NodeAffinity Filter has nothing to do with the Pod.
 		return nil, framework.NewStatus(framework.Skip)
 	}
+
+	// zhou: consolidate Pod's "NodeSelector" and "NodeAffinity", then store into "cycleState"
 
 	state := &preFilterState{requiredNodeSelectorAndAffinity: nodeaffinity.GetRequiredNodeAffinity(pod)}
 	cycleState.Write(preFilterStateKey, state)
@@ -136,6 +149,8 @@ func (pl *NodeAffinity) PreFilter(ctx context.Context, cycleState *framework.Cyc
 	if noNodeAffinity || len(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) == 0 {
 		return nil, nil
 	}
+
+	// zhou: why only handle "NodeAffinity" in PreFilter() ???
 
 	// Check if there is affinity to a specific node and return it.
 	terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
@@ -166,6 +181,9 @@ func (pl *NodeAffinity) PreFilter(ctx context.Context, cycleState *framework.Cyc
 	if nodeNames != nil && len(nodeNames) == 0 {
 		return nil, framework.NewStatus(framework.UnschedulableAndUnresolvable, errReasonConflict)
 	} else if len(nodeNames) > 0 {
+
+		// zhou: candidate Node list according to Pod's "NodeAffinity"
+
 		return &framework.PreFilterResult{NodeNames: nodeNames}, nil
 	}
 	return nil, nil
@@ -186,12 +204,17 @@ func (pl *NodeAffinity) Filter(ctx context.Context, state *framework.CycleState,
 		return framework.NewStatus(framework.UnschedulableAndUnresolvable, errReasonEnforced)
 	}
 
+	// zhou: consolidate Pod's "NodeSelector" and "NodeAffinity", stored in "cycleState"
+
 	s, err := getPreFilterState(state)
 	if err != nil {
 		// Fallback to calculate requiredNodeSelector and requiredNodeAffinity
 		// here when PreFilter is disabled.
 		s = &preFilterState{requiredNodeSelectorAndAffinity: nodeaffinity.GetRequiredNodeAffinity(pod)}
 	}
+
+	// zhou: check both NodeSelector and NodeAffinity. The latter provide more capabilities.
+	//       Match both NodeSelector and NodeAffinity !!!
 
 	// Ignore parsing errors for backwards compatibility.
 	match, _ := s.requiredNodeSelectorAndAffinity.Match(node)
@@ -213,11 +236,15 @@ func (s *preScoreState) Clone() framework.StateData {
 	return s
 }
 
+// zhou: according to "pod.spec.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution",
+//       caculate weights all nodes for next phase "Score()"
+
 // PreScore builds and writes cycle state used by Score and NormalizeScore.
 func (pl *NodeAffinity) PreScore(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod, nodes []*framework.NodeInfo) *framework.Status {
 	if len(nodes) == 0 {
 		return nil
 	}
+
 	preferredNodeAffinity, err := getPodPreferredNodeAffinity(pod)
 	if err != nil {
 		return framework.AsStatus(err)
@@ -232,6 +259,8 @@ func (pl *NodeAffinity) PreScore(ctx context.Context, cycleState *framework.Cycl
 	cycleState.Write(preScoreStateKey, state)
 	return nil
 }
+
+// zhou: caculate score for node passed by scheduler framework.
 
 // Score returns the sum of the weights of the terms that match the Node.
 // Terms came from the Pod .spec.affinity.nodeAffinity and from the plugin's
@@ -305,6 +334,8 @@ func New(_ context.Context, plArgs runtime.Object, h framework.Handle) (framewor
 	return pl, nil
 }
 
+// zhou: get additional Node Affinity requirement on top of Pod's spec.
+
 func getArgs(obj runtime.Object) (config.NodeAffinityArgs, error) {
 	ptr, ok := obj.(*config.NodeAffinityArgs)
 	if !ok {
@@ -312,6 +343,8 @@ func getArgs(obj runtime.Object) (config.NodeAffinityArgs, error) {
 	}
 	return *ptr, validation.ValidateNodeAffinityArgs(nil, ptr)
 }
+
+// zhou: used to handle "PreferredDuringSchedulingIgnoredDuringExecution"
 
 func getPodPreferredNodeAffinity(pod *v1.Pod) (*nodeaffinity.PreferredSchedulingTerms, error) {
 	affinity := pod.Spec.Affinity

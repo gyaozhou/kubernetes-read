@@ -55,6 +55,8 @@ var (
 	defaultMinWatchTimeout = 5 * time.Minute
 )
 
+// zhou:
+
 // Reflector watches a specified resource and causes all changes to be reflected in the given store.
 type Reflector struct {
 	// name identifies this reflector. By default it will be a file:line if possible.
@@ -71,8 +73,11 @@ type Reflector struct {
 	expectedType reflect.Type
 	// The GVK of the object we expect to place in the store if unstructured.
 	expectedGVK *schema.GroupVersionKind
+
+	// zhou: here means DeltaFIFO
 	// The destination to sync up with the watch source
 	store Store
+	// zhou: the way to fetch
 	// listerWatcher is used to perform lists and watches.
 	listerWatcher ListerWatcher
 	// backoff manages backoff of ListWatch
@@ -158,6 +163,8 @@ func DefaultWatchErrorHandler(r *Reflector, err error) {
 		utilruntime.HandleError(fmt.Errorf("%s: Failed to watch %v: %v", r.name, r.typeDescription, err))
 	}
 }
+
+// zhou: not be used, not the common case
 
 // NewNamespaceKeyedIndexerAndReflector creates an Indexer and a Reflector
 // The indexer is configured to key on namespace
@@ -298,6 +305,8 @@ func getExpectedGVKFromObject(expectedType interface{}) *schema.GroupVersionKind
 // call chains to NewReflector, so they'd be low entropy names for reflectors
 var internalPackages = []string{"client-go/tools/cache/"}
 
+// zhou: in loop running ListAndWatch()
+
 // Run repeatedly uses the reflector's ListAndWatch to fetch all the
 // objects and subsequent deltas.
 // Run will exit when stopCh is closed.
@@ -333,6 +342,11 @@ func (r *Reflector) resyncChan() (<-chan time.Time, func() bool) {
 	t := r.clock.NewTimer(r.resyncPeriod)
 	return t.C(), t.Stop
 }
+
+// zhou: core function of Reflector,
+//       1. initally List() to Replace() DeltaFIFO
+//       2. periodically List() to Resync() DeltaFIFO as needed.
+//       3. block on watch api server to Add()/Delete()/Update() Delta of DeltaFIFO.
 
 // ListAndWatch first lists all items and get the resource version at the moment of call,
 // and then use the resource version to watch.
@@ -411,7 +425,10 @@ func (r *Reflector) watch(w watch.Interface, stopCh <-chan struct{}, resyncerrc 
 	var err error
 	retry := NewRetryWithDeadline(r.MaxInternalErrorRetryDuration, time.Minute, apierrors.IsInternalError, r.clock)
 
+	// zhou: loop running to watch.
+
 	for {
+		// zhou: will not block here.
 		// give the stopCh a chance to stop the loop, even in case of continue statements further down on errors
 		select {
 		case <-stopCh:
@@ -440,6 +457,8 @@ func (r *Reflector) watch(w watch.Interface, stopCh <-chan struct{}, resyncerrc 
 				AllowWatchBookmarks: true,
 			}
 
+			// zhou: get "watch.Interface", whose "ResultChan()" received the result.
+
 			w, err = r.listerWatcher.Watch(options)
 			if err != nil {
 				if canRetry := isWatchErrorRetriable(err); canRetry {
@@ -454,6 +473,8 @@ func (r *Reflector) watch(w watch.Interface, stopCh <-chan struct{}, resyncerrc 
 				return err
 			}
 		}
+
+		// zhou: get watch result and enqueue DeltaFIFO.
 
 		err = handleWatch(start, w, r.store, r.expectedType, r.expectedGVK, r.name, r.typeDescription, r.setLastSyncResourceVersion,
 			r.clock, resyncerrc, stopCh)
@@ -709,6 +730,8 @@ func (r *Reflector) watchList(stopCh <-chan struct{}) (watch.Interface, error) {
 	return w, nil
 }
 
+// zhou: Replace() DeltaFIFO in case initial List() execution.
+
 // syncWith replaces the store's items with the given list.
 func (r *Reflector) syncWith(items []runtime.Object, resourceVersion string) error {
 	found := make([]interface{}, 0, len(items))
@@ -717,6 +740,8 @@ func (r *Reflector) syncWith(items []runtime.Object, resourceVersion string) err
 	}
 	return r.store.Replace(found, resourceVersion)
 }
+
+// zhou: get watch result and enqueue DeltaFIFO.
 
 // handleListWatch consumes events from w, updates the Store, and records the
 // last seen ResourceVersion, to allow continuing from that ResourceVersion on
@@ -796,7 +821,7 @@ loop:
 			return watchListBookmarkReceived, errorStopRequested
 		case err := <-errCh:
 			return watchListBookmarkReceived, err
-		case event, ok := <-w.ResultChan():
+		case event, ok := <-w.ResultChan(): // zhou: block here to get watch result.
 			if !ok {
 				break loop
 			}
@@ -820,6 +845,9 @@ loop:
 				utilruntime.HandleError(fmt.Errorf("%s: unable to understand watch event %#v", name, event))
 				continue
 			}
+
+			// zhou: enqueue DeltaFIFO.
+
 			resourceVersion := meta.GetResourceVersion()
 			switch event.Type {
 			case watch.Added:

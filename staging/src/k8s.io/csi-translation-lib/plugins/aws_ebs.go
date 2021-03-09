@@ -98,6 +98,10 @@ func (t *awsElasticBlockStoreCSITranslator) TranslateInTreeStorageClassToCSI(sc 
 	return sc, nil
 }
 
+// zhou: "takes a Volume with AWSElasticBlockStore set from in-tree
+//        and converts the AWSElasticBlockStore source to a CSIPersistentVolumeSource"
+//       Peer to "TranslateInTreePVToCIS()"
+
 // TranslateInTreeInlineVolumeToCSI takes a Volume with AWSElasticBlockStore set from in-tree
 // and converts the AWSElasticBlockStore source to a CSIPersistentVolumeSource
 func (t *awsElasticBlockStoreCSITranslator) TranslateInTreeInlineVolumeToCSI(volume *v1.Volume, podNamespace string) (*v1.PersistentVolume, error) {
@@ -133,6 +137,10 @@ func (t *awsElasticBlockStoreCSITranslator) TranslateInTreeInlineVolumeToCSI(vol
 	return pv, nil
 }
 
+// zhou: "takes a PV with AWSElasticBlockStore set from in-tree
+//        converts the AWSElasticBlockStore source to a CSIPersistentVolumeSource"
+//        Peer to "TranslateInTreeInlineVolumeToCSI()"
+
 // TranslateInTreePVToCSI takes a PV with AWSElasticBlockStore set from in-tree
 // and converts the AWSElasticBlockStore source to a CSIPersistentVolumeSource
 func (t *awsElasticBlockStoreCSITranslator) TranslateInTreePVToCSI(pv *v1.PersistentVolume) (*v1.PersistentVolume, error) {
@@ -142,6 +150,7 @@ func (t *awsElasticBlockStoreCSITranslator) TranslateInTreePVToCSI(pv *v1.Persis
 
 	ebsSource := pv.Spec.AWSElasticBlockStore
 
+	// zhou: translate format
 	volumeHandle, err := KubernetesVolumeIDToEBSVolumeID(ebsSource.VolumeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to translate Kubernetes ID to EBS Volume ID %v", err)
@@ -229,6 +238,8 @@ func (t *awsElasticBlockStoreCSITranslator) RepairVolumeHandle(volumeHandle, nod
 
 // awsVolumeRegMatch represents Regex Match for AWS volume.
 var awsVolumeRegMatch = regexp.MustCompile("^vol-[^/]*$")
+
+// zhou: format translation
 
 // KubernetesVolumeIDToEBSVolumeID translates Kubernetes volume ID to EBS volume ID
 // KubernetesVolumeID forms:

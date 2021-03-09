@@ -94,6 +94,8 @@ type expandController struct {
 	csiMigratedPluginManager csimigration.PluginManager
 }
 
+// zhou: README,
+
 // NewExpandController expands the pvs
 func NewExpandController(
 	ctx context.Context,
@@ -114,6 +116,8 @@ func NewExpandController(
 		translator:               translator,
 		csiMigratedPluginManager: csiMigratedPluginManager,
 	}
+
+	// zhou: init volume plugins
 
 	if err := expc.volumePluginMgr.InitPlugins(plugins, nil, expc); err != nil {
 		return nil, fmt.Errorf("could not initialize volume plugins for Expand Controller : %+v", err)
@@ -194,6 +198,8 @@ func (expc *expandController) processNextWorkItem(ctx context.Context) bool {
 
 	return true
 }
+
+// zhou: process PVC
 
 // syncHandler performs actual expansion of volume. If an error is returned
 // from this function - PVC will be requeued for resizing.

@@ -137,6 +137,8 @@ func NewDualStackProxier(
 	return metaproxier.NewMetaProxier(ipv4Proxier, ipv6Proxier), nil
 }
 
+// zhou: README,
+
 // Proxier is an iptables based proxy for connections between a localhost:lport
 // and services that provide the actual backends.
 type Proxier struct {
@@ -219,6 +221,8 @@ type Proxier struct {
 
 // Proxier implements proxy.Provider
 var _ proxy.Provider = &Proxier{}
+
+// zhou: README,
 
 // NewProxier returns a new Proxier given an iptables Interface instance.
 // Because of the iptables logic, it is assumed that there is only a single Proxier active on a machine.

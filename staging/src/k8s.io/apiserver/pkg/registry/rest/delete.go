@@ -63,6 +63,8 @@ type RESTGracefulDeleteStrategy interface {
 	CheckGracefulDelete(ctx context.Context, obj runtime.Object, options *metav1.DeleteOptions) bool
 }
 
+// zhou: README,
+
 // BeforeDelete tests whether the object can be gracefully deleted.
 // If graceful is set, the object should be gracefully deleted.  If gracefulPending
 // is set, the object has already been gracefully deleted (and the provided grace
