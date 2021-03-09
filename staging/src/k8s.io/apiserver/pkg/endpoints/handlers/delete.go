@@ -45,9 +45,14 @@ import (
 	"k8s.io/component-base/tracing"
 )
 
+// zhou: README, handle Delete from web server
+
 // DeleteResource returns a function that will handle a resource deletion
 // TODO admission here becomes solely validating admission
 func DeleteResource(r rest.GracefulDeleter, allowsOptions bool, scope *RequestScope, admit admission.Interface) http.HandlerFunc {
+
+	// zhou: return a function, which will be registered to web server.
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		// For performance tracking purposes.
@@ -115,6 +120,7 @@ func DeleteResource(r rest.GracefulDeleter, allowsOptions bool, scope *RequestSc
 				}
 			}
 		}
+
 		if errs := validation.ValidateDeleteOptions(options); len(errs) > 0 {
 			err := errors.NewInvalid(schema.GroupKind{Group: metav1.GroupName, Kind: "DeleteOptions"}, "", errs)
 			scope.err(err, w, req)
@@ -126,6 +132,9 @@ func DeleteResource(r rest.GracefulDeleter, allowsOptions bool, scope *RequestSc
 		wasDeleted := true
 		userInfo, _ := request.UserFrom(ctx)
 		staticAdmissionAttrs := admission.NewAttributesRecord(nil, nil, scope.Kind, namespace, name, scope.Resource, scope.Subresource, admission.Delete, options, dryrun.IsDryRun(options.DryRun), userInfo)
+
+		// zhou: running solider handler in a asynchronous goroutine.
+
 		result, err := finisher.FinishRequest(ctx, func() (runtime.Object, error) {
 			obj, deleted, err := r.Delete(ctx, name, rest.AdmissionToValidateObjectDeleteFunc(admit, staticAdmissionAttrs, scope), options)
 			wasDeleted = deleted
@@ -259,6 +268,9 @@ func DeleteCollection(r rest.CollectionDeleter, checkBody bool, scope *RequestSc
 				}
 			}
 		}
+
+		// zhou: check PropagationPolicy and "dryRun" flag for deletion.
+
 		if errs := validation.ValidateDeleteOptions(options); len(errs) > 0 {
 			err := errors.NewInvalid(schema.GroupKind{Group: metav1.GroupName, Kind: "DeleteOptions"}, "", errs)
 			scope.err(err, w, req)

@@ -374,6 +374,8 @@ func Run(ctx context.Context, c *config.CompletedConfig) error {
 	return nil
 }
 
+// zhou: common attributes for controllers
+
 // ControllerContext defines the context object for controller
 type ControllerContext struct {
 	// ClientBuilder will provide a client for this controller to use
@@ -496,6 +498,8 @@ func ControllerAliases() map[string]string {
 	return aliases
 }
 
+// zhou:
+
 func ControllersDisabledByDefault() []string {
 	var controllersDisabledByDefault []string
 
@@ -509,6 +513,8 @@ func ControllersDisabledByDefault() []string {
 
 	return controllersDisabledByDefault
 }
+
+// zhou: all controllers in Control Manager
 
 // NewControllerDescriptors is a public map of named controller groups (you can start more than one in an init func)
 // paired to their ControllerDescriptor wrapper object that includes InitFunc.
@@ -609,6 +615,8 @@ func NewControllerDescriptors() map[string]*ControllerDescriptor {
 
 	return controllers
 }
+
+// zhou: README,
 
 // CreateControllerContext creates a context struct containing references to resources needed by the
 // controllers such as the cloud provider and clientBuilder. rootClientBuilder is only used for
@@ -868,6 +876,8 @@ func readCA(file string) ([]byte, error) {
 	return rootCA, err
 }
 
+// zhou: create client for controller use.
+
 // createClientBuilders creates clientBuilder and rootClientBuilder from the given configuration
 func createClientBuilders(c *config.CompletedConfig) (clientBuilder clientbuilder.ControllerClientBuilder, rootClientBuilder clientbuilder.ControllerClientBuilder) {
 
@@ -876,6 +886,7 @@ func createClientBuilders(c *config.CompletedConfig) (clientBuilder clientbuilde
 	}
 	if c.ComponentConfig.KubeCloudShared.UseServiceAccountCredentials {
 
+		// zhou:
 		clientBuilder = clientbuilder.NewDynamicClientBuilder(
 			restclient.AnonymousClientConfig(c.Kubeconfig),
 			c.Client.CoreV1(),

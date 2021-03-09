@@ -88,5 +88,6 @@ func HomeDir() string {
 		// We've got nothing
 		return ""
 	}
+
 	return os.Getenv("HOME")
 }

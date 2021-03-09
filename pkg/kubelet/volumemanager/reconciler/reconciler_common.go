@@ -144,7 +144,10 @@ type reconciler struct {
 	volumesNeedUpdateFromNodeStatus []v1.UniqueVolumeName
 }
 
+// zhou: README,
+
 func (rc *reconciler) unmountVolumes() {
+
 	// Ensure volumes that should be unmounted are unmounted.
 	for _, mountedVolume := range rc.actualStateOfWorld.GetAllMountedVolumes() {
 		if rc.operationExecutor.IsOperationPending(mountedVolume.VolumeName, mountedVolume.PodName, nestedpendingoperations.EmptyNodeName) {
@@ -165,6 +168,8 @@ func (rc *reconciler) unmountVolumes() {
 	}
 }
 
+// zhou: README,
+
 func (rc *reconciler) mountOrAttachVolumes() {
 	// Ensure volumes that should be attached/mounted are attached/mounted.
 	for _, volumeToMount := range rc.desiredStateOfWorld.GetVolumesToMount() {
@@ -182,6 +187,9 @@ func (rc *reconciler) mountOrAttachVolumes() {
 		} else if cache.IsVolumeNotAttachedError(err) {
 			rc.waitForVolumeAttach(volumeToMount)
 		} else if !volMounted || cache.IsRemountRequiredError(err) {
+
+			// zhou:
+
 			rc.mountAttachedVolumes(volumeToMount, err)
 		} else if cache.IsFSResizeRequiredError(err) {
 			fsResizeRequiredErr, _ := err.(cache.FsResizeRequiredError)
@@ -203,6 +211,8 @@ func (rc *reconciler) expandVolume(volumeToMount cache.VolumeToMount, currentSiz
 	}
 }
 
+// zhou: README,
+
 func (rc *reconciler) mountAttachedVolumes(volumeToMount cache.VolumeToMount, podExistError error) {
 	// Volume is not mounted, or is already mounted, but requires remounting
 	remountingLogStr := ""
@@ -211,6 +221,9 @@ func (rc *reconciler) mountAttachedVolumes(volumeToMount cache.VolumeToMount, po
 		remountingLogStr = "Volume is already mounted to pod, but remount was requested."
 	}
 	klog.V(4).InfoS(volumeToMount.GenerateMsgDetailed("Starting operationExecutor.MountVolume", remountingLogStr), "pod", klog.KObj(volumeToMount.Pod))
+
+	// zhou:
+
 	err := rc.operationExecutor.MountVolume(
 		rc.waitForAttachTimeout,
 		volumeToMount.VolumeToMount,

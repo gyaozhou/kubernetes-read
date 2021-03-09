@@ -29,6 +29,8 @@ import (
 	volumetypes "k8s.io/kubernetes/pkg/volume/util/types"
 )
 
+// zhou: csiPlugin implement the interface.
+
 var _ volume.NodeExpandableVolumePlugin = &csiPlugin{}
 
 func (c *csiPlugin) RequiresFSResize() bool {

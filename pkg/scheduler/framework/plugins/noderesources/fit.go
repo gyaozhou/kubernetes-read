@@ -37,6 +37,9 @@ import (
 	schedutil "k8s.io/kubernetes/pkg/scheduler/util"
 )
 
+// zhou: NodeResourcesFit Checks if the node has all the resources that the Pod is requesting.
+//       Like CPU, Memory, devices, ...
+
 var _ framework.PreFilterPlugin = &Fit{}
 var _ framework.FilterPlugin = &Fit{}
 var _ framework.EnqueueExtensions = &Fit{}
@@ -149,6 +152,8 @@ func (f *Fit) Name() string {
 	return Name
 }
 
+// zhou: README,
+
 // NewFit initializes a new plugin and returns it.
 func NewFit(_ context.Context, plArgs runtime.Object, h framework.Handle, fts feature.Features) (framework.Plugin, error) {
 	args, ok := plArgs.(*config.NodeResourcesFitArgs)
@@ -214,6 +219,8 @@ func computePodResourceRequest(pod *v1.Pod) *preFilterState {
 	result.SetMaxResource(reqs)
 	return result
 }
+
+// zhou: README,
 
 // PreFilter invoked at the prefilter extension point.
 func (f *Fit) PreFilter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod) (*framework.PreFilterResult, *framework.Status) {

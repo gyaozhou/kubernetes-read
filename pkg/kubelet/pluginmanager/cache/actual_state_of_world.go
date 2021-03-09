@@ -72,6 +72,8 @@ func NewActualStateOfWorld() ActualStateOfWorld {
 	}
 }
 
+// zhou: similar with "desiredStateOfWorld"
+
 type actualStateOfWorld struct {
 
 	// socketFileToInfo is a map containing the set of successfully registered plugins

@@ -36,6 +36,8 @@ type JobsGetter interface {
 	Jobs(namespace string) JobInterface
 }
 
+// zhou: "/apis/batch/v1/jobs"
+
 // JobInterface has methods to work with Job resources.
 type JobInterface interface {
 	Create(ctx context.Context, job *batchv1.Job, opts metav1.CreateOptions) (*batchv1.Job, error)

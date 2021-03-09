@@ -104,6 +104,8 @@ type APIGroupVersion struct {
 	MaxRequestBodyBytes int64
 }
 
+// zhou: setup web server and register resource handler
+
 // InstallREST registers the REST handlers (storage, watch, proxy and redirect) into a restful Container.
 // It is expected that the provided path root prefix will serve all operations. Root MUST NOT end
 // in a slash.
@@ -115,7 +117,10 @@ func (g *APIGroupVersion) InstallREST(container *restful.Container) ([]apidiscov
 		minRequestTimeout: g.MinRequestTimeout,
 	}
 
+	// zhou:
+
 	apiResources, resourceInfos, ws, registrationErrors := installer.Install()
+
 	versionDiscoveryHandler := discovery.NewAPIVersionHandler(g.Serializer, g.GroupVersion, staticLister{apiResources})
 	versionDiscoveryHandler.AddToWebService(ws)
 	container.Add(ws)

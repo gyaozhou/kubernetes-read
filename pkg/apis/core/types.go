@@ -321,6 +321,7 @@ type PersistentVolume struct {
 type PersistentVolumeSpec struct {
 	// Resources represents the actual resources of the volume
 	Capacity ResourceList
+
 	// Source represents the location and type of a volume to mount.
 	PersistentVolumeSource
 	// AccessModes contains all ways the volume can be mounted
@@ -344,6 +345,7 @@ type PersistentVolumeSpec struct {
 	// simply fail if one is invalid.
 	// +optional
 	MountOptions []string
+
 	// volumeMode defines if a volume is intended to be used with a formatted filesystem
 	// or to remain in raw block state. Value of Filesystem is implied when not included in spec.
 	// +optional
@@ -456,6 +458,7 @@ type PersistentVolumeClaimSpec struct {
 	// Contains the types of access modes required
 	// +optional
 	AccessModes []PersistentVolumeAccessMode
+
 	// A label query over volumes to consider for binding. This selector is
 	// ignored when VolumeName is set
 	// +optional
@@ -5777,6 +5780,8 @@ const (
 	// LimitTypePersistentVolumeClaim defines limit that applies to all persistent volume claims in a namespace
 	LimitTypePersistentVolumeClaim LimitType = "PersistentVolumeClaim"
 )
+
+// zhou:
 
 // LimitRangeItem defines a min/max usage limit for any resource that matches on kind
 type LimitRangeItem struct {

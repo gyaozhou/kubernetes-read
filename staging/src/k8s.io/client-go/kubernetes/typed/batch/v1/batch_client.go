@@ -26,6 +26,8 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
+// zhou: "/apis/batch/v1"
+
 type BatchV1Interface interface {
 	RESTClient() rest.Interface
 	CronJobsGetter

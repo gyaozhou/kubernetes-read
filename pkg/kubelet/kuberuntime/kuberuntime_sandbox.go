@@ -37,6 +37,8 @@ import (
 	netutils "k8s.io/utils/net"
 )
 
+// zhou: README,
+
 // createPodSandbox creates a pod sandbox and returns (podSandBoxID, message, error).
 func (m *kubeGenericRuntimeManager) createPodSandbox(ctx context.Context, pod *v1.Pod, attempt uint32) (string, string, error) {
 	podSandboxConfig, err := m.generatePodSandboxConfig(pod, attempt)
@@ -66,6 +68,8 @@ func (m *kubeGenericRuntimeManager) createPodSandbox(ctx context.Context, pod *v
 		}
 	}
 
+	// zhou:
+
 	podSandBoxID, err := m.runtimeService.RunPodSandbox(ctx, podSandboxConfig, runtimeHandler)
 	if err != nil {
 		message := fmt.Sprintf("Failed to create sandbox for pod %q: %v", format.Pod(pod), err)
@@ -75,6 +79,8 @@ func (m *kubeGenericRuntimeManager) createPodSandbox(ctx context.Context, pod *v
 
 	return podSandBoxID, "", nil
 }
+
+// zhou: README,
 
 // generatePodSandboxConfig generates pod sandbox config from v1.Pod.
 func (m *kubeGenericRuntimeManager) generatePodSandboxConfig(pod *v1.Pod, attempt uint32) (*runtimeapi.PodSandboxConfig, error) {
@@ -110,6 +116,8 @@ func (m *kubeGenericRuntimeManager) generatePodSandboxConfig(pod *v1.Pod, attemp
 		}
 		podSandboxConfig.Hostname = podHostname
 	}
+
+	// zhou: create directory on host for logging
 
 	logDir := BuildPodLogsDirectory(m.podLogsDirectory, pod.Namespace, pod.Name, pod.UID)
 	podSandboxConfig.LogDirectory = logDir

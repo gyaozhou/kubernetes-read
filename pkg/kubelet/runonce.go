@@ -42,6 +42,8 @@ type RunPodResult struct {
 	Err error
 }
 
+// zhou: README,
+
 // RunOnce polls from one configuration update and run the associated pods.
 func (kl *Kubelet) RunOnce(updates <-chan kubetypes.PodUpdate) ([]RunPodResult, error) {
 	ctx := context.Background()
@@ -68,6 +70,8 @@ func (kl *Kubelet) RunOnce(updates <-chan kubetypes.PodUpdate) ([]RunPodResult, 
 	}
 }
 
+// zhou: README,
+
 // runOnce runs a given set of pods and returns their status.
 func (kl *Kubelet) runOnce(ctx context.Context, pods []*v1.Pod, retryDelay time.Duration) (results []RunPodResult, err error) {
 	ch := make(chan RunPodResult)
@@ -82,6 +86,7 @@ func (kl *Kubelet) runOnce(ctx context.Context, pods []*v1.Pod, retryDelay time.
 
 		admitted = append(admitted, pod)
 		go func(pod *v1.Pod) {
+			// zhou:
 			err := kl.runPod(ctx, pod, retryDelay)
 			ch <- RunPodResult{pod, err}
 		}(pod)
@@ -110,6 +115,8 @@ func (kl *Kubelet) runOnce(ctx context.Context, pods []*v1.Pod, retryDelay time.
 	klog.InfoS("Pods started", "numPods", len(pods))
 	return results, err
 }
+
+// zhou: README,
 
 // runPod runs a single pod and waits until all containers are running.
 func (kl *Kubelet) runPod(ctx context.Context, pod *v1.Pod, retryDelay time.Duration) error {

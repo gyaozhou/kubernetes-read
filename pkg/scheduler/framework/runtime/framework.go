@@ -48,6 +48,8 @@ const (
 	maxTimeout = 15 * time.Minute
 )
 
+// zhou: README,
+
 // frameworkImpl is the component responsible for initializing and running scheduler
 // plugins.
 type frameworkImpl struct {
@@ -689,6 +691,8 @@ func (f *frameworkImpl) QueueSortFunc() framework.LessFunc {
 	return f.queueSortPlugins[0].Less
 }
 
+// zhou: README,
+
 // RunPreFilterPlugins runs the set of configured PreFilter plugins. It returns
 // *Status and its code is set to non-success if any of the plugins returns
 // anything but Success/Skip.
@@ -764,6 +768,8 @@ func (f *frameworkImpl) runPreFilterPlugin(ctx context.Context, pl framework.Pre
 	return result, status
 }
 
+// zhou: README,
+
 // RunPreFilterExtensionAddPod calls the AddPod interface for the set of configured
 // PreFilter plugins. It returns directly if any of the plugins return any
 // status other than Success.
@@ -809,6 +815,8 @@ func (f *frameworkImpl) runPreFilterExtensionAddPod(ctx context.Context, pl fram
 	return status
 }
 
+// zhou: README,
+
 // RunPreFilterExtensionRemovePod calls the RemovePod interface for the set of configured
 // PreFilter plugins. It returns directly if any of the plugins return any
 // status other than Success.
@@ -853,6 +861,8 @@ func (f *frameworkImpl) runPreFilterExtensionRemovePod(ctx context.Context, pl f
 	f.metricsRecorder.ObservePluginDurationAsync(metrics.PreFilterExtensionRemovePod, pl.Name(), status.Code().String(), metrics.SinceInSeconds(startTime))
 	return status
 }
+
+// zhou: README,
 
 // RunFilterPlugins runs the set of configured Filter plugins for pod on
 // the given node. If any of these plugins doesn't return "Success", the
@@ -959,6 +969,8 @@ func (f *frameworkImpl) runPostFilterPlugin(ctx context.Context, pl framework.Po
 	f.metricsRecorder.ObservePluginDurationAsync(metrics.PostFilter, pl.Name(), s.Code().String(), metrics.SinceInSeconds(startTime))
 	return r, s
 }
+
+// zhou: README,
 
 // RunFilterPluginsWithNominatedPods runs the set of configured filter plugins
 // for nominated pod on the given node.
@@ -1226,6 +1238,8 @@ func (f *frameworkImpl) runScoreExtension(ctx context.Context, pl framework.Scor
 	return status
 }
 
+// zhou: README, run all PreBind plugins for this Pod.
+
 // RunPreBindPlugins runs the set of configured prebind plugins. It returns a
 // failure (bool) if any of the plugins returns an error. It also returns an
 // error containing the rejection message or the error occurred in the plugin.
@@ -1260,6 +1274,8 @@ func (f *frameworkImpl) RunPreBindPlugins(ctx context.Context, state *framework.
 	}
 	return nil
 }
+
+// zhou: README,
 
 func (f *frameworkImpl) runPreBindPlugin(ctx context.Context, pl framework.PreBindPlugin, state *framework.CycleState, pod *v1.Pod, nodeName string) *framework.Status {
 	if !state.ShouldRecordPluginMetrics() {
