@@ -82,6 +82,8 @@ func (plugin *hostPathPlugin) Init(host volume.VolumeHost) error {
 	return nil
 }
 
+// zhou: "kubernetes.io/host-path"
+
 func (plugin *hostPathPlugin) GetPluginName() string {
 	return hostPathPluginName
 }
@@ -94,6 +96,8 @@ func (plugin *hostPathPlugin) GetVolumeName(spec *volume.Spec) (string, error) {
 
 	return volumeSource.Path, nil
 }
+
+// zhou: HostPath volume could be specified in PV and pod.Volume
 
 func (plugin *hostPathPlugin) CanSupport(spec *volume.Spec) bool {
 	return (spec.PersistentVolume != nil && spec.PersistentVolume.Spec.HostPath != nil) ||
@@ -117,6 +121,8 @@ func (plugin *hostPathPlugin) GetAccessModes() []v1.PersistentVolumeAccessMode {
 		v1.ReadWriteOnce,
 	}
 }
+
+// zhou:
 
 func (plugin *hostPathPlugin) NewMounter(spec *volume.Spec, pod *v1.Pod) (volume.Mounter, error) {
 	hostPathVolumeSource, readOnly, err := getVolumeSource(spec)

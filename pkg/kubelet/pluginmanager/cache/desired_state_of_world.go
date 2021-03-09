@@ -30,6 +30,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// zhou: handler of Plugin sock file changes.
+
 // DesiredStateOfWorld defines a set of thread-safe operations for the kubelet
 // plugin manager's desired state of the world cache.
 // This cache contains a map of socket file path to plugin information of
@@ -66,6 +68,9 @@ type desiredStateOfWorld struct {
 	// socketFileToInfo is a map containing the set of successfully registered plugins
 	// The keys are plugin socket file paths. The values are PluginInfo objects
 	socketFileToInfo map[string]PluginInfo
+
+	// zhou: "fsnotify" events come from another thread
+
 	sync.RWMutex
 }
 
@@ -121,6 +126,9 @@ func errSuffix(err error) string {
 	}
 	return errStr
 }
+
+// zhou: handle new Plugin.
+//       Just store in "socketFileToInfo" map, then wait for reconciler to handle it periodically.
 
 func (dsw *desiredStateOfWorld) AddOrUpdatePlugin(socketPath string) error {
 	dsw.Lock()

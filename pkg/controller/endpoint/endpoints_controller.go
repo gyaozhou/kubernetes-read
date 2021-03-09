@@ -74,6 +74,8 @@ const (
 	controllerName = "endpoint-controller"
 )
 
+// zhou: README, reconcile Pod/Service/Endpoints objects
+
 // NewEndpointController returns a new *Controller.
 func NewEndpointController(ctx context.Context, podInformer coreinformers.PodInformer, serviceInformer coreinformers.ServiceInformer,
 	endpointsInformer coreinformers.EndpointsInformer, client clientset.Interface, endpointUpdatesBatchPeriod time.Duration) *Controller {
@@ -108,6 +110,8 @@ func NewEndpointController(ctx context.Context, podInformer coreinformers.PodInf
 	})
 	e.podLister = podInformer.Lister()
 	e.podsSynced = podInformer.Informer().HasSynced
+
+	// zhou: only handle Endpoints delete, since the Endpoint may be maintains by other operator
 
 	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: e.onEndpointsDelete,
@@ -153,6 +157,8 @@ type Controller struct {
 	endpointsSynced cache.InformerSynced
 	// staleEndpointsTracker can help determine if a cached Endpoints is out of date.
 	staleEndpointsTracker *staleEndpointsTracker
+
+	// zhou: only store Service Namespaced Name as key
 
 	// Services that need to be updated. A channel is inappropriate here,
 	// because it allows services with lots of pods to be serviced much
@@ -202,6 +208,8 @@ func (e *Controller) Run(ctx context.Context, workers int) {
 
 	<-ctx.Done()
 }
+
+// zhou: README, convert the Pod to Service Namespaced Name if Selector matched.
 
 // When a pod is added, figure out what services it will be a member of and
 // enqueue them. obj must have *v1.Pod type.
@@ -287,6 +295,8 @@ func (e *Controller) onServiceDelete(obj interface{}) {
 	e.queue.Add(key)
 }
 
+// zhou: Endpoints share the same name with corresponding Service.
+
 func (e *Controller) onEndpointsDelete(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err != nil {
@@ -296,6 +306,8 @@ func (e *Controller) onEndpointsDelete(obj interface{}) {
 	e.queue.Add(key)
 }
 
+// zhou: goroutine loop
+
 // worker runs a worker thread that just dequeues items, processes them, and
 // marks them done. You may run as many of these in parallel as you wish; the
 // workqueue guarantees that they will not end up processing the same service
@@ -304,6 +316,8 @@ func (e *Controller) worker(ctx context.Context) {
 	for e.processNextWorkItem(ctx) {
 	}
 }
+
+// zhou: only Service Namespaced in queue
 
 func (e *Controller) processNextWorkItem(ctx context.Context) bool {
 	eKey, quit := e.queue.Get()
@@ -341,6 +355,8 @@ func (e *Controller) handleErr(logger klog.Logger, err error, key string) {
 	utilruntime.HandleError(err)
 }
 
+// zhou: README,
+
 func (e *Controller) syncService(ctx context.Context, key string) error {
 	startTime := time.Now()
 	logger := klog.FromContext(ctx)
@@ -371,6 +387,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		e.staleEndpointsTracker.Delete(namespace, name)
 		return nil
 	}
+
+	// zhou: no endpoint required for ExternalName Service, so just ignore this Service Type.
 
 	if service.Spec.Type == v1.ServiceTypeExternalName {
 		// services with Type ExternalName receive no endpoints from this controller;
@@ -577,6 +595,8 @@ func (e *Controller) checkLeftoverEndpoints() {
 		e.queue.Add(key)
 	}
 }
+
+// zhou: README,
 
 // addEndpointSubset add the endpoints addresses and ports to the EndpointSubset.
 // The addresses are added to the corresponding field, ready or not ready, depending

@@ -712,6 +712,8 @@ type NamedRuleWithOperations struct {
 	RuleWithOperations `json:",inline" protobuf:"bytes,2,opt,name=ruleWithOperations"`
 }
 
+// zhou:
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -745,6 +747,8 @@ type ValidatingWebhookConfigurationList struct {
 	// List of ValidatingWebhookConfiguration.
 	Items []ValidatingWebhookConfiguration `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// zhou:
 
 // +genclient
 // +genclient:nonNamespaced
@@ -1041,6 +1045,7 @@ type MutatingWebhook struct {
 	// Requests with the dryRun attribute will be auto-rejected if they match a webhook with
 	// sideEffects == Unknown or Some.
 	SideEffects *SideEffectClass `json:"sideEffects" protobuf:"bytes,6,opt,name=sideEffects,casttype=SideEffectClass"`
+	// zhou: set timeout
 
 	// TimeoutSeconds specifies the timeout for this webhook. After the timeout passes,
 	// the webhook call will be ignored or the API call will fail based on the

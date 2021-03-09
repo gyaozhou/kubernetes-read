@@ -22,10 +22,15 @@ import (
 
 // AttachDetachControllerConfiguration contains elements describing AttachDetachController.
 type AttachDetachControllerConfiguration struct {
+	// zhou: "disable-attach-detach-reconcile-sync", flag set in cli.
+
 	// Reconciler runs a periodic loop to reconcile the desired state of the with
 	// the actual state of the world by triggering attach detach operations.
 	// This flag enables or disables reconcile.  Is false by default, and thus enabled.
 	DisableAttachDetachReconcilerSync bool
+
+	// zhou: "attach-detach-reconcile-sync-period", flag set in cli.
+
 	// ReconcilerSyncLoopPeriod is the amount of time the reconciler sync states loop
 	// wait between successive executions. Is set to 60 sec by default.
 	ReconcilerSyncLoopPeriod metav1.Duration

@@ -25,6 +25,8 @@ import (
 	"k8s.io/utils/clock"
 )
 
+// zhou:
+
 // DelayingInterface is an Interface that can Add an item at a later time. This makes it easier to
 // requeue items after failures without ending up in a hot-loop.
 //
@@ -150,7 +152,11 @@ func newDelayingQueue[T comparable](clock clock.WithTicker, q TypedInterface[T],
 }
 
 // delayingType wraps an Interface and provides delayed re-enquing
+
 type delayingType[T comparable] struct {
+
+	// zhou: simple queue
+
 	TypedInterface[T]
 
 	// clock tracks time for delayed firing
@@ -163,6 +169,8 @@ type delayingType[T comparable] struct {
 
 	// heartbeat ensures we wait no more than maxWait before firing
 	heartbeat clock.Ticker
+
+	// zhou:
 
 	// waitingForAddCh is a buffered channel that feeds waitingForAdd
 	waitingForAddCh chan *waitFor[T]
@@ -178,6 +186,10 @@ type waitFor[T any] struct {
 	// index in the priority queue (heap)
 	index int
 }
+
+// zhou: this "waitForPriorityQueue" is used for handle delay re-enqueue.
+//       The queue works like a timer management queue, we always want know the
+//       earlier timer that to be expired.
 
 // waitForPriorityQueue implements a priority queue for waitFor items.
 //
@@ -236,6 +248,8 @@ func (q *delayingType[T]) ShutDown() {
 	})
 }
 
+// zhou: value add for delay queue.
+
 // AddAfter adds the given item to the work queue after the given delay
 func (q *delayingType[T]) AddAfter(item T, duration time.Duration) {
 	// don't add if we're already shutting down
@@ -262,6 +276,8 @@ func (q *delayingType[T]) AddAfter(item T, duration time.Duration) {
 // Checking the queue every 10 seconds isn't expensive and we know that we'll never end up with an
 // expired item sitting for more than 10 seconds.
 const maxWait = 10 * time.Second
+
+// zhou: README, worth to learn.
 
 // waitingLoop runs until the workqueue is shutdown and keeps a check on the list of items to be added.
 func (q *delayingType[T]) waitingLoop() {
@@ -296,6 +312,8 @@ func (q *delayingType[T]) waitingLoop() {
 			q.Add(entry.data)
 			delete(waitingEntryByData, entry.data)
 		}
+
+		// zhou: the next timer to be expired
 
 		// Set up a wait for the first item's readyAt (if one exists)
 		nextReadyAt := never

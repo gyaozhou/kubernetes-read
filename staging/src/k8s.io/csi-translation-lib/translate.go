@@ -61,6 +61,8 @@ func (CSITranslator) TranslateInTreeStorageClassToCSI(logger klog.Logger, inTree
 	return nil, fmt.Errorf("could not find in-tree storage class parameter translation logic for %#v", inTreePluginName)
 }
 
+// zhou: README, go through all in-tree plugins to be translated.
+
 // TranslateInTreeInlineVolumeToCSI takes a inline volume and will translate
 // the in-tree volume source to a CSIPersistentVolumeSource (wrapped in a PV)
 // if the translation logic has been implemented.

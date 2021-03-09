@@ -102,6 +102,8 @@ func (e *eventProcessor) stop() {
 	e.cond.Signal()
 }
 
+// zhou: README,
+
 // NewIndexerInformerWatcher will create an IndexerInformer and wrap it into watch.Interface
 // so you can use it anywhere where you'd have used a regular Watcher returned from Watch method.
 // it also returns a channel you can use to wait for the informers to fully shutdown.

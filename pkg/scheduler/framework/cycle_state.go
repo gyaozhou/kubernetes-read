@@ -39,6 +39,8 @@ type StateData interface {
 // StateKey is the type of keys stored in CycleState.
 type StateKey string
 
+// zhou: like context
+
 // CycleState provides a mechanism for plugins to store and retrieve arbitrary data.
 // StateData stored by one plugin can be read, altered, or deleted by another plugin.
 // CycleState does not provide any data protection, as all plugins are assumed to be

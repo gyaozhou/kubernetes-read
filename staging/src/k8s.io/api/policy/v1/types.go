@@ -165,6 +165,8 @@ const (
 	InsufficientPodsReason = "InsufficientPods"
 )
 
+// zhou: README,
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.21
@@ -199,6 +201,9 @@ type PodDisruptionBudgetList struct {
 	Items []PodDisruptionBudget `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou: "Eviction" is a subresource of Pod like "status".
+//       This API will be request body of this subresource.
+
 // +genclient
 // +genclient:noVerbs
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -213,6 +218,8 @@ type Eviction struct {
 	// ObjectMeta describes the pod that is being evicted.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// zhou: used to support options like dryrun.
 
 	// DeleteOptions may be provided
 	// +optional

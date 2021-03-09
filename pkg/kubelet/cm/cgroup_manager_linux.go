@@ -37,6 +37,8 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/metrics"
 )
 
+// zhou: kubelet uses cgroup to manage container resources, such as cpu, memory, etc.
+
 const (
 	// systemdSuffix is the cgroup name suffix for systemd
 	systemdSuffix string = ".slice"

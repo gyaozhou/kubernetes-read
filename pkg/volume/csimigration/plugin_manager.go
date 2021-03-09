@@ -41,6 +41,8 @@ type PluginManager struct {
 	featureGate featuregate.FeatureGate
 }
 
+// zhou: README, CSI migration used only.
+
 // NewPluginManager returns a new PluginManager instance
 func NewPluginManager(m PluginNameMapper, featureGate featuregate.FeatureGate) PluginManager {
 	return PluginManager{
@@ -121,12 +123,23 @@ func (pm PluginManager) IsMigratable(spec *volume.Spec) (bool, error) {
 	return pm.IsMigrationEnabledForPlugin(pluginName), nil
 }
 
+// zhou: both PV and pod volume may be in-tree !!!
+
 // InTreeToCSITranslator performs translation of Volume sources for PV and Volume objects
 // from references to in-tree plugins to migrated CSI plugins
 type InTreeToCSITranslator interface {
+	// zhou: e.g. "takes a PV with AWSElasticBlockStore set from in-tree
+	//        converts the AWSElasticBlockStore source to a CSIPersistentVolumeSource"
+
 	TranslateInTreePVToCSI(logger klog.Logger, pv *v1.PersistentVolume) (*v1.PersistentVolume, error)
+
+	// zhou: e.g. "takes a Volume with AWSElasticBlockStore set from in-tree
+	//        and converts the AWSElasticBlockStore source to a CSIPersistentVolumeSource"
+
 	TranslateInTreeInlineVolumeToCSI(logger klog.Logger, volume *v1.Volume, podNamespace string) (*v1.PersistentVolume, error)
 }
+
+// zhou: translate in-tree PV or Pod volume to "volume.Spec"
 
 // TranslateInTreeSpecToCSI translates a volume spec (either PV or inline volume)
 // supported by an in-tree plugin to CSI

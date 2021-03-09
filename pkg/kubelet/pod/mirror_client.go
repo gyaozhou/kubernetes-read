@@ -30,6 +30,12 @@ import (
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
+// zhou: https://kubernetes.io/docs/tasks/configure-pod-container/static-pod/
+//       "The kubelet automatically tries to create a mirror Pod on the Kubernetes API server for
+//        each static Pod. This means that the Pods running on a node are visible on the API server,
+//        but cannot be controlled from there. The Pod names will be suffixed with the node hostname
+//        with a leading hyphen."
+
 // MirrorClient knows how to create/delete a mirror pod in the API server.
 type MirrorClient interface {
 	// CreateMirrorPod creates a mirror pod in the API server for the given
