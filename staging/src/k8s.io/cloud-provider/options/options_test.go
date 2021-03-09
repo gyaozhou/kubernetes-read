@@ -120,7 +120,8 @@ func TestDefaultFlags(t *testing.T) {
 			ClientTimeout:                10 * time.Second,
 			WebhookRetryBackoff:          apiserveroptions.DefaultAuthWebhookRetryBackoff(),
 			RemoteKubeConfigFileOptional: true,
-			AlwaysAllowPaths:             []string{"/healthz"}, // note: this does not match /healthz/ or
+			AlwaysAllowPaths:             []string{"/healthz", "/readyz", "/livez"}, // note: this does not match /healthz/ or /healthz/*
+			AlwaysAllowGroups:            []string{"system:masters"},
 		},
 		Kubeconfig:                "",
 		Master:                    "",
@@ -141,6 +142,7 @@ func TestAddFlags(t *testing.T) {
 	args := []string{
 		"--address=192.168.4.10",
 		"--allocate-node-cidrs=true",
+		"--authorization-always-allow-paths=", // this proves that we can clear the default
 		"--bind-address=192.168.4.21",
 		"--cert-dir=/a/b/c",
 		"--cloud-config=/cloud-config",
@@ -256,7 +258,8 @@ func TestAddFlags(t *testing.T) {
 			ClientTimeout:                10 * time.Second,
 			WebhookRetryBackoff:          apiserveroptions.DefaultAuthWebhookRetryBackoff(),
 			RemoteKubeConfigFileOptional: true,
-			AlwaysAllowPaths:             []string{"/healthz"}, // note: this does not match /healthz/ or
+			AlwaysAllowPaths:             []string{},
+			AlwaysAllowGroups:            []string{"system:masters"},
 		},
 		Kubeconfig:                "/kubeconfig",
 		Master:                    "192.168.4.20",

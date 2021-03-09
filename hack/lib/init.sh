@@ -50,6 +50,7 @@ source "${KUBE_ROOT}/hack/lib/util.sh"
 source "${KUBE_ROOT}/hack/lib/logging.sh"
 
 kube::log::install_errexit
+kube::util::ensure-bash-version
 
 source "${KUBE_ROOT}/hack/lib/version.sh"
 source "${KUBE_ROOT}/hack/lib/golang.sh"
@@ -79,12 +80,11 @@ autoscaling/v2beta1 \
 autoscaling/v2beta2 \
 batch/v1 \
 batch/v1beta1 \
-batch/v2alpha1 \
 certificates.k8s.io/v1 \
 certificates.k8s.io/v1beta1 \
 coordination.k8s.io/v1beta1 \
 coordination.k8s.io/v1 \
-discovery.k8s.io/v1alpha1 \
+discovery.k8s.io/v1 \
 discovery.k8s.io/v1beta1 \
 extensions/v1beta1 \
 events.k8s.io/v1 \

@@ -32,6 +32,7 @@ import (
 	policy "k8s.io/api/policy/v1beta1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/meta/testrestmapper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
+	discoveryfake "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	scalefake "k8s.io/client-go/scale/fake"
@@ -72,6 +74,8 @@ func (ps *pdbStates) Get(key string) policy.PodDisruptionBudget {
 func (ps *pdbStates) VerifyPdbStatus(t *testing.T, key string, disruptionsAllowed, currentHealthy, desiredHealthy, expectedPods int32,
 	disruptedPodMap map[string]metav1.Time) {
 	actualPDB := ps.Get(key)
+	actualConditions := actualPDB.Status.Conditions
+	actualPDB.Status.Conditions = nil
 	expectedStatus := policy.PodDisruptionBudgetStatus{
 		DisruptionsAllowed: disruptionsAllowed,
 		CurrentHealthy:     currentHealthy,
@@ -84,6 +88,22 @@ func (ps *pdbStates) VerifyPdbStatus(t *testing.T, key string, disruptionsAllowe
 	if !apiequality.Semantic.DeepEqual(actualStatus, expectedStatus) {
 		debug.PrintStack()
 		t.Fatalf("PDB %q status mismatch.  Expected %+v but got %+v.", key, expectedStatus, actualStatus)
+	}
+
+	cond := apimeta.FindStatusCondition(actualConditions, policy.DisruptionAllowedCondition)
+	if cond == nil {
+		t.Fatalf("Expected condition %q, but didn't find it", policy.DisruptionAllowedCondition)
+	}
+	if disruptionsAllowed > 0 {
+		if cond.Status != metav1.ConditionTrue {
+			t.Fatalf("Expected condition %q to have status %q, but was %q",
+				policy.DisruptionAllowedCondition, metav1.ConditionTrue, cond.Status)
+		}
+	} else {
+		if cond.Status != metav1.ConditionFalse {
+			t.Fatalf("Expected condition %q to have status %q, but was %q",
+				policy.DisruptionAllowedCondition, metav1.ConditionFalse, cond.Status)
+		}
 	}
 }
 
@@ -105,8 +125,9 @@ type disruptionController struct {
 	dStore   cache.Store
 	ssStore  cache.Store
 
-	coreClient  *fake.Clientset
-	scaleClient *scalefake.FakeScaleClient
+	coreClient      *fake.Clientset
+	scaleClient     *scalefake.FakeScaleClient
+	discoveryClient *discoveryfake.FakeDiscovery
 }
 
 var customGVK = schema.GroupVersionKind{
@@ -124,6 +145,9 @@ func newFakeDisruptionController() (*disruptionController, *pdbStates) {
 	scheme := runtime.NewScheme()
 	scheme.AddKnownTypeWithName(customGVK, &v1.Service{})
 	fakeScaleClient := &scalefake.FakeScaleClient{}
+	fakeDiscovery := &discoveryfake.FakeDiscovery{
+		Fake: &core.Fake{},
+	}
 
 	dc := NewDisruptionController(
 		informerFactory.Core().V1().Pods(),
@@ -135,6 +159,7 @@ func newFakeDisruptionController() (*disruptionController, *pdbStates) {
 		coreClient,
 		testrestmapper.TestOnlyStaticRESTMapper(scheme),
 		fakeScaleClient,
+		fakeDiscovery,
 	)
 	dc.getUpdater = func() updater { return ps.Set }
 	dc.podListerSynced = alwaysReady
@@ -157,6 +182,7 @@ func newFakeDisruptionController() (*disruptionController, *pdbStates) {
 		informerFactory.Apps().V1().StatefulSets().Informer().GetStore(),
 		coreClient,
 		fakeScaleClient,
+		fakeDiscovery,
 	}, ps
 }
 
@@ -569,6 +595,77 @@ func TestScaleResource(t *testing.T) {
 		disruptionsAllowed = maxUnavailable - (replicas - pods)
 	}
 	ps.VerifyPdbStatus(t, pdbName, disruptionsAllowed, pods, replicas-maxUnavailable, replicas, map[string]metav1.Time{})
+}
+
+func TestScaleFinderNoResource(t *testing.T) {
+	resourceName := "customresources"
+	testCases := map[string]struct {
+		apiResources []metav1.APIResource
+		expectError  bool
+	}{
+		"resource implements scale": {
+			apiResources: []metav1.APIResource{
+				{
+					Kind: customGVK.Kind,
+					Name: resourceName,
+				},
+				{
+					Kind: customGVK.Kind,
+					Name: resourceName + "/scale",
+				},
+			},
+			expectError: false,
+		},
+		"resource does not implement scale": {
+			apiResources: []metav1.APIResource{
+				{
+					Kind: customGVK.Kind,
+					Name: resourceName,
+				},
+			},
+			expectError: true,
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			customResourceUID := uuid.NewUUID()
+
+			dc, _ := newFakeDisruptionController()
+
+			dc.scaleClient.AddReactor("get", resourceName, func(action core.Action) (handled bool, ret runtime.Object, err error) {
+				gr := schema.GroupResource{
+					Group:    customGVK.Group,
+					Resource: resourceName,
+				}
+				return true, nil, errors.NewNotFound(gr, "name")
+			})
+			dc.discoveryClient.Resources = []*metav1.APIResourceList{
+				{
+					GroupVersion: customGVK.GroupVersion().String(),
+					APIResources: tc.apiResources,
+				},
+			}
+
+			trueVal := true
+			ownerRef := &metav1.OwnerReference{
+				Kind:       customGVK.Kind,
+				APIVersion: customGVK.GroupVersion().String(),
+				Controller: &trueVal,
+				UID:        customResourceUID,
+			}
+
+			_, err := dc.getScaleController(ownerRef, "default")
+
+			if tc.expectError && err == nil {
+				t.Error("expected error, but didn't get one")
+			}
+
+			if !tc.expectError && err != nil {
+				t.Errorf("did not expect error, but got %v", err)
+			}
+		})
+	}
 }
 
 // Verify that multiple controllers doesn't allow the PDB to be set true.
@@ -1157,6 +1254,44 @@ func TestUpdatePDBStatusRetries(t *testing.T) {
 	}
 	if expected, actual := int32(0), finalPDB.Status.DisruptionsAllowed; expected != actual {
 		t.Errorf("DisruptionsAllowed should be %d, got %d", expected, actual)
+	}
+}
+
+func TestInvalidSelectors(t *testing.T) {
+	testCases := map[string]struct {
+		labelSelector *metav1.LabelSelector
+	}{
+		"illegal value key": {
+			labelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"k8s.io/too/many/slashes": "value",
+				},
+			},
+		},
+		"illegal operator": {
+			labelSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "foo",
+						Operator: metav1.LabelSelectorOperator("illegal"),
+						Values:   []string{"bar"},
+					},
+				},
+			},
+		},
+	}
+
+	for tn, tc := range testCases {
+		t.Run(tn, func(t *testing.T) {
+			dc, ps := newFakeDisruptionController()
+
+			pdb, pdbName := newMinAvailablePodDisruptionBudget(t, intstr.FromInt(3))
+			pdb.Spec.Selector = tc.labelSelector
+
+			add(t, dc.pdbStore, pdb)
+			dc.sync(pdbName)
+			ps.VerifyPdbStatus(t, pdbName, 0, 0, 0, 0, map[string]metav1.Time{})
+		})
 	}
 }
 

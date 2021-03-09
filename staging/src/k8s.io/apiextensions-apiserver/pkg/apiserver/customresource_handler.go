@@ -366,7 +366,7 @@ func (r *crdHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case subresource == "scale" && subresources != nil && subresources.Scale != nil:
 		handlerFunc = r.serveScale(w, req, requestInfo, crdInfo, terminating, supportedTypes)
 	case len(subresource) == 0:
-		handlerFunc = r.serveResource(w, req, requestInfo, crdInfo, terminating, supportedTypes)
+		handlerFunc = r.serveResource(w, req, requestInfo, crdInfo, crd, terminating, supportedTypes)
 	default:
 		responsewriters.ErrorNegotiated(
 			apierrors.NewNotFound(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Name),
@@ -382,13 +382,13 @@ func (r *crdHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (r *crdHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, crdInfo *crdInfo, terminating bool, supportedTypes []string) http.HandlerFunc {
+func (r *crdHandler) serveResource(w http.ResponseWriter, req *http.Request, requestInfo *apirequest.RequestInfo, crdInfo *crdInfo, crd *apiextensionsv1.CustomResourceDefinition, terminating bool, supportedTypes []string) http.HandlerFunc {
 	requestScope := crdInfo.requestScopes[requestInfo.APIVersion]
 	storage := crdInfo.storages[requestInfo.APIVersion].CustomResource
 
 	switch requestInfo.Verb {
 	case "get":
-		return handlers.GetResource(storage, storage, requestScope)
+		return handlers.GetResource(storage, requestScope)
 	case "list":
 		forceWatch := false
 		return handlers.ListResource(storage, storage, requestScope, forceWatch, r.minRequestTimeout)
@@ -396,6 +396,13 @@ func (r *crdHandler) serveResource(w http.ResponseWriter, req *http.Request, req
 		forceWatch := true
 		return handlers.ListResource(storage, storage, requestScope, forceWatch, r.minRequestTimeout)
 	case "create":
+		// we want to track recently created CRDs so that in HA environments we don't have server A allow a create and server B
+		// not have observed the established, so a followup get,update,delete results in a 404. We've observed about 800ms
+		// delay in some CI environments.  Two seconds looks long enough and reasonably short for hot retriers.
+		justCreated := time.Since(apiextensionshelpers.FindCRDCondition(crd, apiextensionsv1.Established).LastTransitionTime.Time) < 2*time.Second
+		if justCreated {
+			time.Sleep(2 * time.Second)
+		}
 		if terminating {
 			err := apierrors.NewMethodNotSupported(schema.GroupResource{Group: requestInfo.APIGroup, Resource: requestInfo.Resource}, requestInfo.Verb)
 			err.ErrStatus.Message = fmt.Sprintf("%v not allowed while custom resource definition is terminating", requestInfo.Verb)
@@ -428,7 +435,7 @@ func (r *crdHandler) serveStatus(w http.ResponseWriter, req *http.Request, reque
 
 	switch requestInfo.Verb {
 	case "get":
-		return handlers.GetResource(storage, nil, requestScope)
+		return handlers.GetResource(storage, requestScope)
 	case "update":
 		return handlers.UpdateResource(storage, requestScope, r.admission)
 	case "patch":
@@ -448,7 +455,7 @@ func (r *crdHandler) serveScale(w http.ResponseWriter, req *http.Request, reques
 
 	switch requestInfo.Verb {
 	case "get":
-		return handlers.GetResource(storage, nil, requestScope)
+		return handlers.GetResource(storage, requestScope)
 	case "update":
 		return handlers.UpdateResource(storage, requestScope, r.admission)
 	case "patch":
@@ -468,6 +475,16 @@ func (r *crdHandler) createCustomResourceDefinition(obj interface{}) {
 	r.customStorageLock.Lock()
 	defer r.customStorageLock.Unlock()
 	// this could happen if the create event is merged from create-update events
+	storageMap := r.customStorage.Load().(crdStorageMap)
+	oldInfo, found := storageMap[crd.UID]
+	if !found {
+		return
+	}
+	if apiequality.Semantic.DeepEqual(&crd.Spec, oldInfo.spec) && apiequality.Semantic.DeepEqual(&crd.Status.AcceptedNames, oldInfo.acceptedNames) {
+		klog.V(6).Infof("Ignoring customresourcedefinition %s create event because a storage with the same spec and accepted names exists",
+			crd.Name)
+		return
+	}
 	r.removeStorage_locked(crd.UID)
 }
 
@@ -688,7 +705,6 @@ func (r *crdHandler) getOrCreateServingInfoFor(uid types.UID, name string) (*crd
 		parameterScheme := runtime.NewScheme()
 		parameterScheme.AddUnversionedTypes(schema.GroupVersion{Group: crd.Spec.Group, Version: v.Name},
 			&metav1.ListOptions{},
-			&metav1.ExportOptions{},
 			&metav1.GetOptions{},
 			&metav1.DeleteOptions{},
 		)
@@ -1321,7 +1337,7 @@ func buildOpenAPIModelsForApply(staticOpenAPISpec *goopenapispec.Swagger, crd *a
 	specs := []*goopenapispec.Swagger{}
 	for _, v := range crd.Spec.Versions {
 		// Defaults are not pruned here, but before being served.
-		s, err := builder.BuildSwagger(crd, v.Name, builder.Options{V2: false, StripValueValidation: true, StripNullable: true, AllowNonStructural: true})
+		s, err := builder.BuildSwagger(crd, v.Name, builder.Options{V2: false, StripValueValidation: true, StripNullable: true, AllowNonStructural: false})
 		if err != nil {
 			return nil, err
 		}

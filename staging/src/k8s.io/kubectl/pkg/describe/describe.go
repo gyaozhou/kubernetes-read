@@ -525,26 +525,26 @@ func DescribeResourceQuotas(quotas *corev1.ResourceQuotaList, w PrefixWriter) {
 	}
 	sort.Sort(SortableResourceQuotas(quotas.Items))
 
-	w.Write(LEVEL_0, "Resource Quotas")
+	w.Write(LEVEL_0, "Resource Quotas\n")
 	for _, q := range quotas.Items {
-		w.Write(LEVEL_0, "\n Name:\t%s\n", q.Name)
+		w.Write(LEVEL_1, "Name:\t%s\n", q.Name)
 		if len(q.Spec.Scopes) > 0 {
 			scopes := make([]string, 0, len(q.Spec.Scopes))
 			for _, scope := range q.Spec.Scopes {
 				scopes = append(scopes, string(scope))
 			}
 			sort.Strings(scopes)
-			w.Write(LEVEL_0, " Scopes:\t%s\n", strings.Join(scopes, ", "))
+			w.Write(LEVEL_1, "Scopes:\t%s\n", strings.Join(scopes, ", "))
 			for _, scope := range scopes {
 				helpText := helpTextForResourceQuotaScope(corev1.ResourceQuotaScope(scope))
 				if len(helpText) > 0 {
-					w.Write(LEVEL_0, "  * %s\n", helpText)
+					w.Write(LEVEL_1, "* %s\n", helpText)
 				}
 			}
 		}
 
-		w.Write(LEVEL_0, " Resource\tUsed\tHard\n")
-		w.Write(LEVEL_0, " --------\t---\t---\n")
+		w.Write(LEVEL_1, "Resource\tUsed\tHard\n")
+		w.Write(LEVEL_1, "--------\t---\t---\n")
 
 		resources := make([]corev1.ResourceName, 0, len(q.Status.Hard))
 		for resource := range q.Status.Hard {
@@ -555,7 +555,7 @@ func DescribeResourceQuotas(quotas *corev1.ResourceQuotaList, w PrefixWriter) {
 		for _, resource := range resources {
 			hardQuantity := q.Status.Hard[resource]
 			usedQuantity := q.Status.Used[resource]
-			w.Write(LEVEL_0, " %s\t%s\t%s\n", string(resource), usedQuantity.String(), hardQuantity.String())
+			w.Write(LEVEL_1, "%s\t%s\t%s\n", string(resource), usedQuantity.String(), hardQuantity.String())
 		}
 	}
 }
@@ -2160,6 +2160,9 @@ func describeJob(job *batchv1.Job, events *corev1.EventList) (string, error) {
 		} else {
 			w.Write(LEVEL_0, "Completions:\t<unset>\n")
 		}
+		if job.Spec.CompletionMode != "" {
+			w.Write(LEVEL_0, "Completion Mode:\t%s\n", job.Spec.CompletionMode)
+		}
 		if job.Status.StartTime != nil {
 			w.Write(LEVEL_0, "Start Time:\t%s\n", job.Status.StartTime.Time.Format(time.RFC1123Z))
 		}
@@ -2173,12 +2176,31 @@ func describeJob(job *batchv1.Job, events *corev1.EventList) (string, error) {
 			w.Write(LEVEL_0, "Active Deadline Seconds:\t%ds\n", *job.Spec.ActiveDeadlineSeconds)
 		}
 		w.Write(LEVEL_0, "Pods Statuses:\t%d Running / %d Succeeded / %d Failed\n", job.Status.Active, job.Status.Succeeded, job.Status.Failed)
+		if job.Spec.CompletionMode == batchv1.IndexedCompletion {
+			w.Write(LEVEL_0, "Completed Indexes:\t%s\n", capIndexesListOrNone(job.Status.CompletedIndexes, 50))
+		}
 		DescribePodTemplate(&job.Spec.Template, w)
 		if events != nil {
 			DescribeEvents(events, w)
 		}
 		return nil
 	})
+}
+
+func capIndexesListOrNone(indexes string, softLimit int) string {
+	if len(indexes) == 0 {
+		return "<none>"
+	}
+	ix := softLimit
+	for ; ix < len(indexes); ix++ {
+		if indexes[ix] == ',' {
+			break
+		}
+	}
+	if ix >= len(indexes) {
+		return indexes
+	}
+	return indexes[:ix+1] + "..."
 }
 
 // CronJobDescriber generates information about a cron job and the jobs it has created.
@@ -3929,7 +3951,7 @@ func (dd *DeploymentDescriber) Describe(namespace, name string, describerSetting
 		events, _ = dd.client.CoreV1().Events(namespace).Search(scheme.Scheme, d)
 	}
 
-	return describeDeployment(d, selector, d, events, dd)
+	return describeDeployment(d, selector, d.DeepCopy(), events, dd)
 }
 
 func describeDeployment(d *appsv1.Deployment, selector labels.Selector, internalDeployment *appsv1.Deployment, events *corev1.EventList, dd *DeploymentDescriber) (string, error) {

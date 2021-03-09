@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -43,7 +43,6 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	cacheddiscovery "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/informers"
-	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	restclient "k8s.io/client-go/rest"
@@ -65,7 +64,6 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/cmd/kube-controller-manager/app/config"
 	"k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
-	"k8s.io/kubernetes/pkg/controller"
 	kubectrlmgrconfig "k8s.io/kubernetes/pkg/controller/apis/config"
 	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	"k8s.io/kubernetes/pkg/serviceaccount"
@@ -221,22 +219,10 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 				klog.Warningf("--use-service-account-credentials was specified without providing a --service-account-private-key-file")
 			}
 
-			if shouldTurnOnDynamicClient(c.Client) {
-				klog.V(1).Infof("using dynamic client builder")
-				//Dynamic builder will use TokenRequest feature and refresh service account token periodically
-				clientBuilder = controller.NewDynamicClientBuilder(
-					restclient.AnonymousClientConfig(c.Kubeconfig),
-					c.Client.CoreV1(),
-					"kube-system")
-			} else {
-				klog.V(1).Infof("using legacy client builder")
-				clientBuilder = clientbuilder.SAControllerClientBuilder{
-					ClientConfig:         restclient.AnonymousClientConfig(c.Kubeconfig),
-					CoreClient:           c.Client.CoreV1(),
-					AuthenticationClient: c.Client.AuthenticationV1(),
-					Namespace:            "kube-system",
-				}
-			}
+			clientBuilder = clientbuilder.NewDynamicClientBuilder(
+				restclient.AnonymousClientConfig(c.Kubeconfig),
+				c.Client.CoreV1(),
+				metav1.NamespaceSystem)
 		} else {
 			clientBuilder = rootClientBuilder
 		}
@@ -270,15 +256,15 @@ func Run(c *config.CompletedConfig, stopCh <-chan struct{}) error {
 	// add a uniquifier so that two processes on the same host don't accidentally both become active
 	id = id + "_" + string(uuid.NewUUID())
 
-	rl, err := resourcelock.New(c.ComponentConfig.Generic.LeaderElection.ResourceLock,
+	rl, err := resourcelock.NewFromKubeconfig(c.ComponentConfig.Generic.LeaderElection.ResourceLock,
 		c.ComponentConfig.Generic.LeaderElection.ResourceNamespace,
 		c.ComponentConfig.Generic.LeaderElection.ResourceName,
-		c.LeaderElectionClient.CoreV1(),
-		c.LeaderElectionClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: c.EventRecorder,
-		})
+		},
+		c.Kubeconfig,
+		c.ComponentConfig.Generic.LeaderElection.RenewDeadline.Duration)
 	if err != nil {
 		klog.Fatalf("error creating lock: %v", err)
 	}
@@ -480,8 +466,8 @@ func CreateControllerContext(s *config.CompletedConfig, rootClientBuilder, clien
 	}
 
 	// Use a discovery client capable of being refreshed.
-	discoveryClient := rootClientBuilder.ClientOrDie("controller-discovery")
-	cachedClient := cacheddiscovery.NewMemCacheClient(discoveryClient.Discovery())
+	discoveryClient := rootClientBuilder.DiscoveryClientOrDie("controller-discovery")
+	cachedClient := cacheddiscovery.NewMemCacheClient(discoveryClient)
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedClient)
 	go wait.Until(func() {
 		restMapper.Reset()
@@ -622,22 +608,4 @@ func readCA(file string) ([]byte, error) {
 	}
 
 	return rootCA, err
-}
-
-func shouldTurnOnDynamicClient(client clientset.Interface) bool {
-	apiResourceList, err := client.Discovery().ServerResourcesForGroupVersion(v1.SchemeGroupVersion.String())
-	if err != nil {
-		klog.Warningf("fetch api resource lists failed, use legacy client builder: %v", err)
-		return false
-	}
-
-	for _, resource := range apiResourceList.APIResources {
-		if resource.Name == "serviceaccounts/token" &&
-			resource.Group == "authentication.k8s.io" &&
-			sets.NewString(resource.Verbs...).Has("create") {
-			return true
-		}
-	}
-
-	return false
 }

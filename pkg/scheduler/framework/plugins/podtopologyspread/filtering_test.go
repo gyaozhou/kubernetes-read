@@ -838,7 +838,7 @@ func TestPreFilterStateAddPod(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if s := pl.AddPod(ctx, cs, tt.preemptor, tt.addedPod, nodeInfo); !s.IsSuccess() {
+			if s := pl.AddPod(ctx, cs, tt.preemptor, framework.NewPodInfo(tt.addedPod), nodeInfo); !s.IsSuccess() {
 				t.Fatal(s.AsError())
 			}
 			state, err := getPreFilterState(cs)
@@ -1050,7 +1050,7 @@ func TestPreFilterStateRemovePod(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if s := pl.RemovePod(ctx, cs, tt.preemptor, deletedPod, nodeInfo); !s.IsSuccess() {
+			if s := pl.RemovePod(ctx, cs, tt.preemptor, framework.NewPodInfo(deletedPod), nodeInfo); !s.IsSuccess() {
 				t.Fatal(s.AsError())
 			}
 
@@ -1663,7 +1663,7 @@ func TestPreFilterDisabled(t *testing.T) {
 	p := &PodTopologySpread{}
 	cycleState := framework.NewCycleState()
 	gotStatus := p.Filter(context.Background(), cycleState, pod, nodeInfo)
-	wantStatus := framework.AsStatus(fmt.Errorf(`reading "PreFilterPodTopologySpread" from cycleState: not found`))
+	wantStatus := framework.AsStatus(fmt.Errorf(`reading "PreFilterPodTopologySpread" from cycleState: %w`, framework.ErrNotFound))
 	if !reflect.DeepEqual(gotStatus, wantStatus) {
 		t.Errorf("status does not match: %v, want: %v", gotStatus, wantStatus)
 	}

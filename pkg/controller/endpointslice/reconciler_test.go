@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -65,7 +65,7 @@ func TestReconcileEmpty(t *testing.T) {
 	assert.Equal(t, svc.Name, slices[0].Labels[discovery.LabelServiceName])
 	assert.EqualValues(t, []discovery.EndpointPort{}, slices[0].Ports)
 	assert.EqualValues(t, []discovery.Endpoint{}, slices[0].Endpoints)
-	expectTrackedResourceVersion(t, r.endpointSliceTracker, &slices[0], "100")
+	expectTrackedGeneration(t, r.endpointSliceTracker, &slices[0], 1)
 	expectMetrics(t, expectedMetrics{desiredSlices: 1, actualSlices: 1, desiredEndpoints: 0, addedPerSync: 0, removedPerSync: 0, numCreated: 1, numUpdated: 0, numDeleted: 0})
 }
 
@@ -126,11 +126,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -151,11 +148,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -181,11 +175,8 @@ func TestReconcile1Pod(t *testing.T) {
 							Serving:     utilpointer.BoolPtr(true),
 							Terminating: utilpointer.BoolPtr(false),
 						},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:     utilpointer.StringPtr("us-central1-a"),
+						NodeName: utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -208,11 +199,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -225,11 +213,8 @@ func TestReconcile1Pod(t *testing.T) {
 			expectedEndpoint: discovery.Endpoint{
 				Addresses:  []string{"1.2.3.4"},
 				Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-				Topology: map[string]string{
-					"kubernetes.io/hostname":        "node-1",
-					"topology.kubernetes.io/zone":   "us-central1-a",
-					"topology.kubernetes.io/region": "us-central1",
-				},
+				Zone:       utilpointer.StringPtr("us-central1-a"),
+				NodeName:   utilpointer.StringPtr("node-1"),
 				TargetRef: &corev1.ObjectReference{
 					Kind:      "Pod",
 					Namespace: namespace,
@@ -248,11 +233,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -265,11 +247,8 @@ func TestReconcile1Pod(t *testing.T) {
 			expectedEndpoint: discovery.Endpoint{
 				Addresses:  []string{"1.2.3.4"},
 				Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-				Topology: map[string]string{
-					"kubernetes.io/hostname":        "node-1",
-					"topology.kubernetes.io/zone":   "us-central1-a",
-					"topology.kubernetes.io/region": "us-central1",
-				},
+				Zone:       utilpointer.StringPtr("us-central1-a"),
+				NodeName:   utilpointer.StringPtr("node-1"),
 				TargetRef: &corev1.ObjectReference{
 					Kind:      "Pod",
 					Namespace: namespace,
@@ -290,11 +269,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -307,11 +283,8 @@ func TestReconcile1Pod(t *testing.T) {
 			expectedEndpoint: discovery.Endpoint{
 				Addresses:  []string{"1.2.3.4"},
 				Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-				Topology: map[string]string{
-					"kubernetes.io/hostname":        "node-1",
-					"topology.kubernetes.io/zone":   "us-central1-a",
-					"topology.kubernetes.io/region": "us-central1",
-				},
+				Zone:       utilpointer.StringPtr("us-central1-a"),
+				NodeName:   utilpointer.StringPtr("node-1"),
 				TargetRef: &corev1.ObjectReference{
 					Kind:      "Pod",
 					Namespace: namespace,
@@ -332,11 +305,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1234::5678:0000:0000:9abc:def0"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -359,11 +329,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1234::5678:0000:0000:9abc:def0"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -385,11 +352,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1234::5678:0000:0000:9abc:def0"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -401,11 +365,8 @@ func TestReconcile1Pod(t *testing.T) {
 					{
 						Addresses:  []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{Ready: utilpointer.BoolPtr(true)},
-						Topology: map[string]string{
-							"kubernetes.io/hostname":        "node-1",
-							"topology.kubernetes.io/zone":   "us-central1-a",
-							"topology.kubernetes.io/region": "us-central1",
-						},
+						Zone:       utilpointer.StringPtr("us-central1-a"),
+						NodeName:   utilpointer.StringPtr("node-1"),
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
 							Namespace: namespace,
@@ -473,7 +434,7 @@ func TestReconcile1Pod(t *testing.T) {
 					t.Fatalf("Expected endpoint: %+v, got: %+v", expectedEndPointList[0], endpoint)
 				}
 
-				expectTrackedResourceVersion(t, r.endpointSliceTracker, &slice, "100")
+				expectTrackedGeneration(t, r.endpointSliceTracker, &slice, 1)
 
 				expectMetrics(t,
 					expectedMetrics{
@@ -499,7 +460,7 @@ func TestReconcile1EndpointSlice(t *testing.T) {
 	svc, endpointMeta := newServiceAndEndpointMeta("foo", namespace)
 	endpointSlice1 := newEmptyEndpointSlice(1, namespace, endpointMeta, svc)
 
-	_, createErr := client.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice1, metav1.CreateOptions{})
+	_, createErr := client.DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice1, metav1.CreateOptions{})
 	assert.Nil(t, createErr, "Expected no error creating endpoint slice")
 
 	numActionsBefore := len(client.Actions())
@@ -516,7 +477,7 @@ func TestReconcile1EndpointSlice(t *testing.T) {
 	assert.Equal(t, svc.Name, slices[0].Labels[discovery.LabelServiceName])
 	assert.EqualValues(t, []discovery.EndpointPort{}, slices[0].Ports)
 	assert.EqualValues(t, []discovery.Endpoint{}, slices[0].Endpoints)
-	expectTrackedResourceVersion(t, r.endpointSliceTracker, &slices[0], "200")
+	expectTrackedGeneration(t, r.endpointSliceTracker, &slices[0], 1)
 	expectMetrics(t, expectedMetrics{desiredSlices: 1, actualSlices: 1, desiredEndpoints: 0, addedPerSync: 0, removedPerSync: 0, numCreated: 0, numUpdated: 1, numDeleted: 0})
 }
 
@@ -1268,7 +1229,7 @@ func TestReconcilerFinalizeSvcDeletionTimestamp(t *testing.T) {
 			}
 
 			// Add EndpointSlice that can be updated.
-			esToUpdate, err := client.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), &discovery.EndpointSlice{
+			esToUpdate, err := client.DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), &discovery.EndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "to-update",
 					OwnerReferences: []metav1.OwnerReference{*ownerRef},
@@ -1284,7 +1245,7 @@ func TestReconcilerFinalizeSvcDeletionTimestamp(t *testing.T) {
 			esToUpdate.Endpoints = []discovery.Endpoint{{Addresses: []string{"10.2.3.4"}}}
 
 			// Add EndpointSlice that can be deleted.
-			esToDelete, err := client.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), &discovery.EndpointSlice{
+			esToDelete, err := client.DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), &discovery.EndpointSlice{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            "to-delete",
 					OwnerReferences: []metav1.OwnerReference{*ownerRef},
@@ -1436,14 +1397,17 @@ func expectActions(t *testing.T, actions []k8stesting.Action, num int, verb, res
 	}
 }
 
-func expectTrackedResourceVersion(t *testing.T, tracker *endpointSliceTracker, slice *discovery.EndpointSlice, expectedRV string) {
-	rrv, _ := tracker.relatedResourceVersions(slice)
-	rv, tracked := rrv[slice.Name]
-	if !tracked {
+func expectTrackedGeneration(t *testing.T, tracker *endpointSliceTracker, slice *discovery.EndpointSlice, expectedGeneration int64) {
+	gfs, ok := tracker.generationsForSliceUnsafe(slice)
+	if !ok {
+		t.Fatalf("Expected Service to be tracked for EndpointSlices %s", slice.Name)
+	}
+	generation, ok := gfs[slice.UID]
+	if !ok {
 		t.Fatalf("Expected EndpointSlice %s to be tracked", slice.Name)
 	}
-	if rv != expectedRV {
-		t.Errorf("Expected ResourceVersion of %s to be %s, got %s", slice.Name, expectedRV, rv)
+	if generation != expectedGeneration {
+		t.Errorf("Expected Generation of %s to be %d, got %d", slice.Name, expectedGeneration, generation)
 	}
 }
 
@@ -1454,7 +1418,7 @@ func portsAndAddressTypeEqual(slice1, slice2 discovery.EndpointSlice) bool {
 func createEndpointSlices(t *testing.T, client *fake.Clientset, namespace string, endpointSlices []*discovery.EndpointSlice) {
 	t.Helper()
 	for _, endpointSlice := range endpointSlices {
-		_, err := client.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metav1.CreateOptions{})
+		_, err := client.DiscoveryV1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatalf("Expected no error creating Endpoint Slice, got: %v", err)
 		}
@@ -1463,7 +1427,7 @@ func createEndpointSlices(t *testing.T, client *fake.Clientset, namespace string
 
 func fetchEndpointSlices(t *testing.T, client *fake.Clientset, namespace string) []discovery.EndpointSlice {
 	t.Helper()
-	fetchedSlices, err := client.DiscoveryV1beta1().EndpointSlices(namespace).List(context.TODO(), metav1.ListOptions{})
+	fetchedSlices, err := client.DiscoveryV1().EndpointSlices(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		t.Fatalf("Expected no error fetching Endpoint Slices, got: %v", err)
 		return []discovery.EndpointSlice{}

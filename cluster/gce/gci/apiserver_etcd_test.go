@@ -37,8 +37,6 @@ type kubeAPIServeETCDEnv struct {
 	StorageBackend      string
 	StorageMediaType    string
 	CompactionInterval  string
-	HostPrimaryIP       string
-	ETCDListenOnHostIP  string
 }
 
 func TestServerOverride(t *testing.T) {
@@ -61,17 +59,6 @@ func TestServerOverride(t *testing.T) {
 			},
 			want: []string{
 				"--etcd-servers-overrides=ETCDServersOverrides",
-			},
-		},
-		{
-			desc: "HOST_PRIMARY_IP is set and etcd is set to listen to host IP",
-			env: kubeAPIServeETCDEnv{
-				HostPrimaryIP:      "HostPrimaryIP",
-				ETCDListenOnHostIP: "true",
-			},
-			want: []string{
-				"--etcd-servers-overrides=/events#http://HostPrimaryIP:4002",
-				"--etcd-servers=http://HostPrimaryIP:2379",
 			},
 		},
 	}
@@ -122,7 +109,7 @@ func TestStorageOptions(t *testing.T) {
 			},
 		},
 		{
-			desc: "storage options not not supplied",
+			desc: "storage options are not supplied",
 			env:  kubeAPIServeETCDEnv{},
 			dontWant: []string{
 				"--storage-backend",

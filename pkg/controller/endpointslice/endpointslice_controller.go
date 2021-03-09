@@ -23,18 +23,18 @@ import (
 	"golang.org/x/time/rate"
 
 	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
-	discoveryinformers "k8s.io/client-go/informers/discovery/v1beta1"
+	discoveryinformers "k8s.io/client-go/informers/discovery/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
-	discoverylisters "k8s.io/client-go/listers/discovery/v1beta1"
+	discoverylisters "k8s.io/client-go/listers/discovery/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -87,7 +87,7 @@ func NewController(podInformer coreinformers.PodInformer,
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "endpoint-slice-controller"})
 
 	if client != nil && client.CoreV1().RESTClient().GetRateLimiter() != nil {
-		ratelimiter.RegisterMetricAndTrackRateLimiterUsage("endpoint_slice_controller", client.DiscoveryV1beta1().RESTClient().GetRateLimiter())
+		ratelimiter.RegisterMetricAndTrackRateLimiterUsage("endpoint_slice_controller", client.DiscoveryV1().RESTClient().GetRateLimiter())
 	}
 
 	endpointslicemetrics.RegisterMetrics()
@@ -346,6 +346,10 @@ func (c *Controller) syncService(key string) error {
 		return err
 	}
 
+	if c.endpointSliceTracker.StaleSlices(service, endpointSlices) {
+		return &StaleInformerCache{"EndpointSlice informer cache is out of date"}
+	}
+
 	// We call ComputeEndpointLastChangeTriggerTime here to make sure that the
 	// state of the trigger time tracker gets updated even if the sync turns out
 	// to be no-op and we don't update the EndpointSlice objects.
@@ -395,7 +399,7 @@ func (c *Controller) onEndpointSliceAdd(obj interface{}) {
 		utilruntime.HandleError(fmt.Errorf("Invalid EndpointSlice provided to onEndpointSliceAdd()"))
 		return
 	}
-	if managedByController(endpointSlice) && c.endpointSliceTracker.Stale(endpointSlice) {
+	if managedByController(endpointSlice) && c.endpointSliceTracker.ShouldSync(endpointSlice) {
 		c.queueServiceForEndpointSlice(endpointSlice)
 	}
 }
@@ -411,7 +415,18 @@ func (c *Controller) onEndpointSliceUpdate(prevObj, obj interface{}) {
 		utilruntime.HandleError(fmt.Errorf("Invalid EndpointSlice provided to onEndpointSliceUpdate()"))
 		return
 	}
-	if managedByChanged(prevEndpointSlice, endpointSlice) || (managedByController(endpointSlice) && c.endpointSliceTracker.Stale(endpointSlice)) {
+	// EndpointSlice generation does not change when labels change. Although the
+	// controller will never change LabelServiceName, users might. This check
+	// ensures that we handle changes to this label.
+	svcName := endpointSlice.Labels[discovery.LabelServiceName]
+	prevSvcName := prevEndpointSlice.Labels[discovery.LabelServiceName]
+	if svcName != prevSvcName {
+		klog.Warningf("%s label changed from %s  to %s for %s", discovery.LabelServiceName, prevSvcName, svcName, endpointSlice.Name)
+		c.queueServiceForEndpointSlice(endpointSlice)
+		c.queueServiceForEndpointSlice(prevEndpointSlice)
+		return
+	}
+	if managedByChanged(prevEndpointSlice, endpointSlice) || (managedByController(endpointSlice) && c.endpointSliceTracker.ShouldSync(endpointSlice)) {
 		c.queueServiceForEndpointSlice(endpointSlice)
 	}
 }
@@ -422,7 +437,11 @@ func (c *Controller) onEndpointSliceUpdate(prevObj, obj interface{}) {
 func (c *Controller) onEndpointSliceDelete(obj interface{}) {
 	endpointSlice := getEndpointSliceFromDeleteAction(obj)
 	if endpointSlice != nil && managedByController(endpointSlice) && c.endpointSliceTracker.Has(endpointSlice) {
-		c.queueServiceForEndpointSlice(endpointSlice)
+		// This returns false if we didn't expect the EndpointSlice to be
+		// deleted. If that is the case, we queue the Service for another sync.
+		if !c.endpointSliceTracker.HandleDeletion(endpointSlice) {
+			c.queueServiceForEndpointSlice(endpointSlice)
+		}
 	}
 }
 

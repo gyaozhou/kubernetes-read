@@ -31,12 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/test/e2e/framework"
+	"k8s.io/kubernetes/test/e2e/network/common"
 	imageutils "k8s.io/kubernetes/test/utils/image"
 
 	"github.com/onsi/ginkgo"
 )
 
-var _ = SIGDescribe("EndpointSlice", func() {
+var _ = common.SIGDescribe("EndpointSlice", func() {
 	f := framework.NewDefaultFramework("endpointslice")
 
 	var cs clientset.Interface
@@ -521,7 +522,11 @@ func hasMatchingEndpointSlices(cs clientset.Interface, ns, svcName string, numEn
 	for _, endpointSlice := range esList.Items {
 		actualNumEndpoints += len(endpointSlice.Endpoints)
 	}
-	if actualNumEndpoints != numEndpoints {
+	// In some cases the EndpointSlice controller will create more
+	// EndpointSlices than necessary resulting in some duplication. This is
+	// valid and tests should only fail here if less EndpointSlices than
+	// expected are added.
+	if actualNumEndpoints < numEndpoints {
 		framework.Logf("EndpointSlices for %s/%s Service have %d/%d endpoints", ns, svcName, actualNumEndpoints, numEndpoints)
 		return esList.Items, false
 	}

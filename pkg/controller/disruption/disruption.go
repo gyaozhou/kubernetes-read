@@ -19,6 +19,7 @@ package disruption
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	apps "k8s.io/api/apps/v1beta1"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	policyinformers "k8s.io/client-go/informers/policy/v1beta1"
@@ -47,10 +49,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	pdbhelper "k8s.io/component-helpers/apps/poddisruptionbudget"
+	"k8s.io/klog/v2"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/kubernetes/pkg/controller"
-
-	"k8s.io/klog/v2"
 )
 
 // DeletionTimeout sets maximum time from the moment a pod is added to DisruptedPods in PDB.Status
@@ -62,7 +64,9 @@ import (
 // If the controller is running on a different node it is important that the two nodes have synced
 // clock (via ntp for example). Otherwise PodDisruptionBudget controller may not provide enough
 // protection against unwanted pod disruptions.
-const DeletionTimeout = 2 * 60 * time.Second
+const (
+	DeletionTimeout = 2 * 60 * time.Second
+)
 
 type updater func(*policy.PodDisruptionBudget) error
 
@@ -71,6 +75,7 @@ type DisruptionController struct {
 	mapper     apimeta.RESTMapper
 
 	scaleNamespacer scaleclient.ScalesGetter
+	discoveryClient discovery.DiscoveryInterface
 
 	pdbLister       policylisters.PodDisruptionBudgetLister
 	pdbListerSynced cache.InformerSynced
@@ -121,6 +126,7 @@ func NewDisruptionController(
 	kubeClient clientset.Interface,
 	restMapper apimeta.RESTMapper,
 	scaleNamespacer scaleclient.ScalesGetter,
+	discoveryClient discovery.DiscoveryInterface,
 ) *DisruptionController {
 	dc := &DisruptionController{
 		kubeClient:   kubeClient,
@@ -140,13 +146,12 @@ func NewDisruptionController(
 	dc.podLister = podInformer.Lister()
 	dc.podListerSynced = podInformer.Informer().HasSynced
 
-	pdbInformer.Informer().AddEventHandlerWithResyncPeriod(
+	pdbInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    dc.addDb,
 			UpdateFunc: dc.updateDb,
 			DeleteFunc: dc.removeDb,
 		},
-		30*time.Second,
 	)
 	dc.pdbLister = pdbInformer.Lister()
 	dc.pdbListerSynced = pdbInformer.Informer().HasSynced
@@ -165,6 +170,7 @@ func NewDisruptionController(
 
 	dc.mapper = restMapper
 	dc.scaleNamespacer = scaleNamespacer
+	dc.discoveryClient = discoveryClient
 
 	return dc
 }
@@ -295,6 +301,16 @@ func (dc *DisruptionController) getScaleController(controllerRef *metav1.OwnerRe
 	scale, err := dc.scaleNamespacer.Scales(namespace).Get(context.TODO(), gr, controllerRef.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
+			// The IsNotFound error can mean either that the resource does not exist,
+			// or it exist but doesn't implement the scale subresource. We check which
+			// situation we are facing so we can give an appropriate error message.
+			isScale, err := dc.implementsScale(gv, controllerRef.Kind)
+			if err != nil {
+				return nil, err
+			}
+			if !isScale {
+				return nil, fmt.Errorf("%s does not implement the scale subresource", gr.String())
+			}
 			return nil, nil
 		}
 		return nil, err
@@ -303,6 +319,22 @@ func (dc *DisruptionController) getScaleController(controllerRef *metav1.OwnerRe
 		return nil, nil
 	}
 	return &controllerAndScale{scale.UID, scale.Spec.Replicas}, nil
+}
+
+func (dc *DisruptionController) implementsScale(gv schema.GroupVersion, kind string) (bool, error) {
+	resourceList, err := dc.discoveryClient.ServerResourcesForGroupVersion(gv.String())
+	if err != nil {
+		return false, err
+	}
+	for _, resource := range resourceList.APIResources {
+		if resource.Kind != kind {
+			continue
+		}
+		if strings.HasSuffix(resource.Name, "/scale") {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func verifyGroupKind(controllerRef *metav1.OwnerReference, expectedKind string, expectedGroups []string) (bool, error) {
@@ -471,11 +503,11 @@ func (dc *DisruptionController) getPdbForPod(pod *v1.Pod) *policy.PodDisruptionB
 // IMPORTANT NOTE : the returned pods should NOT be modified.
 func (dc *DisruptionController) getPodsForPdb(pdb *policy.PodDisruptionBudget) ([]*v1.Pod, error) {
 	sel, err := metav1.LabelSelectorAsSelector(pdb.Spec.Selector)
-	if sel.Empty() {
-		return []*v1.Pod{}, nil
-	}
 	if err != nil {
 		return []*v1.Pod{}, err
+	}
+	if sel.Empty() {
+		return []*v1.Pod{}, nil
 	}
 	pods, err := dc.podLister.Pods(pdb.Namespace).List(sel)
 	if err != nil {
@@ -550,7 +582,7 @@ func (dc *DisruptionController) sync(key string) error {
 	}
 	if err != nil {
 		klog.Errorf("Failed to sync pdb %s/%s: %v", pdb.Namespace, pdb.Name, err)
-		return dc.failSafe(pdb)
+		return dc.failSafe(pdb, err)
 	}
 
 	return nil
@@ -649,7 +681,6 @@ func (dc *DisruptionController) getExpectedScale(pdb *policy.PodDisruptionBudget
 		controllerRef := metav1.GetControllerOf(pod)
 		if controllerRef == nil {
 			err = fmt.Errorf("found no controller ref for pod %q", pod.Name)
-			dc.recorder.Event(pdb, v1.EventTypeWarning, "NoControllerRef", err.Error())
 			return
 		}
 
@@ -674,7 +705,6 @@ func (dc *DisruptionController) getExpectedScale(pdb *policy.PodDisruptionBudget
 		}
 		if !foundController {
 			err = fmt.Errorf("found no controllers for pod %q", pod.Name)
-			dc.recorder.Event(pdb, v1.EventTypeWarning, "NoControllers", err.Error())
 			return
 		}
 	}
@@ -747,9 +777,21 @@ func (dc *DisruptionController) buildDisruptedPodMap(pods []*v1.Pod, pdb *policy
 // implement the  "fail open" part of the design since if we manage to update
 // this field correctly, we will prevent the /evict handler from approving an
 // eviction when it may be unsafe to do so.
-func (dc *DisruptionController) failSafe(pdb *policy.PodDisruptionBudget) error {
+func (dc *DisruptionController) failSafe(pdb *policy.PodDisruptionBudget, err error) error {
 	newPdb := pdb.DeepCopy()
 	newPdb.Status.DisruptionsAllowed = 0
+
+	if newPdb.Status.Conditions == nil {
+		newPdb.Status.Conditions = make([]metav1.Condition, 0)
+	}
+	apimeta.SetStatusCondition(&newPdb.Status.Conditions, metav1.Condition{
+		Type:               policy.DisruptionAllowedCondition,
+		Status:             metav1.ConditionFalse,
+		Reason:             policy.SyncFailedReason,
+		Message:            err.Error(),
+		ObservedGeneration: newPdb.Status.ObservedGeneration,
+	})
+
 	return dc.getUpdater()(newPdb)
 }
 
@@ -770,7 +812,8 @@ func (dc *DisruptionController) updatePdbStatus(pdb *policy.PodDisruptionBudget,
 		pdb.Status.ExpectedPods == expectedCount &&
 		pdb.Status.DisruptionsAllowed == disruptionsAllowed &&
 		apiequality.Semantic.DeepEqual(pdb.Status.DisruptedPods, disruptedPods) &&
-		pdb.Status.ObservedGeneration == pdb.Generation {
+		pdb.Status.ObservedGeneration == pdb.Generation &&
+		pdbhelper.ConditionsAreUpToDate(pdb) {
 		return nil
 	}
 
@@ -783,6 +826,8 @@ func (dc *DisruptionController) updatePdbStatus(pdb *policy.PodDisruptionBudget,
 		DisruptedPods:      disruptedPods,
 		ObservedGeneration: pdb.Generation,
 	}
+
+	pdbhelper.UpdateDisruptionAllowedCondition(newPdb)
 
 	return dc.getUpdater()(newPdb)
 }

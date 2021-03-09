@@ -416,7 +416,7 @@ func runTopologyManagerPositiveTest(f *framework.Framework, numPods int, ctnAttr
 		pods = append(pods, pod)
 	}
 
-	// per https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/0035-20190130-topology-manager.md#multi-numa-systems-tests
+	// per https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/693-topology-manager/README.md#multi-numa-systems-tests
 	// we can do a menaingful validation only when using the single-numa node policy
 	if envInfo.policy == topologymanager.PolicySingleNumaNode {
 		for podID := 0; podID < numPods; podID++ {
@@ -531,6 +531,16 @@ func setupSRIOVConfigOrFail(f *framework.Framework, configMap *v1.ConfigMap) *sr
 	}
 	framework.ExpectNoError(err)
 
+	return &sriovData{
+		configMap:      configMap,
+		serviceAccount: serviceAccount,
+		pod:            dpPod,
+	}
+}
+
+// waitForSRIOVResources waits until enough SRIOV resources are avaailable, expecting to complete within the timeout.
+// if exits successfully, updates the sriovData with the resources which were found.
+func waitForSRIOVResources(f *framework.Framework, sd *sriovData) {
 	sriovResourceName := ""
 	var sriovResourceAmount int64
 	ginkgo.By("Waiting for devices to become available on the local node")
@@ -539,15 +549,10 @@ func setupSRIOVConfigOrFail(f *framework.Framework, configMap *v1.ConfigMap) *sr
 		sriovResourceName, sriovResourceAmount = findSRIOVResource(node)
 		return sriovResourceAmount > minSriovResource
 	}, 2*time.Minute, framework.Poll).Should(gomega.BeTrue())
-	framework.Logf("Successfully created device plugin pod, detected %d SRIOV allocatable devices %q", sriovResourceAmount, sriovResourceName)
 
-	return &sriovData{
-		configMap:      configMap,
-		serviceAccount: serviceAccount,
-		pod:            dpPod,
-		resourceName:   sriovResourceName,
-		resourceAmount: sriovResourceAmount,
-	}
+	sd.resourceName = sriovResourceName
+	sd.resourceAmount = sriovResourceAmount
+	framework.Logf("Detected SRIOV allocatable devices name=%q amount=%d", sd.resourceName, sd.resourceAmount)
 }
 
 func teardownSRIOVConfigOrFail(f *framework.Framework, sd *sriovData) {
@@ -672,14 +677,13 @@ func runTMScopeResourceAlignmentTestSuite(f *framework.Framework, configMap *v1.
 	teardownSRIOVConfigOrFail(f, sd)
 }
 
-func runTopologyManagerNodeAlignmentSuiteTests(f *framework.Framework, configMap *v1.ConfigMap, reservedSystemCPUs, policy string, numaNodes, coreCount int) {
+func runTopologyManagerNodeAlignmentSuiteTests(f *framework.Framework, sd *sriovData, reservedSystemCPUs, policy string, numaNodes, coreCount int) {
 	threadsPerCore := 1
 	if isHTEnabled() {
 		threadsPerCore = 2
 	}
 
-	sd := setupSRIOVConfigOrFail(f, configMap)
-	defer teardownSRIOVConfigOrFail(f, sd)
+	waitForSRIOVResources(f, sd)
 
 	envInfo := &testEnvInfo{
 		numaNodes:         numaNodes,
@@ -855,12 +859,16 @@ func runTopologyManagerTests(f *framework.Framework) {
 	var oldCfg *kubeletconfig.KubeletConfiguration
 	var err error
 
+	var policies = []string{
+		topologymanager.PolicySingleNumaNode,
+		topologymanager.PolicyRestricted,
+		topologymanager.PolicyBestEffort,
+		topologymanager.PolicyNone,
+	}
+
 	ginkgo.It("run Topology Manager policy test suite", func() {
 		oldCfg, err = getCurrentKubeletConfig()
 		framework.ExpectNoError(err)
-
-		var policies = []string{topologymanager.PolicySingleNumaNode, topologymanager.PolicyRestricted,
-			topologymanager.PolicyBestEffort, topologymanager.PolicyNone}
 
 		scope := containerScopeTopology
 		for _, policy := range policies {
@@ -872,11 +880,6 @@ func runTopologyManagerTests(f *framework.Framework) {
 			// Run the tests
 			runTopologyManagerPolicySuiteTests(f)
 		}
-		// restore kubelet config
-		setOldKubeletConfig(f, oldCfg)
-
-		// Delete state file to allow repeated runs
-		deleteStateFile()
 	})
 
 	ginkgo.It("run Topology Manager node alignment test suite", func() {
@@ -901,8 +904,8 @@ func runTopologyManagerTests(f *framework.Framework) {
 		oldCfg, err = getCurrentKubeletConfig()
 		framework.ExpectNoError(err)
 
-		var policies = []string{topologymanager.PolicySingleNumaNode, topologymanager.PolicyRestricted,
-			topologymanager.PolicyBestEffort, topologymanager.PolicyNone}
+		sd := setupSRIOVConfigOrFail(f, configMap)
+		defer teardownSRIOVConfigOrFail(f, sd)
 
 		scope := containerScopeTopology
 		for _, policy := range policies {
@@ -912,14 +915,8 @@ func runTopologyManagerTests(f *framework.Framework) {
 
 			reservedSystemCPUs := configureTopologyManagerInKubelet(f, oldCfg, policy, scope, configMap, numaNodes)
 
-			runTopologyManagerNodeAlignmentSuiteTests(f, configMap, reservedSystemCPUs, policy, numaNodes, coreCount)
+			runTopologyManagerNodeAlignmentSuiteTests(f, sd, reservedSystemCPUs, policy, numaNodes, coreCount)
 		}
-
-		// restore kubelet config
-		setOldKubeletConfig(f, oldCfg)
-
-		// Delete state file to allow repeated runs
-		deleteStateFile()
 	})
 
 	ginkgo.It("run the Topology Manager pod scope alignment test suite", func() {
@@ -948,9 +945,11 @@ func runTopologyManagerTests(f *framework.Framework) {
 		reservedSystemCPUs := configureTopologyManagerInKubelet(f, oldCfg, policy, scope, configMap, numaNodes)
 
 		runTMScopeResourceAlignmentTestSuite(f, configMap, reservedSystemCPUs, policy, numaNodes, coreCount)
+	})
 
+	ginkgo.AfterEach(func() {
+		// restore kubelet config
 		setOldKubeletConfig(f, oldCfg)
-		deleteStateFile()
 	})
 }
 
@@ -961,5 +960,4 @@ var _ = SIGDescribe("Topology Manager [Serial] [Feature:TopologyManager][NodeFea
 	ginkgo.Context("With kubeconfig updated to static CPU Manager policy run the Topology Manager tests", func() {
 		runTopologyManagerTests(f)
 	})
-
 })

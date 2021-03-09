@@ -46,7 +46,6 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 	"k8s.io/kubernetes/pkg/apis/core/helper/qos"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
-	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/kubelet/client"
 	proxyutil "k8s.io/kubernetes/pkg/proxy/util"
 )
@@ -91,7 +90,7 @@ func (podStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object
 // Validate validates a new pod.
 func (podStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
 	pod := obj.(*api.Pod)
-	opts := podutil.GetValidationOptionsFromPodSpec(&pod.Spec, nil)
+	opts := podutil.GetValidationOptionsFromPodSpecAndMeta(&pod.Spec, nil, &pod.ObjectMeta, nil)
 	return validation.ValidatePodCreate(pod, opts)
 }
 
@@ -109,7 +108,7 @@ func (podStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) 
 	// Allow downward api usage of hugepages on pod update if feature is enabled or if the old pod already had used them.
 	pod := obj.(*api.Pod)
 	oldPod := old.(*api.Pod)
-	opts := podutil.GetValidationOptionsFromPodSpec(&pod.Spec, &oldPod.Spec)
+	opts := podutil.GetValidationOptionsFromPodSpecAndMeta(&pod.Spec, &oldPod.Spec, &pod.ObjectMeta, &oldPod.ObjectMeta)
 	return validation.ValidatePodUpdate(obj.(*api.Pod), old.(*api.Pod), opts)
 }
 
@@ -167,7 +166,11 @@ func (podStatusStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.
 }
 
 func (podStatusStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	return validation.ValidatePodStatusUpdate(obj.(*api.Pod), old.(*api.Pod))
+	pod := obj.(*api.Pod)
+	oldPod := old.(*api.Pod)
+	opts := podutil.GetValidationOptionsFromPodSpecAndMeta(&pod.Spec, &oldPod.Spec, &pod.ObjectMeta, &oldPod.ObjectMeta)
+
+	return validation.ValidatePodStatusUpdate(obj.(*api.Pod), old.(*api.Pod), opts)
 }
 
 type podEphemeralContainersStrategy struct {
@@ -180,7 +183,7 @@ var EphemeralContainersStrategy = podEphemeralContainersStrategy{Strategy}
 func (podEphemeralContainersStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
 	newPod := obj.(*api.Pod)
 	oldPod := old.(*api.Pod)
-	opts := podutil.GetValidationOptionsFromPodSpec(&newPod.Spec, &oldPod.Spec)
+	opts := podutil.GetValidationOptionsFromPodSpecAndMeta(&newPod.Spec, &oldPod.Spec, &newPod.ObjectMeta, &oldPod.ObjectMeta)
 	return validation.ValidatePodEphemeralContainersUpdate(newPod, oldPod, opts)
 }
 
@@ -382,7 +385,7 @@ func LogLocation(
 		RawQuery: params.Encode(),
 	}
 
-	if opts.InsecureSkipTLSVerifyBackend && utilfeature.DefaultFeatureGate.Enabled(features.AllowInsecureBackendProxy) {
+	if opts.InsecureSkipTLSVerifyBackend {
 		return loc, nodeInfo.InsecureSkipTLSVerifyTransport, nil
 	}
 	return loc, nodeInfo.Transport, nil
@@ -574,7 +577,7 @@ func validateContainer(container string, pod *api.Pod) (string, error) {
 }
 
 // applySeccompVersionSkew implements the version skew behavior described in:
-// https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/20190717-seccomp-ga.md#version-skew-strategy
+// https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/135-seccomp#version-skew-strategy
 func applySeccompVersionSkew(pod *api.Pod) {
 	// get possible annotation and field
 	annotation, hasAnnotation := pod.Annotations[v1.SeccompPodAnnotationKey]

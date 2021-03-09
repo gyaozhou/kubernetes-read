@@ -39,7 +39,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	cloudprovider "k8s.io/cloud-provider"
 	volerr "k8s.io/cloud-provider/volume/errors"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
+	storagehelpers "k8s.io/component-helpers/storage/volume"
 	"k8s.io/kubernetes/pkg/controller/volume/common"
 	"k8s.io/kubernetes/pkg/controller/volume/events"
 	"k8s.io/kubernetes/pkg/controller/volume/persistentvolume/metrics"
@@ -51,6 +51,7 @@ import (
 	vol "k8s.io/kubernetes/pkg/volume"
 	"k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/kubernetes/pkg/volume/util/recyclerclient"
+	volumetypes "k8s.io/kubernetes/pkg/volume/util/types"
 
 	"k8s.io/klog/v2"
 )
@@ -285,8 +286,8 @@ func checkVolumeSatisfyClaim(volume *v1.PersistentVolume, claim *v1.PersistentVo
 		return fmt.Errorf("requested PV is too small")
 	}
 
-	requestedClass := v1helper.GetPersistentVolumeClaimClass(claim)
-	if v1helper.GetPersistentVolumeClass(volume) != requestedClass {
+	requestedClass := storagehelpers.GetPersistentVolumeClaimClass(claim)
+	if storagehelpers.GetPersistentVolumeClass(volume) != requestedClass {
 		return fmt.Errorf("storageClassName does not match")
 	}
 
@@ -353,7 +354,7 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(claim *v1.PersistentVol
 				if err = ctrl.emitEventForUnboundDelayBindingClaim(claim); err != nil {
 					return err
 				}
-			case v1helper.GetPersistentVolumeClaimClass(claim) != "":
+			case storagehelpers.GetPersistentVolumeClaimClass(claim) != "":
 				if err = ctrl.provisionClaim(claim); err != nil {
 					return err
 				}
@@ -1412,7 +1413,7 @@ func (ctrl *PersistentVolumeController) doDeleteVolume(volume *v1.PersistentVolu
 
 	opComplete := util.OperationCompleteHook(pluginName, "volume_delete")
 	err = deleter.Delete()
-	opComplete(&err)
+	opComplete(volumetypes.CompleteFuncParam{Err: &err})
 	if err != nil {
 		// Deleter failed
 		return pluginName, false, err
@@ -1467,13 +1468,23 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 	claim *v1.PersistentVolumeClaim,
 	plugin vol.ProvisionableVolumePlugin,
 	storageClass *storage.StorageClass) (string, error) {
-	claimClass := v1helper.GetPersistentVolumeClaimClass(claim)
+	claimClass := storagehelpers.GetPersistentVolumeClaimClass(claim)
 	klog.V(4).Infof("provisionClaimOperation [%s] started, class: %q", claimToClaimKey(claim), claimClass)
 
 	// called from provisionClaim(), in this case, plugin MUST NOT be nil
 	// NOTE: checks on plugin/storageClass has been saved
 	pluginName := plugin.GetPluginName()
+	if pluginName != "kubernetes.io/csi" && claim.Spec.DataSource != nil {
+		// Only CSI plugin can have a DataSource. Fail the operation
+		// if Datasource in Claim is not nil and it is not a CSI plugin,
+		strerr := fmt.Sprintf("plugin %q is not a CSI plugin. Only CSI plugin can provision a claim with a datasource", pluginName)
+		klog.V(2).Infof(strerr)
+		ctrl.eventRecorder.Event(claim, v1.EventTypeWarning, events.ProvisioningFailed, strerr)
+		return pluginName, fmt.Errorf(strerr)
+
+	}
 	provisionerName := storageClass.Provisioner
+	klog.V(4).Infof("provisionClaimOperation [%s]: plugin name: %s, provisioner name: %s", claimToClaimKey(claim), pluginName, provisionerName)
 
 	// Add provisioner annotation to be consistent with external provisioner workflow
 	newClaim, err := ctrl.setClaimProvisioner(claim, provisionerName)
@@ -1558,7 +1569,7 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 
 	opComplete := util.OperationCompleteHook(plugin.GetPluginName(), "volume_provision")
 	volume, err = provisioner.Provision(selectedNode, allowedTopologies)
-	opComplete(&err)
+	opComplete(volumetypes.CompleteFuncParam{Err: &err})
 	if err != nil {
 		// Other places of failure have nothing to do with VolumeScheduling,
 		// so just let controller retry in the next sync. We'll only call func
@@ -1661,7 +1672,7 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 func (ctrl *PersistentVolumeController) provisionClaimOperationExternal(
 	claim *v1.PersistentVolumeClaim,
 	storageClass *storage.StorageClass) (string, error) {
-	claimClass := v1helper.GetPersistentVolumeClaimClass(claim)
+	claimClass := storagehelpers.GetPersistentVolumeClaimClass(claim)
 	klog.V(4).Infof("provisionClaimOperationExternal [%s] started, class: %q", claimToClaimKey(claim), claimClass)
 	// Set provisionerName to external provisioner name by setClaimProvisioner
 	var err error
@@ -1759,7 +1770,7 @@ func (ctrl *PersistentVolumeController) newRecyclerEventRecorder(volume *v1.Pers
 func (ctrl *PersistentVolumeController) findProvisionablePlugin(claim *v1.PersistentVolumeClaim) (vol.ProvisionableVolumePlugin, *storage.StorageClass, error) {
 	// provisionClaim() which leads here is never called with claimClass=="", we
 	// can save some checks.
-	claimClass := v1helper.GetPersistentVolumeClaimClass(claim)
+	claimClass := storagehelpers.GetPersistentVolumeClaimClass(claim)
 	class, err := ctrl.classLister.Get(claimClass)
 	if err != nil {
 		return nil, nil, err
@@ -1827,7 +1838,7 @@ func (ctrl *PersistentVolumeController) getProvisionerNameFromVolume(volume *v1.
 	// the AnnDynamicallyProvisioned annotation value, use the storageClass's Provisioner
 	// field to avoid explosion of the metric in the cases like local storage provisioner
 	// tagging a volume with arbitrary provisioner names
-	storageClass := v1helper.GetPersistentVolumeClass(volume)
+	storageClass := storagehelpers.GetPersistentVolumeClass(volume)
 	class, err := ctrl.classLister.Get(storageClass)
 	if err != nil {
 		return "N/A"

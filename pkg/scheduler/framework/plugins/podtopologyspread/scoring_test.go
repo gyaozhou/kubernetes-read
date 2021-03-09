@@ -239,7 +239,7 @@ func TestPreScoreStateEmptyNodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			informerFactory := informers.NewSharedInformerFactory(fake.NewSimpleClientset(tt.objs...), 0)
-			f, err := frameworkruntime.NewFramework(nil, nil, nil,
+			f, err := frameworkruntime.NewFramework(nil, nil,
 				frameworkruntime.WithSnapshotSharedLister(cache.NewSnapshot(nil, tt.nodes)),
 				frameworkruntime.WithInformerFactory(informerFactory))
 			if err != nil {
@@ -727,7 +727,7 @@ func BenchmarkTestPodTopologySpreadScore(b *testing.B) {
 		{
 			name: "1000nodes/single-constraint-zone",
 			pod: st.MakePod().Name("p").Label("foo", "").
-				SpreadConstraint(1, v1.LabelFailureDomainBetaZone, v1.ScheduleAnyway, st.MakeLabelSelector().Exists("foo").Obj()).
+				SpreadConstraint(1, v1.LabelTopologyZone, v1.ScheduleAnyway, st.MakeLabelSelector().Exists("foo").Obj()).
 				Obj(),
 			existingPodsNum:  10000,
 			allNodesNum:      1000,
@@ -745,7 +745,7 @@ func BenchmarkTestPodTopologySpreadScore(b *testing.B) {
 		{
 			name: "1000nodes/two-Constraints-zone-node",
 			pod: st.MakePod().Name("p").Label("foo", "").Label("bar", "").
-				SpreadConstraint(1, v1.LabelFailureDomainBetaZone, v1.ScheduleAnyway, st.MakeLabelSelector().Exists("foo").Obj()).
+				SpreadConstraint(1, v1.LabelTopologyZone, v1.ScheduleAnyway, st.MakeLabelSelector().Exists("foo").Obj()).
 				SpreadConstraint(1, v1.LabelHostname, v1.ScheduleAnyway, st.MakeLabelSelector().Exists("bar").Obj()).
 				Obj(),
 			existingPodsNum:  10000,
@@ -827,7 +827,7 @@ func BenchmarkTestDefaultEvenPodsSpreadPriority(b *testing.B) {
 			)
 			ctx := context.Background()
 			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			f, err := frameworkruntime.NewFramework(nil, nil, nil,
+			f, err := frameworkruntime.NewFramework(nil, nil,
 				frameworkruntime.WithSnapshotSharedLister(snapshot),
 				frameworkruntime.WithInformerFactory(informerFactory))
 			if err != nil {

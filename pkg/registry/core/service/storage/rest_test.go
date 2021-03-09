@@ -163,10 +163,6 @@ func (s *serviceStorage) ConvertToTable(ctx context.Context, object runtime.Obje
 	panic("not implemented")
 }
 
-func (s *serviceStorage) Export(ctx context.Context, name string, opts metav1.ExportOptions) (runtime.Object, error) {
-	panic("not implemented")
-}
-
 func (s *serviceStorage) StorageVersion() runtime.GroupVersioner {
 	panic("not implemented")
 }
@@ -3896,7 +3892,7 @@ func TestDefaultingValidation(t *testing.T) {
 				},
 			},
 			expectedIPFamilyPolicy: &preferDualStack,
-			expectedIPFamilies:     []api.IPFamily{api.IPv4Protocol},
+			expectedIPFamilies:     []api.IPFamily{api.IPv4Protocol, api.IPv6Protocol},
 			expectError:            false,
 		},
 		// tests incorrect setting for IPFamilyPolicy
@@ -4177,7 +4173,7 @@ func TestDefaultingValidation(t *testing.T) {
 				},
 			},
 			expectedIPFamilyPolicy: &preferDualStack,
-			expectedIPFamilies:     []api.IPFamily{api.IPv6Protocol},
+			expectedIPFamilies:     []api.IPFamily{api.IPv6Protocol, api.IPv4Protocol},
 			expectError:            false,
 		},
 		// tests incorrect setting for IPFamilyPolicy

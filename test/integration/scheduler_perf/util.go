@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"os"
 	"path"
 	"sort"
 	"time"
@@ -79,7 +80,7 @@ func mustSetupScheduler() (util.ShutdownFunc, coreinformers.PodInformer, clients
 }
 
 // Returns the list of scheduled pods in the specified namespaces.
-// Note that no namespces specified matches all namespaces.
+// Note that no namespaces specified matches all namespaces.
 func getScheduledPods(podInformer coreinformers.PodInformer, namespaces ...string) ([]*v1.Pod, error) {
 	pods, err := podInformer.Lister().List(labels.Everything())
 	if err != nil {
@@ -134,6 +135,10 @@ func dataItems2JSONFile(dataItems DataItems, namePrefix string) error {
 
 	destFile := fmt.Sprintf("%v_%v.json", namePrefix, time.Now().Format(dateFormat))
 	if *dataItemsDir != "" {
+		// Ensure the "dataItemsDir" path to be valid.
+		if err := os.MkdirAll(*dataItemsDir, 0750); err != nil {
+			return fmt.Errorf("dataItemsDir path %v does not exist and cannot be created: %v", *dataItemsDir, err)
+		}
 		destFile = path.Join(*dataItemsDir, destFile)
 	}
 

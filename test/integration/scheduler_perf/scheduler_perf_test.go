@@ -51,9 +51,7 @@ var (
 		Metrics: []string{
 			"scheduler_scheduling_algorithm_predicate_evaluation_seconds",
 			"scheduler_scheduling_algorithm_priority_evaluation_seconds",
-			"scheduler_binding_duration_seconds",
 			"scheduler_e2e_scheduling_duration_seconds",
-			"scheduler_scheduling_algorithm_preemption_evaluation_seconds",
 			"scheduler_pod_scheduling_duration_seconds",
 		},
 	}
@@ -256,8 +254,7 @@ func (cpo createPodsOp) patchParams(w *workload) (realOp, error) {
 
 // barrierOp defines an op that can be used to wait until all scheduled pods of
 // one or many namespaces have been bound to nodes. This is useful when pods
-// were scheduled with SkipWaitToCompletion set to true. A barrierOp is added
-// at the end of each each workload automatically.
+// were scheduled with SkipWaitToCompletion set to true.
 type barrierOp struct {
 	// Must be "barrier".
 	Opcode string
@@ -413,11 +410,8 @@ func runWorkload(b *testing.B, tc *testCase, w *workload) []DataItem {
 			b.Fatalf("op %d: invalid op %v", opIndex, concreteOp)
 		}
 	}
-	if err := waitUntilPodsScheduled(ctx, podInformer, b.Name(), nil, numPodsScheduledPerNamespace); err != nil {
-		// Any pending pods must be scheduled before this test can be considered to
-		// be complete.
-		b.Fatal(err)
-	}
+	// Some tests have unschedulable pods. Do not add an implicit barrier at the
+	// end as we do not want to wait for them.
 	return dataItems
 }
 
