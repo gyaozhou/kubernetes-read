@@ -33,13 +33,20 @@ import (
 	"k8s.io/kubernetes/pkg/volume/util"
 )
 
+// zhou: get "volume.Spec". Fill with Pod Volume, in-tree PV, CSI PV.
+//       Translate it to CSI PV, if it could be migrated to CSI PV.
+
 func createInTreeVolumeSpec(logger klog.Logger, podVolume *v1.Volume, pod *v1.Pod, vpm *volume.VolumePluginMgr, pvcLister corelisters.PersistentVolumeClaimLister, pvLister corelisters.PersistentVolumeLister, csiMigratedPluginManager csimigration.PluginManager, csiTranslator csimigration.InTreeToCSITranslator) (*volume.Spec, string, error) {
 	claimName := ""
 	readOnly := false
+
+	// zhou: PVC
 	if pvcSource := podVolume.VolumeSource.PersistentVolumeClaim; pvcSource != nil {
 		claimName = pvcSource.ClaimName
 		readOnly = pvcSource.ReadOnly
 	}
+
+	// zhou: Generic ephemeral volumes
 	isEphemeral := podVolume.VolumeSource.Ephemeral != nil
 	if isEphemeral {
 		claimName = ephemeral.VolumeClaimName(pod, podVolume)
@@ -121,6 +128,8 @@ func CreateVolumeSpecWithNodeMigration(logger klog.Logger, podVolume v1.Volume, 
 	return volumeSpec, nil
 }
 
+// zhou: get PVC object if it is bound with PV.
+
 // getPVCFromCache fetches the PVC object with the given namespace and
 // name from the shared internal PVC store.
 // This method returns an error if a PVC object does not exist in the cache
@@ -173,8 +182,11 @@ func getPVSpecFromCache(name string, pvcReadOnly bool, expectedClaimUID types.UI
 	// may be mutated by another consumer.
 	clonedPV := pv.DeepCopy()
 
+	// zhou: create "volume.Spec" which is an internal presentation of a volume.
 	return volume.NewSpecFromPersistentVolume(clonedPV, pvcReadOnly), nil
 }
+
+// zhou: check whether need keep the volumes attached to node.
 
 // DetermineVolumeAction returns true if volume and pod needs to be added to dswp
 // and it returns false if volume and pod needs to be removed from dswp
@@ -183,11 +195,14 @@ func DetermineVolumeAction(pod *v1.Pod, desiredStateOfWorld cache.DesiredStateOf
 		return defaultAction
 	}
 
+	// zhou: if Pod is terminated.
 	if util.IsPodTerminated(pod, pod.Status) {
 		return false
 	}
 	return defaultAction
 }
+
+// zhou: README, add volumes to DSW.
 
 // ProcessPodVolumes processes the volumes in the given pod and adds them to the
 // desired state of the world if addVolumes is true, otherwise it removes them.
@@ -199,6 +214,8 @@ func ProcessPodVolumes(logger klog.Logger, pod *v1.Pod, addVolumes bool, desired
 		logger.V(10).Info("Skipping processing of pod, it has no volumes", "pod", klog.KObj(pod))
 		return
 	}
+
+	// zhou: do not handle unscheduled Pod
 
 	nodeName := types.NodeName(pod.Spec.NodeName)
 	if nodeName == "" {
@@ -212,6 +229,8 @@ func ProcessPodVolumes(logger klog.Logger, pod *v1.Pod, addVolumes bool, desired
 		return
 	}
 
+	// zhou: create "volume.Spec" for each volume.
+
 	// Process volume spec for each volume defined in pod
 	for _, podVolume := range pod.Spec.Volumes {
 		volumeSpec, err := CreateVolumeSpecWithNodeMigration(logger, podVolume, pod, nodeName, volumePluginMgr, pvcLister, pvLister, csiMigratedPluginManager, csiTranslator)
@@ -220,6 +239,8 @@ func ProcessPodVolumes(logger klog.Logger, pod *v1.Pod, addVolumes bool, desired
 			continue
 		}
 
+		// zhou: find corresponding VolumePlugin and CanAttach() == true.
+
 		attachableVolumePlugin, err :=
 			volumePluginMgr.FindAttachablePluginBySpec(volumeSpec)
 		if err != nil || attachableVolumePlugin == nil {
@@ -227,8 +248,13 @@ func ProcessPodVolumes(logger klog.Logger, pod *v1.Pod, addVolumes bool, desired
 			continue
 		}
 
+		// zhou: add/delete volumes from DSW
+
 		uniquePodName := util.GetUniquePodName(pod)
 		if addVolumes {
+
+			// zhou:
+
 			// Add volume to desired state of world
 			_, err := desiredStateOfWorld.AddPod(
 				uniquePodName, pod, volumeSpec, nodeName)
@@ -249,6 +275,8 @@ func ProcessPodVolumes(logger klog.Logger, pod *v1.Pod, addVolumes bool, desired
 		}
 	}
 }
+
+// zhou: if it could be translated to CSI PV, do it.
 
 func translateInTreeSpecToCSIOnNodeIfNeeded(logger klog.Logger, spec *volume.Spec, nodeName types.NodeName, vpm *volume.VolumePluginMgr, csiMigratedPluginManager csimigration.PluginManager, csiTranslator csimigration.InTreeToCSITranslator, podNamespace string) (*volume.Spec, error) {
 	translatedSpec := spec

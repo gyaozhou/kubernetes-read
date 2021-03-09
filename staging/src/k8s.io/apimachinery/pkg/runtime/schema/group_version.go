@@ -91,6 +91,8 @@ func ParseGroupResource(gr string) GroupResource {
 	return GroupResource{Resource: gr}
 }
 
+// zhou:
+
 // GroupVersionResource unambiguously identifies a resource.  It doesn't anonymously include GroupVersion
 // to avoid automatic coercion.  It doesn't use a GroupVersion to avoid custom marshalling
 type GroupVersionResource struct {
@@ -137,6 +139,8 @@ func (gk GroupKind) String() string {
 	return gk.Kind + "." + gk.Group
 }
 
+// zhou:
+
 // GroupVersionKind unambiguously identifies a kind.  It doesn't anonymously include GroupVersion
 // to avoid automatic coercion.  It doesn't use a GroupVersion to avoid custom marshalling
 type GroupVersionKind struct {
@@ -162,6 +166,7 @@ func (gvk GroupVersionKind) String() string {
 	return gvk.Group + "/" + gvk.Version + ", Kind=" + gvk.Kind
 }
 
+// zhou:
 // GroupVersion contains the "group" and the "version", which uniquely identifies the API.
 type GroupVersion struct {
 	Group   string

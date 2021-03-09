@@ -31,6 +31,8 @@ var (
 		":" + defaultPodSandboxImageVersion
 )
 
+// zhou: README,
+
 // NewContainerRuntimeOptions will create a new ContainerRuntimeOptions with
 // default values.
 func NewContainerRuntimeOptions() *config.ContainerRuntimeOptions {

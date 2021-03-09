@@ -71,6 +71,7 @@ network_closure.sh
 .kubeconfig
 
 .tags*
+TAGS
 
 # Version file for dockerized build
 .dockerized-kube-version-defs

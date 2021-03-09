@@ -79,6 +79,8 @@ const (
 	defaultNodeMaskCIDRIPv6 = 64
 )
 
+// zhou: Service Load Balance Controller
+
 func newServiceLBControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:                      cpnames.ServiceLBController,
@@ -93,6 +95,9 @@ func startServiceLBController(ctx context.Context, controllerContext ControllerC
 	logger.Info("Warning: service-controller is set, but no cloud provider functionality is available in kube-controller-manger (KEP-2395). Will not configure service controller.")
 	return nil, false, nil
 }
+
+// zhou:
+
 func newNodeIpamControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.NodeIpamController,
@@ -173,6 +178,8 @@ func startNodeIpamController(ctx context.Context, controllerContext ControllerCo
 	return nil, true, nil
 }
 
+// zhou:
+
 func newNodeLifecycleControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.NodeLifecycleController,
@@ -205,6 +212,8 @@ func startNodeLifecycleController(ctx context.Context, controllerContext Control
 	return nil, true, nil
 }
 
+// zhou: TaintEviction Controller
+
 func newTaintEvictionControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.TaintEvictionController,
@@ -231,6 +240,8 @@ func startTaintEvictionController(ctx context.Context, controllerContext Control
 	return nil, true, nil
 }
 
+// zhou:
+
 func newCloudNodeLifecycleControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:                      cpnames.CloudNodeLifecycleController,
@@ -245,6 +256,8 @@ func startCloudNodeLifecycleController(ctx context.Context, controllerContext Co
 	logger.Info("Warning: node-controller is set, but no cloud provider functionality is available in kube-controller-manger (KEP-2395). Will not configure node lifecyle controller.")
 	return nil, false, nil
 }
+
+// zhou: README,
 
 func newNodeRouteControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
@@ -261,6 +274,8 @@ func startNodeRouteController(ctx context.Context, controllerContext ControllerC
 	return nil, false, nil
 }
 
+// zhou: PV controller
+
 func newPersistentVolumeBinderControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.PersistentVolumeBinderController,
@@ -270,6 +285,9 @@ func newPersistentVolumeBinderControllerDescriptor() *ControllerDescriptor {
 }
 
 func startPersistentVolumeBinderController(ctx context.Context, controllerContext ControllerContext, controllerName string) (controller.Interface, bool, error) {
+
+	// zhou: README
+
 	logger := klog.FromContext(ctx)
 	plugins, err := ProbeProvisionableRecyclableVolumePlugins(logger, controllerContext.ComponentConfig.PersistentVolumeBinderController.VolumeConfiguration)
 	if err != nil {
@@ -295,6 +313,8 @@ func startPersistentVolumeBinderController(ctx context.Context, controllerContex
 	return nil, true, nil
 }
 
+// zhou: AD controller
+
 func newPersistentVolumeAttachDetachControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.PersistentVolumeAttachDetachController,
@@ -308,12 +328,17 @@ func startPersistentVolumeAttachDetachController(ctx context.Context, controller
 	csiNodeInformer := controllerContext.InformerFactory.Storage().V1().CSINodes()
 	csiDriverInformer := controllerContext.InformerFactory.Storage().V1().CSIDrivers()
 
+	// zhou: collects all buildin volumes plugins.
+
 	plugins, err := ProbeAttachableVolumePlugins(logger, controllerContext.ComponentConfig.PersistentVolumeBinderController.VolumeConfiguration)
 	if err != nil {
 		return nil, true, fmt.Errorf("failed to probe volume plugins when starting attach/detach controller: %v", err)
 	}
 
 	ctx = klog.NewContext(ctx, logger)
+
+	// zhou: create AD controller
+
 	attachDetachController, attachDetachControllerErr :=
 		attachdetach.NewAttachDetachController(
 			ctx,
@@ -338,6 +363,8 @@ func startPersistentVolumeAttachDetachController(ctx context.Context, controller
 	go attachDetachController.Run(ctx)
 	return nil, true, nil
 }
+
+// zhou: PV Expander
 
 func newPersistentVolumeExpanderControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
@@ -371,6 +398,8 @@ func startPersistentVolumeExpanderController(ctx context.Context, controllerCont
 	return nil, true, nil
 }
 
+// zhou: Ephemeral Volume controller
+
 func newEphemeralVolumeControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.EphemeralVolumeController,
@@ -391,6 +420,8 @@ func startEphemeralVolumeController(ctx context.Context, controllerContext Contr
 	go ephemeralController.Run(ctx, int(controllerContext.ComponentConfig.EphemeralVolumeController.ConcurrentEphemeralVolumeSyncs))
 	return nil, true, nil
 }
+
+// zhou: Resource Claim Controller
 
 const defaultResourceClaimControllerWorkers = 10
 
@@ -420,6 +451,8 @@ func startResourceClaimController(ctx context.Context, controllerContext Control
 	return nil, true, nil
 }
 
+// zhou: Service Endpoint Controller
+
 func newEndpointsControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.EndpointsController,
@@ -440,6 +473,8 @@ func startEndpointsController(ctx context.Context, controllerContext ControllerC
 	return nil, true, nil
 }
 
+// zhou: Replication Controller
+
 func newReplicationControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.ReplicationControllerController,
@@ -459,6 +494,8 @@ func startReplicationController(ctx context.Context, controllerContext Controlle
 	return nil, true, nil
 }
 
+// zhou: Pod Gabage Collector Controller
+
 func newPodGarbageCollectorControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.PodGarbageCollectorController,
@@ -477,6 +514,8 @@ func startPodGarbageCollectorController(ctx context.Context, controllerContext C
 	).Run(ctx)
 	return nil, true, nil
 }
+
+// zhou: Resource Quota Controller
 
 func newResourceQuotaControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
@@ -516,6 +555,8 @@ func startResourceQuotaController(ctx context.Context, controllerContext Control
 
 	return nil, true, nil
 }
+
+// zhou: Namespace Controller
 
 func newNamespaceControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
@@ -559,6 +600,8 @@ func startModifiedNamespaceController(ctx context.Context, controllerContext Con
 	return nil, true, nil
 }
 
+// zhou: Service Account Controller
+
 func newServiceAccountControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.ServiceAccountController,
@@ -581,6 +624,8 @@ func startServiceAccountController(ctx context.Context, controllerContext Contro
 	return nil, true, nil
 }
 
+// zhou: TTL Controller
+
 func newTTLControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.TTLController,
@@ -597,6 +642,8 @@ func startTTLController(ctx context.Context, controllerContext ControllerContext
 	).Run(ctx, 5)
 	return nil, true, nil
 }
+
+// zhou: Garbage Collector Controller
 
 func newGarbageCollectorControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
@@ -646,6 +693,8 @@ func startGarbageCollectorController(ctx context.Context, controllerContext Cont
 	return garbageCollector, true, nil
 }
 
+// zhou: PVC Protection Controller
+
 func newPersistentVolumeClaimProtectionControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.PersistentVolumeClaimProtectionController,
@@ -675,6 +724,8 @@ func newPersistentVolumeProtectionControllerDescriptor() *ControllerDescriptor {
 		initFunc: startPersistentVolumeProtectionController,
 	}
 }
+
+// zhou: PV Protection Controller
 
 func startPersistentVolumeProtectionController(ctx context.Context, controllerContext ControllerContext, controllerName string) (controller.Interface, bool, error) {
 	go pvprotection.NewPVProtectionController(
@@ -710,6 +761,8 @@ func startVolumeAttributesClassProtectionController(ctx context.Context, control
 	return nil, true, nil
 }
 
+// zhou:
+
 func newTTLAfterFinishedControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{
 		name:     names.TTLAfterFinishedController,
@@ -726,6 +779,8 @@ func startTTLAfterFinishedController(ctx context.Context, controllerContext Cont
 	).Run(ctx, int(controllerContext.ComponentConfig.TTLAfterFinishedController.ConcurrentTTLSyncs))
 	return nil, true, nil
 }
+
+// zhou:
 
 func newLegacyServiceAccountTokenCleanerControllerDescriptor() *ControllerDescriptor {
 	return &ControllerDescriptor{

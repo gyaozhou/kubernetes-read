@@ -90,6 +90,9 @@ func safeOpenSubPath(mounter mount.Interface, subpath Subpath) (int, error) {
 	return fd, nil
 }
 
+// zhou: README,
+//       For CSI volume, "/var/lib/kubelet/pods/[pod uid]/volumes/[volume name]/"
+
 // prepareSubpathTarget creates target for bind-mount of subpath. It returns
 // "true" when the target already exists and something is mounted there.
 func prepareSubpathTarget(mounter mount.Interface, subpath Subpath) (bool, string, error) {

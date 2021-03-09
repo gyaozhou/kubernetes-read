@@ -25,6 +25,8 @@ import (
 	"k8s.io/kubernetes/pkg/features"
 )
 
+// zhou: store PodStatus
+
 // Cache stores the PodStatus for the pods. It represents *all* the visible
 // pods/containers in the container runtime. All cache entries are at least as
 // new or newer than the global timestamp (set by UpdateTime()), while

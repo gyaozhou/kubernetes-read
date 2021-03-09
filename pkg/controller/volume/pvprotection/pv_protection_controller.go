@@ -48,6 +48,8 @@ type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 }
 
+// zhou: watch PV add/update events, handle finalizer "kubernetes.io/pv-protection"
+
 // NewPVProtectionController returns a new *Controller.
 func NewPVProtectionController(logger klog.Logger, pvInformer coreinformers.PersistentVolumeInformer, cl clientset.Interface) *Controller {
 	e := &Controller{
@@ -119,6 +121,8 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	return true
 }
 
+// zhou: handle PV queue.
+
 func (c *Controller) processPV(ctx context.Context, pvName string) error {
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Processing PV", "PV", klog.KRef("", pvName))
@@ -140,11 +144,16 @@ func (c *Controller) processPV(ctx context.Context, pvName string) error {
 		// PV should be deleted. Check if it's used and remove finalizer if
 		// it's not.
 		isUsed := c.isBeingUsed(pv)
+
+		// zhou: remove finalizer if PV's state is NOT "bound"
+
 		if !isUsed {
 			return c.removeFinalizer(ctx, pv)
 		}
 		logger.V(4).Info("Keeping PV because it is being used", "PV", klog.KRef("", pvName))
 	}
+
+	// zhou: if PV is working, it should alwasy have finalizer "kubernetes.io/pv-protection"
 
 	if protectionutil.NeedToAddFinalizer(pv, volumeutil.PVProtectionFinalizer) {
 		// PV is not being deleted -> it should have the finalizer. The
@@ -192,6 +201,8 @@ func (c *Controller) isBeingUsed(pv *v1.PersistentVolume) bool {
 
 	return false
 }
+
+// zhou: add to queue.
 
 // pvAddedUpdated reacts to pv added/updated events
 func (c *Controller) pvAddedUpdated(logger klog.Logger, obj interface{}) {

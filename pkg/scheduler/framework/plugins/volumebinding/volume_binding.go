@@ -70,11 +70,14 @@ func (d *stateData) Clone() framework.StateData {
 // In the Filter phase, pod binding cache is created for the pod and used in
 // Reserve and PreBind phases.
 type VolumeBinding struct {
+	// zhou: major processing
 	Binder    SchedulerVolumeBinder
 	PVCLister corelisters.PersistentVolumeClaimLister
 	scorer    volumeCapacityScorer
 	fts       feature.Features
 }
+
+// zhou: implemented these plugins/methods
 
 var _ framework.PreFilterPlugin = &VolumeBinding{}
 var _ framework.FilterPlugin = &VolumeBinding{}
@@ -297,11 +300,16 @@ func (pl *VolumeBinding) isSchedulableAfterCSIDriverChange(logger klog.Logger, p
 	return framework.QueueSkip, nil
 }
 
+// zhou: checking whether Pod refer to some PVC objects, and the PVC object is existing.
+
 // podHasPVCs returns 2 values:
 // - the first one to denote if the given "pod" has any PVC defined.
 // - the second one to return any error if the requested PVC is illegal.
 func (pl *VolumeBinding) podHasPVCs(pod *v1.Pod) (bool, error) {
 	hasPVC := false
+
+	// zhou: in both cases below, there should be PVC object.
+
 	for _, vol := range pod.Spec.Volumes {
 		var pvcName string
 		isEphemeral := false
@@ -315,6 +323,14 @@ func (pl *VolumeBinding) podHasPVCs(pod *v1.Pod) (bool, error) {
 			// Volume is not using a PVC, ignore
 			continue
 		}
+
+		// zhou: It's normal to see the error, since "ephemeral volume controller" is not faster than scheduler.
+		/*
+			Normal   Scheduled               15m   default-scheduler Successfully assigned xxxx-job-v742l to node2.xxx.local
+			Warning  FailedScheduling        16m   default-scheduler 0/3 nodes are available: 3 waiting for ephemeral volume controller to create the persistentvolumeclaim "xxxx-job-v742l". preemption: 0/3 nodes are available: 3 Preemption is not helpful for scheduling.
+			Normal   SuccessfulAttachVolume  15m   attachdetach-controller AttachVolume.Attach succeeded for volume "k8s-xxxxxx"
+		*/
+
 		hasPVC = true
 		pvc, err := pl.PVCLister.PersistentVolumeClaims(pod.Namespace).Get(pvcName)
 		if err != nil {
@@ -331,6 +347,8 @@ func (pl *VolumeBinding) podHasPVCs(pod *v1.Pod) (bool, error) {
 			return hasPVC, fmt.Errorf("persistentvolumeclaim %q bound to non-existent persistentvolume %q", pvc.Name, pvc.Spec.VolumeName)
 		}
 
+		// zhou: being deleted
+
 		if pvc.DeletionTimestamp != nil {
 			return hasPVC, fmt.Errorf("persistentvolumeclaim %q is being deleted", pvc.Name)
 		}
@@ -344,6 +362,9 @@ func (pl *VolumeBinding) podHasPVCs(pod *v1.Pod) (bool, error) {
 	return hasPVC, nil
 }
 
+// zhou: mark scheduling pod failed if the corresponding PVC is not in expected state.
+//       Return the nodes if the PVC bound to local PV.
+
 // PreFilter invoked at the prefilter extension point to check if pod has all
 // immediate PVCs bound. If not all immediate PVCs are bound, an
 // UnschedulableAndUnresolvable is returned.
@@ -353,13 +374,20 @@ func (pl *VolumeBinding) PreFilter(ctx context.Context, state *framework.CycleSt
 	if hasPVC, err := pl.podHasPVCs(pod); err != nil {
 		return nil, framework.NewStatus(framework.UnschedulableAndUnresolvable, err.Error())
 	} else if !hasPVC {
+		// zhou: the pod doesn't refer to any PVC
 		state.Write(stateKey, &stateData{})
 		return nil, framework.NewStatus(framework.Skip)
 	}
+
+	// zhou: get Pod's volumes' corresponding PVC (if it has) in different category.
+
 	podVolumeClaims, err := pl.Binder.GetPodVolumeClaims(logger, pod)
 	if err != nil {
 		return nil, framework.AsStatus(err)
 	}
+
+	// zhou: if the PVC using VolumeBindingImmediate but still not bound, schedule is pending
+
 	if len(podVolumeClaims.unboundClaimsImmediate) > 0 {
 		// Return UnschedulableAndUnresolvable error if immediate claims are
 		// not bound. Pod will be moved to active/backoff queues once these
@@ -379,6 +407,8 @@ func (pl *VolumeBinding) PreFilter(ctx context.Context, state *framework.CycleSt
 	return nil, nil
 }
 
+// zhou: Pod add and remove related PreFilter ???
+
 // PreFilterExtensions returns prefilter extensions, pod add and remove.
 func (pl *VolumeBinding) PreFilterExtensions() framework.PreFilterExtensions {
 	return nil
@@ -395,6 +425,9 @@ func getStateData(cs *framework.CycleState) (*stateData, error) {
 	}
 	return s, nil
 }
+
+// zhou: evaluate whether the node is suitable for the Pod to be scheduled from volume
+//       binding perspective.
 
 // Filter invoked at the filter extension point.
 // It evaluates if a pod can fit due to the volumes it requests,
@@ -413,6 +446,9 @@ func getStateData(cs *framework.CycleState) (*stateData, error) {
 // PVCs can be matched with an available and node-compatible PV.
 func (pl *VolumeBinding) Filter(ctx context.Context, cs *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
 	logger := klog.FromContext(ctx)
+
+	// zhou: evaluate the node for Pod
+
 	node := nodeInfo.Node()
 
 	state, err := getStateData(cs)
@@ -457,6 +493,8 @@ func (pl *VolumeBinding) PreScore(ctx context.Context, cs *framework.CycleState,
 	return framework.NewStatus(framework.Skip)
 }
 
+// zhou: README,
+
 // Score invoked at the score extension point.
 func (pl *VolumeBinding) Score(ctx context.Context, cs *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
 	if pl.scorer == nil {
@@ -470,6 +508,9 @@ func (pl *VolumeBinding) Score(ctx context.Context, cs *framework.CycleState, po
 	if !ok {
 		return 0, nil
 	}
+
+	// zhou: why count StaticBinding only? how about dynamic provisioning?
+
 	// group by storage class
 	classResources := make(classResourceMap)
 	for _, staticBinding := range podVolumes.StaticBindings {
@@ -492,6 +533,8 @@ func (pl *VolumeBinding) ScoreExtensions() framework.ScoreExtensions {
 	return nil
 }
 
+// zhou: reserve PVC/PV binding in cache firstly.
+
 // Reserve reserves volumes of pod and saves binding status in cycle state.
 func (pl *VolumeBinding) Reserve(ctx context.Context, cs *framework.CycleState, pod *v1.Pod, nodeName string) *framework.Status {
 	state, err := getStateData(cs)
@@ -513,6 +556,8 @@ func (pl *VolumeBinding) Reserve(ctx context.Context, cs *framework.CycleState, 
 	return nil
 }
 
+// zhou: perform the api update (did in Reserve), and wait for PV controller working.
+
 // PreBind will make the API update with the assumed bindings and wait until
 // the PV controller has completely finished the binding operation.
 //
@@ -533,6 +578,9 @@ func (pl *VolumeBinding) PreBind(ctx context.Context, cs *framework.CycleState, 
 		return framework.AsStatus(fmt.Errorf("no pod volumes found for node %q", nodeName))
 	}
 	logger := klog.FromContext(ctx)
+
+	// zhou:
+
 	logger.V(5).Info("Trying to bind volumes for pod", "pod", klog.KObj(pod))
 	err = pl.Binder.BindPodVolumes(ctx, pod, podVolumes)
 	if err != nil {
@@ -558,6 +606,8 @@ func (pl *VolumeBinding) Unreserve(ctx context.Context, cs *framework.CycleState
 	pl.Binder.RevertAssumedPodVolumes(podVolumes)
 }
 
+// zhou: README, initilize VolumeBinding Plugin from "pkg/scheduler/framework/plugins/registry.go"
+
 // New initializes a new plugin and returns it.
 func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts feature.Features) (framework.Plugin, error) {
 	args, ok := plArgs.(*config.VolumeBindingArgs)
@@ -569,6 +619,7 @@ func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts fe
 	}); err != nil {
 		return nil, err
 	}
+
 	podInformer := fh.SharedInformerFactory().Core().V1().Pods()
 	nodeInformer := fh.SharedInformerFactory().Core().V1().Nodes()
 	pvcInformer := fh.SharedInformerFactory().Core().V1().PersistentVolumeClaims()
@@ -579,7 +630,12 @@ func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts fe
 		CSIDriverInformer:          fh.SharedInformerFactory().Storage().V1().CSIDrivers(),
 		CSIStorageCapacityInformer: fh.SharedInformerFactory().Storage().V1().CSIStorageCapacities(),
 	}
+
+	// zhou: binder function
+
 	binder := NewVolumeBinder(klog.FromContext(ctx), fh.ClientSet(), podInformer, nodeInformer, csiNodeInformer, pvcInformer, pvInformer, storageClassInformer, capacityCheck, time.Duration(args.BindTimeoutSeconds)*time.Second)
+
+	// zhou: scorer function
 
 	// build score function
 	var scorer volumeCapacityScorer
@@ -593,6 +649,9 @@ func New(ctx context.Context, plArgs runtime.Object, fh framework.Handle, fts fe
 		}
 		scorer = buildScorerFunction(shape)
 	}
+
+	// zhou: implements the plugin extension methods.
+
 	return &VolumeBinding{
 		Binder:    binder,
 		PVCLister: pvcInformer.Lister(),

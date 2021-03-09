@@ -50,6 +50,8 @@ const (
 
 var ErrNotInCluster = errors.New("unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined")
 
+// zhou: README, core data for kubernetes config.
+
 // Config holds the common attributes that can be passed to a Kubernetes client on
 // initialization.
 type Config struct {
@@ -298,6 +300,7 @@ func (c TLSClientConfig) String() string {
 	return fmt.Sprintf("%#v", cc)
 }
 
+// zhou: README,
 type ContentConfig struct {
 	// AcceptContentTypes specifies the types the client will accept and is optional.
 	// If not set, ContentType will be used to define the Accept header
@@ -318,6 +321,8 @@ type ContentConfig struct {
 	//   from Kubernetes.
 	NegotiatedSerializer runtime.NegotiatedSerializer
 }
+
+// zhou: README, use RESTClient directly
 
 // RESTClientFor returns a RESTClient that satisfies the requested attributes on a client Config
 // object. Note that a RESTClient may require fields that are optional when initializing a Client.
@@ -535,6 +540,8 @@ func DefaultKubernetesUserAgent() string {
 		gruntime.GOARCH,
 		adjustCommit(version.Get().GitCommit))
 }
+
+// zhou: README, load in cluster config
 
 // InClusterConfig returns a config object which uses the service account
 // kubernetes gives to pods. It's intended for clients that expect to be

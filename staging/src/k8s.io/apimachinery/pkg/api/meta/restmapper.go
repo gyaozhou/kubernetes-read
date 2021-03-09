@@ -443,6 +443,8 @@ func (o resourceByPreferredGroupVersion) Less(i, j int) bool {
 	return lhsIndex < rhsIndex
 }
 
+// zhou: README,
+
 // RESTMapping returns a struct representing the resource path and conversion interfaces a
 // RESTClient should use to operate on the provided group/kind in order of versions. If a version search
 // order is not provided, the search order provided to DefaultRESTMapper will be used to resolve which

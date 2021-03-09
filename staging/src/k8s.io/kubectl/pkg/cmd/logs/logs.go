@@ -168,6 +168,8 @@ func NewLogsOptions(streams genericiooptions.IOStreams) *LogsOptions {
 	}
 }
 
+// zhou:
+
 // NewCmdLogs creates a new pod logs command
 func NewCmdLogs(f cmdutil.Factory, streams genericiooptions.IOStreams) *cobra.Command {
 	o := NewLogsOptions(streams)
@@ -456,6 +458,8 @@ func (o LogsOptions) addPrefixIfNeeded(ref corev1.ObjectReference, writer io.Wri
 		writer: writer,
 	}
 }
+
+// zhou:
 
 // DefaultConsumeRequest reads the data from request and writes into
 // the out writer. It buffers data from requests until the newline or io.EOF

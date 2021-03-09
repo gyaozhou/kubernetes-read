@@ -84,6 +84,8 @@ import (
 	utilstrings "k8s.io/utils/strings"
 )
 
+// zhou: README, implement "type CustomBlockVolumeMapper interface"
+
 type csiBlockMapper struct {
 	csiClientGetter
 	k8s        kubernetes.Interface
@@ -132,6 +134,8 @@ func (m *csiBlockMapper) getPublishDir() string {
 func (m *csiBlockMapper) getPublishPath() string {
 	return filepath.Join(m.getPublishDir(), string(m.podUID))
 }
+
+// zhou:
 
 // GetPodDeviceMapPath returns pod's device file which will be mapped to a volume
 // returns: pods/{podUID}/volumeDevices/kubernetes.io~csi, {specName}
@@ -204,6 +208,8 @@ func (m *csiBlockMapper) stageVolumeForBlock(
 	return stagingPath, nil
 }
 
+// zhou: README, publish volume as raw block device
+
 // publishVolumeForBlock publishes a block volume to publishPath
 func (m *csiBlockMapper) publishVolumeForBlock(
 	ctx context.Context,
@@ -250,6 +256,8 @@ func (m *csiBlockMapper) publishVolumeForBlock(
 	}
 	klog.V(4).Info(log("blockMapper.publishVolumeForBlock created directory for publishPath successfully [%s]", publishDir))
 
+	// zhou: invoke CSI driver node service
+
 	// Request to publish a block volume to publishPath.
 	// Expectation for driver is to place a block volume on the publishPath, by bind-mounting the device file on the publishPath or
 	// creating device file on the publishPath.
@@ -276,6 +284,8 @@ func (m *csiBlockMapper) publishVolumeForBlock(
 
 	return publishPath, nil
 }
+
+// zhou: README,
 
 // SetUpDevice ensures the device is attached returns path where the device is located.
 func (m *csiBlockMapper) SetUpDevice() (string, error) {
@@ -339,6 +349,8 @@ func (m *csiBlockMapper) SetUpDevice() (string, error) {
 
 	return stagingPath, nil
 }
+
+// zhou: README,
 
 func (m *csiBlockMapper) MapPodDevice() (string, error) {
 	klog.V(4).Info(log("blockMapper.MapPodDevice called"))

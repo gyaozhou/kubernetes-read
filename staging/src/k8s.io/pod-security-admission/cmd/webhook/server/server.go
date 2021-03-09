@@ -262,6 +262,8 @@ func LoadConfig(opts *options.Options) (*Config, error) {
 	return &c, nil
 }
 
+// zhou:
+
 // Setup creates an Admission object to handle the admission logic.
 func Setup(c *Config) (*Server, error) {
 	s := &Server{
@@ -280,6 +282,8 @@ func Setup(c *Config) (*Server, error) {
 	s.informerFactory = kubeinformers.NewSharedInformerFactory(client, 0 /* no resync */)
 	namespaceInformer := s.informerFactory.Core().V1().Namespaces()
 	namespaceLister := namespaceInformer.Lister()
+
+	// zhou: setup check list
 
 	evaluator, err := policy.NewEvaluator(policy.DefaultChecks())
 	if err != nil {

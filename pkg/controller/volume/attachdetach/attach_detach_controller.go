@@ -87,6 +87,8 @@ type TimerConfig struct {
 	DesiredStateOfWorldPopulatorListPodsRetryDuration time.Duration
 }
 
+// zhou: default timer used in AD controller.
+
 // DefaultTimerConfig is the default configuration of Attach/Detach controller
 // timers.
 var DefaultTimerConfig = TimerConfig{
@@ -102,6 +104,8 @@ type AttachDetachController interface {
 	GetDesiredStateOfWorld() cache.DesiredStateOfWorld
 }
 
+// zhou: create AD controller
+
 // NewAttachDetachController returns a new instance of AttachDetachController.
 func NewAttachDetachController(
 	ctx context.Context,
@@ -113,10 +117,10 @@ func NewAttachDetachController(
 	csiNodeInformer storageinformersv1.CSINodeInformer,
 	csiDriverInformer storageinformersv1.CSIDriverInformer,
 	volumeAttachmentInformer storageinformersv1.VolumeAttachmentInformer,
-	plugins []volume.VolumePlugin,
-	prober volume.DynamicPluginProber,
-	disableReconciliationSync bool,
-	reconcilerSyncDuration time.Duration,
+	plugins []volume.VolumePlugin, // zhou: collects all in-tree volume plugins.
+	prober volume.DynamicPluginProber, // zhou: dynamically discovery volume plugins, only for Flexvolume
+	disableReconciliationSync bool, // zhou: flag, set in cli
+	reconcilerSyncDuration time.Duration, // zhou: flag, set in cli
 	disableForceDetachOnTimeout bool,
 	timerConfig TimerConfig) (AttachDetachController, error) {
 
@@ -148,16 +152,25 @@ func NewAttachDetachController(
 	adc.volumeAttachmentLister = volumeAttachmentInformer.Lister()
 	adc.volumeAttachmentSynced = volumeAttachmentInformer.Informer().HasSynced
 
+	// zhou: init volume plugins
+
 	if err := adc.volumePluginMgr.InitPlugins(plugins, prober, adc); err != nil {
 		return nil, fmt.Errorf("could not initialize volume plugins for Attach/Detach Controller: %w", err)
 	}
 
 	adc.broadcaster = record.NewBroadcaster(record.WithContext(ctx))
 	recorder := adc.broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "attachdetach-controller"})
+
+	// zhou: get "BlockVolumePathHandler interface" implementation.
+	//       "a set of operations for handling block volume-related operations"
+
 	blkutil := volumepathhandler.NewBlockVolumePathHandler()
 
 	adc.desiredStateOfWorld = cache.NewDesiredStateOfWorld(&adc.volumePluginMgr)
 	adc.actualStateOfWorld = cache.NewActualStateOfWorld(&adc.volumePluginMgr)
+
+	// zhou:
+
 	adc.attacherDetacher =
 		operationexecutor.NewOperationExecutor(operationexecutor.NewOperationGenerator(
 			kubeClient,
@@ -166,6 +179,8 @@ func NewAttachDetachController(
 			blkutil))
 	adc.nodeStatusUpdater = statusupdater.NewNodeStatusUpdater(
 		kubeClient, nodeInformer.Lister(), adc.actualStateOfWorld)
+
+	// zhou: worker to reconcile ASW to DSW
 
 	// Default these to values in options
 	adc.reconciler = reconciler.NewReconciler(
@@ -181,9 +196,13 @@ func NewAttachDetachController(
 		adc.nodeLister,
 		recorder)
 
+	// zhou: csi migration plugin manager
+
 	csiTranslator := csitrans.New()
 	adc.intreeToCSITranslator = csiTranslator
 	adc.csiMigratedPluginManager = csimigration.NewPluginManager(csiTranslator, utilfeature.DefaultFeatureGate)
+
+	// zhou: worker to watch Node/Pod/PVC events and update DSW and ASW.
 
 	adc.desiredStateOfWorldPopulator = populator.NewDesiredStateOfWorldPopulator(
 		timerConfig.DesiredStateOfWorldPopulatorLoopSleepPeriod,
@@ -196,6 +215,7 @@ func NewAttachDetachController(
 		adc.csiMigratedPluginManager,
 		adc.intreeToCSITranslator)
 
+	// zhou: Pod events, handle scheduled Pod.
 	podInformer.Informer().AddEventHandler(kcache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			adc.podAdd(logger, obj)
@@ -214,6 +234,7 @@ func NewAttachDetachController(
 		return nil, fmt.Errorf("could not initialize attach detach controller: %w", err)
 	}
 
+	// zhou: Node events
 	nodeInformer.Informer().AddEventHandler(kcache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			adc.nodeAdd(logger, obj)
@@ -226,6 +247,7 @@ func NewAttachDetachController(
 		},
 	})
 
+	// zhou: PVC events, used to trigger the Pod which is waiting for PVC bound.
 	pvcInformer.Informer().AddEventHandler(kcache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			adc.enqueuePVC(obj)
@@ -237,6 +259,8 @@ func NewAttachDetachController(
 
 	return adc, nil
 }
+
+// zhou: core for AD controller
 
 type attachDetachController struct {
 	// kubeClient is the kube API client used by volumehost to communicate with
@@ -277,6 +301,8 @@ type attachDetachController struct {
 	volumeAttachmentLister storagelistersv1.VolumeAttachmentLister
 	volumeAttachmentSynced kcache.InformerSynced
 
+	// zhou: used to get in-tree volume plugins.
+
 	// volumePluginMgr used to initialize and fetch volume plugins
 	volumePluginMgr volume.VolumePluginMgr
 
@@ -299,6 +325,8 @@ type attachDetachController struct {
 	// attacherDetacher is used to start asynchronous attach and operations
 	attacherDetacher operationexecutor.OperationExecutor
 
+	// zhou: worker
+
 	// reconciler is used to run an asynchronous periodic loop to reconcile the
 	// desiredStateOfWorld with the actualStateOfWorld by triggering attach
 	// detach operations using the attacherDetacher.
@@ -308,6 +336,8 @@ type attachDetachController struct {
 	// volumes
 	nodeStatusUpdater statusupdater.NodeStatusUpdater
 
+	// zhou: worker
+
 	// desiredStateOfWorldPopulator runs an asynchronous periodic loop to
 	// populate the current pods using podInformer.
 	desiredStateOfWorldPopulator populator.DesiredStateOfWorldPopulator
@@ -315,8 +345,12 @@ type attachDetachController struct {
 	// broadcaster is broadcasting events
 	broadcaster record.EventBroadcaster
 
+	// zhou: handle PVC events
+
 	// pvcQueue is used to queue pvc objects
 	pvcQueue workqueue.TypedRateLimitingInterface[string]
+
+	// zhou: csi migration volume plugin manager
 
 	// csiMigratedPluginManager detects in-tree plugins that have been migrated to CSI
 	csiMigratedPluginManager csimigration.PluginManager
@@ -324,6 +358,8 @@ type attachDetachController struct {
 	// intreeToCSITranslator translates from in-tree volume specs to CSI
 	intreeToCSITranslator csimigration.InTreeToCSITranslator
 }
+
+// zhou: README,
 
 func (adc *attachDetachController) Run(ctx context.Context) {
 	defer runtime.HandleCrash()
@@ -352,8 +388,24 @@ func (adc *attachDetachController) Run(ctx context.Context) {
 	if err != nil {
 		logger.Error(err, "Error populating the desired state of world")
 	}
+
+	// zhou: "It periodically checks whether the attached volumes from actual state
+	//        are still attached to the node and update the status if they are not."
+	//
+	//        Core processing to reconcile ASW with DSW.
+
 	go adc.reconciler.Run(ctx)
+
+	// zhou: "DesiredStateOfWorldPopulator periodically verifies that the pods in the
+	//        desired state of the world still exist, if not, it removes them.
+	//        It also loops through the list of active pods and ensures that
+	//        each one exists in the desired state of the world cache
+	//        if it has volumes."
+
 	go adc.desiredStateOfWorldPopulator.Run(ctx)
+
+	// zhou: reconcile PVC workqueue, then update DSW
+
 	go wait.UntilWithContext(ctx, adc.pvcWorker, time.Second)
 	metrics.Register(adc.pvcLister,
 		adc.pvLister,
@@ -446,6 +498,9 @@ func (adc *attachDetachController) populateDesiredStateOfWorld(logger klog.Logge
 					"volumeName", podVolume.Name)
 				continue
 			}
+
+			// zhou: make sure the volume support attach/detach
+
 			plugin, err := adc.volumePluginMgr.FindAttachablePluginBySpec(volumeSpec)
 			if err != nil || plugin == nil {
 				logger.V(10).Info(
@@ -455,6 +510,7 @@ func (adc *attachDetachController) populateDesiredStateOfWorld(logger klog.Logge
 					"err", err)
 				continue
 			}
+
 			volumeName, err := volumeutil.GetUniqueVolumeNameFromSpec(plugin, volumeSpec)
 			if err != nil {
 				logger.Error(
@@ -464,6 +520,9 @@ func (adc *attachDetachController) populateDesiredStateOfWorld(logger klog.Logge
 					"volumeName", podVolume.Name)
 				continue
 			}
+
+			// zhou:
+
 			attachState := adc.actualStateOfWorld.GetAttachState(volumeName, nodeName)
 			if attachState == cache.AttachStateAttached {
 				logger.V(10).Info("Volume is attached to node. Marking as attached in ActualStateOfWorld",
@@ -485,11 +544,15 @@ func (adc *attachDetachController) populateDesiredStateOfWorld(logger klog.Logge
 	return nil
 }
 
+// zhou: README, update DSW according to Pod's volumes.
+
 func (adc *attachDetachController) podAdd(logger klog.Logger, obj interface{}) {
 	pod, ok := obj.(*v1.Pod)
 	if pod == nil || !ok {
 		return
 	}
+
+	// zhou: only handle Pod already be scheduled.
 	if pod.Spec.NodeName == "" {
 		// Ignore pods without NodeName, indicating they are not scheduled.
 		return
@@ -538,6 +601,8 @@ func (adc *attachDetachController) podDelete(logger klog.Logger, obj interface{}
 		adc.desiredStateOfWorld, &adc.volumePluginMgr, adc.pvcLister, adc.pvLister, adc.csiMigratedPluginManager, adc.intreeToCSITranslator)
 }
 
+// zhou:
+
 func (adc *attachDetachController) nodeAdd(logger klog.Logger, obj interface{}) {
 	node, ok := obj.(*v1.Node)
 	// TODO: investigate if nodeName is empty then if we can return
@@ -581,6 +646,8 @@ func (adc *attachDetachController) nodeDelete(logger klog.Logger, obj interface{
 	adc.processVolumesInUse(logger, nodeName, node.Status.VolumesInUse)
 }
 
+// zhou:
+
 func (adc *attachDetachController) enqueuePVC(obj interface{}) {
 	key, err := kcache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
@@ -617,6 +684,8 @@ func (adc *attachDetachController) processNextItem(logger klog.Logger) bool {
 	return true
 }
 
+// zhou: reconcile PVC
+
 func (adc *attachDetachController) syncPVCByKey(logger klog.Logger, key string) error {
 	logger.V(5).Info("syncPVCByKey", "pvcKey", key)
 	namespace, name, err := kcache.SplitMetaNamespaceKey(key)
@@ -638,6 +707,7 @@ func (adc *attachDetachController) syncPVCByKey(logger klog.Logger, key string) 
 		return nil
 	}
 
+	// zhou: get related Pods
 	objs, err := adc.podIndexer.ByIndex(common.PodPVCIndex, key)
 	if err != nil {
 		return err
@@ -656,6 +726,8 @@ func (adc *attachDetachController) syncPVCByKey(logger klog.Logger, key string) 
 			adc.desiredStateOfWorld,
 			true /* default volume action */)
 
+		// zhou:
+
 		util.ProcessPodVolumes(logger, pod, volumeActionFlag, /* addVolumes */
 			adc.desiredStateOfWorld, &adc.volumePluginMgr, adc.pvcLister, adc.pvLister, adc.csiMigratedPluginManager, adc.intreeToCSITranslator)
 	}
@@ -671,6 +743,8 @@ func (adc *attachDetachController) processVolumesInUse(
 	logger.V(4).Info("processVolumesInUse for node", "node", klog.KRef("", string(nodeName)))
 	adc.actualStateOfWorld.SetVolumesMountedByNode(logger, volumesInUse, nodeName)
 }
+
+// zhou: README,
 
 // Process Volume-Attachment objects.
 // Should be called only after populating attached volumes in the ASW.
@@ -707,6 +781,8 @@ func (adc *attachDetachController) processVolumeAttachments(logger klog.Logger) 
 		// In-tree plugins that provisioned PVs will not be registered anymore after migration to CSI, once the respective
 		// feature gate is enabled.
 		if inTreePluginName, err := adc.csiMigratedPluginManager.GetInTreePluginNameFromSpec(pv, nil); err == nil {
+			// zhou:
+
 			if adc.csiMigratedPluginManager.IsMigrationEnabledForPlugin(inTreePluginName) {
 				// PV is migrated and should be handled by the CSI plugin instead of the in-tree one
 				plugin, _ = adc.volumePluginMgr.FindAttachablePluginByName(csi.CSIPluginName)
@@ -744,6 +820,11 @@ func (adc *attachDetachController) processVolumeAttachments(logger klog.Logger) 
 	}
 	return nil
 }
+
+// zhou: "attachDetachController" implements
+//       1. "VolumeHost is an interface that plugins can use to access the kubelet."
+//       2. "AttachDetachVolumeHost is a AttachDetach Controller specific interface
+//           that plugins can use to access methods on the Attach Detach Controller."
 
 var _ volume.VolumeHost = &attachDetachController{}
 var _ volume.AttachDetachVolumeHost = &attachDetachController{}
@@ -854,6 +935,8 @@ func (adc *attachDetachController) DeleteServiceAccountTokenFunc() func(types.UI
 func (adc *attachDetachController) GetExec(pluginName string) utilexec.Interface {
 	return utilexec.New()
 }
+
+// zhou:
 
 func (adc *attachDetachController) addNodeToDswp(node *v1.Node, nodeName types.NodeName) {
 	if _, exists := node.Annotations[volumeutil.ControllerManagedAttachAnnotation]; exists {

@@ -26,6 +26,8 @@ func (t *Toleration) MatchToleration(tolerationToMatch *Toleration) bool {
 		t.Value == tolerationToMatch.Value
 }
 
+// zhou: rules of tolerate.
+
 // ToleratesTaint checks if the toleration tolerates the taint.
 // The matching follows the rules below:
 //

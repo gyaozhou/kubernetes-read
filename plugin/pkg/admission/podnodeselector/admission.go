@@ -37,6 +37,9 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
+// zhou: this admission plugin is used to modify the Pod's NodeSelector during Pod "CREATE",
+//       in case its NameSpace own this Annotation.
+
 // NamespaceNodeSelectors is for assigning node selectors labels to
 // namespaces. Default value is the annotation key
 // scheduler.alpha.kubernetes.io/node-selector
@@ -58,8 +61,11 @@ func Register(plugins *admission.Plugins) {
 // Plugin is an implementation of admission.Interface.
 type Plugin struct {
 	*admission.Handler
-	client          kubernetes.Interface
-	namespaceLister corev1listers.NamespaceLister
+	client          kubernetes.Interface          // zhou: clientset
+	namespaceLister corev1listers.NamespaceLister // zhou: only checking "Indexer"
+
+	// zhou: the definition comes from file "--admission-control-config-file"
+
 	// global default node selector and namespace whitelists in a cluster.
 	clusterNodeSelectors map[string]string
 }
@@ -70,6 +76,8 @@ var _ = genericadmissioninitializer.WantsExternalKubeInformerFactory(&Plugin{})
 type pluginConfig struct {
 	PodNodeSelectorPluginConfig map[string]string
 }
+
+// zhou: default NodeSelector in cluster level.
 
 // readConfig reads default value of clusterDefaultNodeSelector
 // from the file provided with --admission-control-config-file
@@ -97,6 +105,9 @@ func readConfig(config io.Reader) *pluginConfig {
 	return defaultConfig
 }
 
+// zhou: implement "MutationInterface interface".
+//       merge Namespace's NodeSelector into "Pod.Spec.NodeSelector" during its creation.
+
 // Admit enforces that pod and its namespace node label selectors matches at least a node in the cluster.
 func (p *Plugin) Admit(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
 	if shouldIgnore(a) {
@@ -113,9 +124,13 @@ func (p *Plugin) Admit(ctx context.Context, a admission.Attributes, o admission.
 		return err
 	}
 
+	// zhou: check the confliction between Namespace's NodeSelector and Pod's NodeSelector.
+
 	if labels.Conflicts(namespaceNodeSelector, labels.Set(pod.Spec.NodeSelector)) {
 		return errors.NewForbidden(resource, pod.Name, fmt.Errorf("pod node label selector conflicts with its namespace node label selector"))
 	}
+
+	// zhou: merge Namespace's NodeSelector into Pod's during its creation
 
 	// Merge pod node selector = namespace node selector + current pod node selector
 	// second selector wins
@@ -123,6 +138,8 @@ func (p *Plugin) Admit(ctx context.Context, a admission.Attributes, o admission.
 	pod.Spec.NodeSelector = map[string]string(podNodeSelectorLabels)
 	return p.Validate(ctx, a, o)
 }
+
+// zhou: implement "ValidationInterface interface"
 
 // Validate ensures that the pod node selector is allowed
 func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces) error {
@@ -140,9 +157,14 @@ func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admissi
 	if err != nil {
 		return err
 	}
+
+	// zhou: already be covered by "Admit()"
+
 	if labels.Conflicts(namespaceNodeSelector, labels.Set(pod.Spec.NodeSelector)) {
 		return errors.NewForbidden(resource, pod.Name, fmt.Errorf("pod node label selector conflicts with its namespace node label selector"))
 	}
+
+	// zhou: should be subset of whitelist if defined.
 
 	// whitelist verification
 	whitelist, err := labels.ConvertSelectorToLabelsMap(p.clusterNodeSelectors[a.GetNamespace()])
@@ -156,9 +178,13 @@ func (p *Plugin) Validate(ctx context.Context, a admission.Attributes, o admissi
 	return nil
 }
 
+// zhou: "scheduler.alpha.kubernetes.io/node-selector" annotation on Namespace.
+
 func (p *Plugin) getNamespaceNodeSelectorMap(namespaceName string) (labels.Set, error) {
+	// zhou: only check "Indexer", might not the latest in apiserver
 	namespace, err := p.namespaceLister.Get(namespaceName)
 	if errors.IsNotFound(err) {
+		// zhou: check latest in apiserver
 		namespace, err = p.defaultGetNamespace(namespaceName)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -172,6 +198,8 @@ func (p *Plugin) getNamespaceNodeSelectorMap(namespaceName string) (labels.Set, 
 
 	return p.getNodeSelectorMap(namespace)
 }
+
+// zhou: make sure handle Pod only.
 
 func shouldIgnore(a admission.Attributes) bool {
 	resource := a.GetResource().GroupResource()
@@ -192,9 +220,13 @@ func shouldIgnore(a admission.Attributes) bool {
 	return false
 }
 
+// zhou: entry
+
 // NewPodNodeSelector initializes a podNodeSelector
 func NewPodNodeSelector(clusterNodeSelectors map[string]string) *Plugin {
 	return &Plugin{
+		// zhou: only used in "CREATE",
+		//       implemention of "admission.Interface", for checking supported operations.
 		Handler:              admission.NewHandler(admission.Create),
 		clusterNodeSelectors: clusterNodeSelectors,
 	}
@@ -230,6 +262,8 @@ func (p *Plugin) defaultGetNamespace(name string) (*corev1.Namespace, error) {
 	}
 	return namespace, nil
 }
+
+// zhou: convert value of "scheduler.alpha.kubernetes.io/node-selector" to {key,value} set.
 
 func (p *Plugin) getNodeSelectorMap(namespace *corev1.Namespace) (labels.Set, error) {
 	selector := labels.Set{}

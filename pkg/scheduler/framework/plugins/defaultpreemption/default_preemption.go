@@ -64,6 +64,8 @@ func (pl *DefaultPreemption) Name() string {
 	return Name
 }
 
+// zhou: README, this plugin implements default preemption logic.
+
 // New initializes a new plugin and returns it.
 func New(_ context.Context, dpArgs runtime.Object, fh framework.Handle, fts feature.Features) (framework.Plugin, error) {
 	args, ok := dpArgs.(*config.DefaultPreemptionArgs)
@@ -88,6 +90,8 @@ func New(_ context.Context, dpArgs runtime.Object, fh framework.Handle, fts feat
 
 	return &pl, nil
 }
+
+// zhou: README, Preemption is implemented as "posFilter"
 
 // PostFilter invoked at the postFilter extension point.
 func (pl *DefaultPreemption) PostFilter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, m framework.NodeToStatusReader) (*framework.PostFilterResult, *framework.Status) {

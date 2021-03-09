@@ -83,6 +83,9 @@ func init() {
 // Option configures a framework.Registry.
 type Option func(runtime.Registry) error
 
+// zhou: README,
+//       in case of Scheduler extension, user can reuse this function to contain "kube-scheduler".
+
 // NewSchedulerCommand creates a *cobra.Command object with default parameters and registryOptions
 func NewSchedulerCommand(registryOptions ...Option) *cobra.Command {
 	opts := options.NewOptions()
@@ -132,6 +135,8 @@ for more information about scheduling and the kube-scheduler component.`,
 	return cmd
 }
 
+// zhou: README,
+
 // runCommand runs the scheduler.
 func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Option) error {
 	verflag.PrintAndExitIfRequested()
@@ -151,6 +156,8 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 		<-stopCh
 		cancel()
 	}()
+
+	// zhou:
 
 	cc, sched, err := Setup(ctx, opts, registryOptions...)
 	if err != nil {
@@ -387,6 +394,8 @@ func WithPlugin(name string, factory runtime.PluginFactory) Option {
 		return registry.Register(name, factory)
 	}
 }
+
+// zhou: README,
 
 // Setup creates a completed config and a scheduler based on the command args and options
 func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions ...Option) (*schedulerserverconfig.CompletedConfig, *scheduler.Scheduler, error) {
