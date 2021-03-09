@@ -26,6 +26,8 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
+// zhou: "/api/v1/", get related resources operations
+
 type CoreV1Interface interface {
 	RESTClient() rest.Interface
 	ComponentStatusesGetter

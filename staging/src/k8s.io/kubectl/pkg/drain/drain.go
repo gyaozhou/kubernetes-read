@@ -40,8 +40,13 @@ import (
 )
 
 const (
+	// zhou: API, used by user to trigger eviction
+
 	// EvictionKind represents the kind of evictions object
 	EvictionKind = "Eviction"
+
+	// zhou: subresource of pod
+
 	// EvictionSubresource represents the kind of evictions object as pod's subresource
 	EvictionSubresource = "pods/eviction"
 	podSkipMsgTemplate  = "pod %q has DeletionTimestamp older than %v seconds, skipping\n"
@@ -131,6 +136,8 @@ func CheckEvictionSupport(clientset kubernetes.Interface) (schema.GroupVersion, 
 	return schema.GroupVersion{}, nil
 }
 
+// zhou: README,
+
 func (d *Helper) makeDeleteOptions() metav1.DeleteOptions {
 	deleteOptions := metav1.DeleteOptions{}
 	if d.GracePeriodSeconds >= 0 {
@@ -147,6 +154,8 @@ func (d *Helper) makeDeleteOptions() metav1.DeleteOptions {
 func (d *Helper) DeletePod(pod corev1.Pod) error {
 	return d.Client.CoreV1().Pods(pod.Namespace).Delete(d.getContext(), pod.Name, d.makeDeleteOptions())
 }
+
+// zhou: README,
 
 // EvictPod will evict the given pod, or return an error if it couldn't
 func (d *Helper) EvictPod(pod corev1.Pod, evictionGroupVersion schema.GroupVersion) error {

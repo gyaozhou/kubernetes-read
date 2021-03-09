@@ -108,6 +108,8 @@ type containerLogManager struct {
 	monitoringPeriod metav1.Duration
 }
 
+// zhou: README,
+
 // NewContainerLogManager creates a new container log manager.
 func NewContainerLogManager(runtimeService internalapi.RuntimeService, osInterface kubecontainer.OSInterface, maxSize string, maxFiles int, maxWorkers int, monitorInterval metav1.Duration) (ContainerLogManager, error) {
 	if maxFiles <= 1 {

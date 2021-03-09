@@ -94,6 +94,8 @@ func (pvcr *persistentVolumeClaimResize) Validate(ctx context.Context, a admissi
 	oldSize := oldPvc.Spec.Resources.Requests[api.ResourceStorage]
 	newSize := pvc.Spec.Resources.Requests[api.ResourceStorage]
 
+	// zhou: shrink size is allowed anyway.
+
 	if newSize.Cmp(oldSize) <= 0 {
 		return nil
 	}
@@ -111,6 +113,8 @@ func (pvcr *persistentVolumeClaimResize) Validate(ctx context.Context, a admissi
 
 	return nil
 }
+
+// zhou: check "StorageClass.Spec.AllowVolumeExpansion"
 
 // Growing Persistent volumes is only allowed for PVCs for which their StorageClass
 // explicitly allows it.

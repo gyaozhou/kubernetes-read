@@ -34,6 +34,8 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+// zhou: default values for kubelet
+
 // Funcs returns the fuzzer functions for the kubeletconfig apis.
 func Funcs(codecs runtimeserializer.CodecFactory) []interface{} {
 	return []interface{}{

@@ -49,6 +49,8 @@ func accessModesIndexFunc(obj interface{}) ([]string, error) {
 	return []string{""}, fmt.Errorf("object is not a persistent volume: %v", obj)
 }
 
+// zhou: list all PV no matter it is "Bound" or "Available" and other phase.
+
 // listByAccessModes returns all volumes with the given set of
 // AccessModeTypes. The list is unsorted!
 func (pvIndex *persistentVolumeOrderedIndex) listByAccessModes(modes []v1.PersistentVolumeAccessMode) ([]*v1.PersistentVolume, error) {
@@ -71,8 +73,16 @@ func (pvIndex *persistentVolumeOrderedIndex) listByAccessModes(modes []v1.Persis
 	return volumes, nil
 }
 
+// zhou: find the first (not the best) matching PV for PVC from the existing PV objects.
+
 // find returns the nearest PV from the ordered list or nil if a match is not found
 func (pvIndex *persistentVolumeOrderedIndex) findByClaim(claim *v1.PersistentVolumeClaim, delayBinding bool) (*v1.PersistentVolume, error) {
+
+	// zhou: "A volume can only be mounted using one access mode at a time, even if it supports many.
+	//        For example, a GCEPersistentDisk can be mounted as ReadWriteOnce by a single node or
+	//        ReadOnlyMany by many nodes, but not at the same time."
+	//       https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+
 	// PVs are indexed by their access modes to allow easier searching.  Each
 	// index is the string representation of a set of access modes. There is a
 	// finite number of possible sets and PVs will only be indexed in one of
@@ -94,6 +104,8 @@ func (pvIndex *persistentVolumeOrderedIndex) findByClaim(claim *v1.PersistentVol
 			return nil, err
 		}
 
+		// zhou: the first matching voluem
+
 		bestVol, err := volume.FindMatchingVolume(claim, volumes, nil /* node for topology binding*/, nil /* exclusion map */, delayBinding, utilfeature.DefaultFeatureGate.Enabled(features.VolumeAttributesClass))
 		if err != nil {
 			return nil, err
@@ -106,10 +118,14 @@ func (pvIndex *persistentVolumeOrderedIndex) findByClaim(claim *v1.PersistentVol
 	return nil, nil
 }
 
+// zhou: find the best matched PV for PVC.
+
 // findBestMatchForClaim is a convenience method that finds a volume by the claim's AccessModes and requests for Storage
 func (pvIndex *persistentVolumeOrderedIndex) findBestMatchForClaim(claim *v1.PersistentVolumeClaim, delayBinding bool) (*v1.PersistentVolume, error) {
 	return pvIndex.findByClaim(claim, delayBinding)
 }
+
+// zhou: README, matching AccessModes
 
 // allPossibleMatchingAccessModes returns an array of AccessMode arrays that
 // can satisfy a user's requested modes.

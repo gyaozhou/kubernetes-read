@@ -83,6 +83,8 @@ type reconciler struct {
 
 var _ Reconciler = &reconciler{}
 
+// zhou: run "reconcile()" every 1 * time.Second
+
 func (rc *reconciler) Run(stopCh <-chan struct{}) {
 	// Use context.TODO() because we currently do not have a proper context to pass in.
 	// Replace this with an appropriate context when refactoring this function to accept a context parameter.
@@ -102,6 +104,8 @@ func (rc *reconciler) AddHandler(pluginType string, pluginHandler cache.PluginHa
 	rc.handlers[pluginType] = pluginHandler
 }
 
+// zhou: Plugin handler for each type
+
 func (rc *reconciler) getHandlers() map[string]cache.PluginHandler {
 	rc.RLock()
 	defer rc.RUnlock()
@@ -113,6 +117,8 @@ func (rc *reconciler) getHandlers() map[string]cache.PluginHandler {
 	return copyHandlers
 }
 
+// zhou: compare ASW to DSW to take actions.
+
 func (rc *reconciler) reconcile(ctx context.Context) {
 	logger := klog.FromContext(ctx)
 	// Unregisterations are triggered before registrations
@@ -120,6 +126,9 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 	// Ensure plugins that should be unregistered are unregistered.
 	for _, registeredPlugin := range rc.actualStateOfWorld.GetRegisteredPlugins() {
 		unregisterPlugin := false
+
+		// zhou: handle the Plugin unregistration
+
 		if !rc.desiredStateOfWorld.PluginExists(registeredPlugin.SocketPath) {
 			unregisterPlugin = true
 		} else {
@@ -152,10 +161,16 @@ func (rc *reconciler) reconcile(ctx context.Context) {
 		}
 	}
 
+	// zhou: handle new Plugin registration.
+
 	// Ensure plugins that should be registered are registered
 	for _, pluginToRegister := range rc.desiredStateOfWorld.GetPluginsToRegister() {
 		if !rc.actualStateOfWorld.PluginExistsWithCorrectUUID(pluginToRegister) {
 			logger.V(5).Info("Starting operationExecutor.RegisterPlugin", "plugin", pluginToRegister)
+
+			// zhou: update object "Node" and create object "CSINode" according infomation get from
+			//       CSI Node Service's NodeGetInfo().
+
 			err := rc.operationExecutor.RegisterPlugin(ctx, pluginToRegister.SocketPath, pluginToRegister.UUID, rc.getHandlers(), rc.actualStateOfWorld)
 			if err != nil &&
 				!goroutinemap.IsAlreadyExists(err) &&

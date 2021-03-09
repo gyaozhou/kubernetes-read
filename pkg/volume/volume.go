@@ -28,6 +28,8 @@ import (
 	volumetypes "k8s.io/kubernetes/pkg/volume/util/types"
 )
 
+// zhou: this file defines the interface should be implemeneted by all kinds of volume.
+
 // Volume represents a directory used by pods or hosts on a node. All method
 // implementations of methods in the volume interface must be idempotent.
 type Volume interface {
@@ -158,6 +160,8 @@ type VolumeOwnership struct {
 	recorder    record.EventRecorder
 }
 
+// zhou: NodePublishVolume()
+
 // Mounter interface provides methods to set up/mount the volume.
 type Mounter interface {
 	// Uses Interface to provide the path for Docker binds.
@@ -186,6 +190,8 @@ type Mounter interface {
 	GetAttributes() Attributes
 }
 
+// zhou:
+
 // Unmounter interface provides methods to cleanup/unmount the volumes.
 type Unmounter interface {
 	Volume
@@ -201,6 +207,8 @@ type Unmounter interface {
 type BlockVolumeMapper interface {
 	BlockVolume
 }
+
+// zhou: README,
 
 // CustomBlockVolumeMapper interface provides custom methods to set up/map the volume.
 type CustomBlockVolumeMapper interface {
@@ -266,6 +274,8 @@ type Deleter interface {
 	Delete() error
 }
 
+// zhou: attach a volume to node, no matter Filesystem volume or Block volume.
+
 // Attacher can attach a volume to a node.
 type Attacher interface {
 	DeviceMounter
@@ -295,10 +305,15 @@ type DeviceMounterArgs struct {
 
 // DeviceMounter can mount a block volume to a global path.
 type DeviceMounter interface {
+
+	// zhou: global path used to mount for block device, or filesystem volume attached.
+
 	// GetDeviceMountPath returns a path where the device should
 	// be mounted after it is attached. This is a global mount
 	// point which should be bind mounted for individual volumes.
 	GetDeviceMountPath(spec *Spec) (string, error)
+
+	// zhou: NodeStageVolume()
 
 	// MountDevice mounts the disk to a global path which
 	// individual pods can then bind mount
@@ -309,6 +324,8 @@ type DeviceMounter interface {
 	//   - Error of any other type should be considered a final error
 	MountDevice(spec *Spec, devicePath string, deviceMountPath string, deviceMounterArgs DeviceMounterArgs) error
 }
+
+// zhou: Volume Plugin should implement this interface.
 
 // Detacher can detach a volume from a node.
 type Detacher interface {

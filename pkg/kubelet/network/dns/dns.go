@@ -382,6 +382,8 @@ func appendDNSConfig(existingDNSConfig *runtimeapi.DNSConfig, dnsConfig *v1.PodD
 	return existingDNSConfig
 }
 
+// zhou: README,
+
 // GetPodDNS returns DNS settings for the pod.
 func (c *Configurer) GetPodDNS(ctx context.Context, pod *v1.Pod) (*runtimeapi.DNSConfig, error) {
 	logger := klog.FromContext(ctx)

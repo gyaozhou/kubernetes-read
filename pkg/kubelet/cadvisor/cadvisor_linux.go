@@ -80,6 +80,8 @@ func init() {
 	}
 }
 
+// zhou:
+
 // New creates a new cAdvisor Interface for linux systems.
 func New(imageFsInfoProvider ImageFsInfoProvider, rootPath string, cgroupRoots []string, usingLegacyStats, localStorageCapacityIsolation bool) (Interface, error) {
 	sysFs := sysfs.NewRealSysFs()

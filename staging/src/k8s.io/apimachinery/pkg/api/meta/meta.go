@@ -89,6 +89,8 @@ func ListAccessor(obj interface{}) (List, error) {
 // interfaces.
 var errNotObject = fmt.Errorf("object does not implement the Object interfaces")
 
+// zhou:
+
 // Accessor takes an arbitrary object pointer and returns meta.Interface.
 // obj must be a pointer to an API type. An error is returned if the minimum
 // required fields are missing. Fields that are not required return the default

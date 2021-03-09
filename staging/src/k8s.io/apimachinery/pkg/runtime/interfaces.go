@@ -330,6 +330,8 @@ type Namer interface {
 	Namespace(obj Object) (string, error)
 }
 
+// zhou: README, "runtime.Object" is different from "metav1.Object"
+
 // Object interface must be supported by all API types registered with Scheme. Since objects in a scheme are
 // expected to be serialized to the wire, the interface an Object must provide to the Scheme allows
 // serializers to set the kind, version, and group the object is represented as. An Object may choose
@@ -359,6 +361,8 @@ type CacheableObject interface {
 	// If CacheableObject is a wrapper, the copy of wrapped object should be returned.
 	GetObject() Object
 }
+
+// zhou: README,
 
 // Unstructured objects store values as map[string]interface{}, with only values that can be serialized
 // to JSON allowed.

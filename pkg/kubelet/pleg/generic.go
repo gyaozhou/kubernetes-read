@@ -125,6 +125,8 @@ type podRecord struct {
 
 type podRecords map[types.UID]*podRecord
 
+// zhou: README,
+
 // NewGenericPLEG instantiates a new GenericPLEG object and return it.
 func NewGenericPLEG(logger klog.Logger, runtime kubecontainer.Runtime, eventChannel chan *PodLifecycleEvent,
 	relistDuration *RelistDuration, cache kubecontainer.Cache,

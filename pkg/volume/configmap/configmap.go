@@ -31,6 +31,8 @@ import (
 	volumeutil "k8s.io/kubernetes/pkg/volume/util"
 )
 
+// zhou:
+
 // ProbeVolumePlugins is the entry point for plugin detection in a package.
 func ProbeVolumePlugins() []volume.VolumePlugin {
 	return []volume.VolumePlugin{&configMapPlugin{}}
@@ -42,6 +44,7 @@ const (
 
 // configMapPlugin implements the VolumePlugin interface.
 type configMapPlugin struct {
+	// zhou: VolumeHost is an interface that plugins can use to access the kubelet.
 	host         volume.VolumeHost
 	getConfigMap func(namespace, name string) (*v1.ConfigMap, error)
 }
@@ -89,6 +92,8 @@ func (plugin *configMapPlugin) SupportsMountOption() bool {
 func (plugin *configMapPlugin) SupportsSELinuxContextMount(spec *volume.Spec) (bool, error) {
 	return false, nil
 }
+
+// zhou: get volume mount handler
 
 func (plugin *configMapPlugin) NewMounter(spec *volume.Spec, pod *v1.Pod) (volume.Mounter, error) {
 	return &configMapVolumeMounter{
@@ -143,6 +148,8 @@ func (sv *configMapVolume) GetPath() string {
 	return sv.plugin.host.GetPodVolumeDir(sv.podUID, utilstrings.EscapeQualifiedName(configMapPluginName), sv.volName)
 }
 
+// zhou: README, implemented interface "volume.Mounter", which will be used by VolumeManager.
+
 // configMapVolumeMounter handles retrieving secrets from the API server
 // and placing them into the volume on the host.
 type configMapVolumeMounter struct {
@@ -177,9 +184,11 @@ func (b *configMapVolumeMounter) SetUp(mounterArgs volume.MounterArgs) error {
 	return b.SetUpAt(b.GetPath(), mounterArgs)
 }
 
+// zhou: README, core,
 func (b *configMapVolumeMounter) SetUpAt(dir string, mounterArgs volume.MounterArgs) error {
 	klog.V(3).Infof("Setting up volume %v for pod %v at %v", b.volName, b.pod.UID, dir)
 
+	// zhou: ConfigMap volume is built up on EmptyDir
 	// Wrap EmptyDir, let it do the setup.
 	wrapped, err := b.plugin.host.NewWrapperMounter(b.volName, wrappedVolumeSpec(), &b.pod)
 	if err != nil {
@@ -258,6 +267,8 @@ func (b *configMapVolumeMounter) SetUpAt(dir string, mounterArgs volume.MounterA
 	setupSuccess = true
 	return nil
 }
+
+// zhou: README,
 
 // MakePayload function is exported so that it can be called from the projection volume driver
 func MakePayload(mappings []v1.KeyToPath, configMap *v1.ConfigMap, defaultMode *int32, optional bool) (map[string]volumeutil.FileProjection, error) {

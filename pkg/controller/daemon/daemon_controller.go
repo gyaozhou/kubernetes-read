@@ -54,6 +54,8 @@ import (
 )
 
 const (
+	// zhou: at most 250 pods could be created at one time.
+
 	// BurstReplicas is a rate limiter for booting pods on a lot of pods.
 	// The value of 250 is chosen b/c values that are too high can cause registry DoS issues.
 	BurstReplicas = 250
@@ -88,8 +90,8 @@ type DaemonSetsController struct {
 	eventBroadcaster record.EventBroadcaster
 	eventRecorder    record.EventRecorder
 
-	podControl controller.PodControlInterface
-	crControl  controller.ControllerRevisionControlInterface
+	podControl controller.PodControlInterface                // zhou: Pod create/delete/patch
+	crControl  controller.ControllerRevisionControlInterface // zhou: ControllerRevision patch
 
 	// An dsc is temporarily suspended after creating/deleting these many replicas.
 	// It resumes normal action after observing the watch events for them.
@@ -134,6 +136,8 @@ type DaemonSetsController struct {
 	failedPodsBackoff *flowcontrol.Backoff
 }
 
+// zhou: watch DaemonSets, ControllerRevisions, Pods, Nodes.
+
 // NewDaemonSetsController creates a new DaemonSetsController
 func NewDaemonSetsController(
 	ctx context.Context,
@@ -146,6 +150,7 @@ func NewDaemonSetsController(
 ) (*DaemonSetsController, error) {
 	eventBroadcaster := record.NewBroadcaster(record.WithContext(ctx))
 	logger := klog.FromContext(ctx)
+
 	dsc := &DaemonSetsController{
 		kubeClient:       kubeClient,
 		eventBroadcaster: eventBroadcaster,
@@ -294,6 +299,8 @@ func (dsc *DaemonSetsController) deleteDaemonset(logger klog.Logger, obj interfa
 
 	dsc.queue.Add(key)
 }
+
+// zhou: entry point of DaemonSets Controller
 
 // Run begins watching and syncing daemon sets.
 func (dsc *DaemonSetsController) Run(ctx context.Context, workers int) {
@@ -774,6 +781,8 @@ func (dsc *DaemonSetsController) resolveControllerRef(namespace string, controll
 	return ds
 }
 
+// zhou: README,
+
 // podsShouldBeOnNode figures out the DaemonSet pods to be created and deleted on the given node:
 //   - nodesNeedingDaemonPods: the pods need to start on the node
 //   - podsToDelete: the Pods need to be deleted on the node
@@ -1130,6 +1139,8 @@ func storeDaemonSetStatus(
 	return updateErr
 }
 
+// zhou: README,
+
 func (dsc *DaemonSetsController) updateDaemonSetStatus(ctx context.Context, ds *apps.DaemonSet, nodeList []*v1.Node, hash string, updateObservedGen bool) error {
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Updating daemon set status")
@@ -1190,6 +1201,8 @@ func (dsc *DaemonSetsController) updateDaemonSetStatus(ctx context.Context, ds *
 	return nil
 }
 
+// zhou: README, core handler for DaemonSets controller.
+
 func (dsc *DaemonSetsController) syncDaemonSet(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	startTime := dsc.failedPodsBackoff.Clock.Now()
@@ -1212,10 +1225,14 @@ func (dsc *DaemonSetsController) syncDaemonSet(ctx context.Context, key string) 
 		return fmt.Errorf("unable to retrieve ds %v from store: %v", key, err)
 	}
 
+	// zhou: get all nodes existing in cluster.
+
 	nodeList, err := dsc.nodeLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("couldn't get list of nodes when syncing daemon set %#v: %v", ds, err)
 	}
+
+	// zhou: "ds.Spec.Selector" must not be empty
 
 	everything := metav1.LabelSelector{}
 	if reflect.DeepEqual(ds.Spec.Selector, &everything) {
@@ -1255,6 +1272,8 @@ func (dsc *DaemonSetsController) syncDaemonSet(ctx context.Context, key string) 
 		return dsc.updateDaemonSetStatus(ctx, ds, nodeList, hash, false)
 	}
 
+	// zhou:
+
 	err = dsc.updateDaemonSet(ctx, ds, nodeList, hash, dsKey, old)
 	statusErr := dsc.updateDaemonSetStatus(ctx, ds, nodeList, hash, true)
 	switch {
@@ -1271,6 +1290,8 @@ func (dsc *DaemonSetsController) syncDaemonSet(ctx context.Context, key string) 
 
 	return nil
 }
+
+// zhou: README,
 
 // NodeShouldRunDaemonPod checks a set of preconditions against a (node,daemonset) and returns a
 // summary. Returned booleans are:

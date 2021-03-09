@@ -118,6 +118,8 @@ type DisruptionController struct {
 	clock clock.Clock
 }
 
+// zhou: pod's ower's replica number
+
 // controllerAndScale is used to return (controller, scale) pairs from the
 // controller finder functions.
 type controllerAndScale struct {
@@ -128,6 +130,8 @@ type controllerAndScale struct {
 // podControllerFinder is a function type that maps a pod to a list of
 // controllers and their scale.
 type podControllerFinder func(ctx context.Context, controllerRef *metav1.OwnerReference, namespace string) (*controllerAndScale, error)
+
+// zhou: README,
 
 func NewDisruptionController(
 	ctx context.Context,
@@ -328,9 +332,13 @@ func (dc *DisruptionController) getPodDeployment(ctx context.Context, controller
 		// The only possible error is NotFound, which is ok here.
 		return nil, nil
 	}
+
+	// zhou: the ower is deleted, here just accidental share same name.
 	if rs.UID != controllerRef.UID {
 		return nil, nil
 	}
+
+	// zhou: get the deployment
 	controllerRef = metav1.GetControllerOf(rs)
 	if controllerRef == nil {
 		return nil, nil
@@ -348,6 +356,8 @@ func (dc *DisruptionController) getPodDeployment(ctx context.Context, controller
 	if deployment.UID != controllerRef.UID {
 		return nil, nil
 	}
+
+	// zhou: replic number
 	return &controllerAndScale{deployment.UID, *(deployment.Spec.Replicas)}, nil
 }
 
@@ -688,6 +698,8 @@ func (dc *DisruptionController) processNextStalePodDisruptionWorkItem(ctx contex
 	return true
 }
 
+// zhou: Reconcile()
+
 func (dc *DisruptionController) sync(ctx context.Context, key string) error {
 	logger := klog.FromContext(ctx)
 	startTime := dc.clock.Now()
@@ -723,7 +735,11 @@ func (dc *DisruptionController) sync(ctx context.Context, key string) error {
 }
 
 func (dc *DisruptionController) trySync(ctx context.Context, pdb *policy.PodDisruptionBudget) error {
+
 	logger := klog.FromContext(ctx)
+
+	// zhou: get pods only according to labels
+
 	pods, err := dc.getPodsForPdb(pdb)
 	if err != nil {
 		dc.recorder.Eventf(pdb, v1.EventTypeWarning, "NoPods", "Failed to get pods: %v", err)
@@ -738,6 +754,9 @@ func (dc *DisruptionController) trySync(ctx context.Context, pdb *policy.PodDisr
 		dc.recorder.Eventf(pdb, v1.EventTypeWarning, "CalculateExpectedPodCountFailed", "Failed to calculate the number of expected pods: %v", err)
 		return err
 	}
+
+	// zhou: ignore unmanaged pods
+
 	// We have unmamanged pods, instead of erroring and hotlooping in disruption controller, log and continue.
 	if len(unmanagedPods) > 0 {
 		logger.V(4).Info("Found unmanaged pods associated with this PDB", "pods", unmanagedPods)
@@ -749,6 +768,9 @@ func (dc *DisruptionController) trySync(ctx context.Context, pdb *policy.PodDisr
 
 	currentTime := dc.clock.Now()
 	disruptedPods, recheckTime := dc.buildDisruptedPodMap(logger, pods, pdb, currentTime)
+
+	// zhou: check pod state
+
 	currentHealthy := countHealthyPods(pods, disruptedPods, currentTime)
 	err = dc.updatePdbStatus(ctx, pdb, currentHealthy, desiredHealthy, expectedCount, disruptedPods)
 
@@ -805,6 +827,8 @@ func (dc *DisruptionController) syncStalePodDisruption(ctx context.Context, key 
 	return nil
 }
 
+// zhou: get expected health pod number.
+
 func (dc *DisruptionController) getExpectedPodCount(ctx context.Context, pdb *policy.PodDisruptionBudget, pods []*v1.Pod) (expectedCount, desiredHealthy int32, unmanagedPods []string, err error) {
 	err = nil
 	// TODO(davidopp): consider making the way expectedCount and rules about
@@ -817,6 +841,8 @@ func (dc *DisruptionController) getExpectedPodCount(ctx context.Context, pdb *po
 		if err != nil {
 			return
 		}
+
+		// zhou: user specify max unavailable pod number or percentage in PDB.
 		var maxUnavailable int
 		maxUnavailable, err = intstr.GetScaledValueFromIntOrPercent(pdb.Spec.MaxUnavailable, int(expectedCount), true)
 		if err != nil {
@@ -826,6 +852,7 @@ func (dc *DisruptionController) getExpectedPodCount(ctx context.Context, pdb *po
 		if desiredHealthy < 0 {
 			desiredHealthy = 0
 		}
+
 	} else if pdb.Spec.MinAvailable != nil {
 		if pdb.Spec.MinAvailable.Type == intstr.Int {
 			desiredHealthy = pdb.Spec.MinAvailable.IntVal
@@ -846,6 +873,8 @@ func (dc *DisruptionController) getExpectedPodCount(ctx context.Context, pdb *po
 	}
 	return
 }
+
+// zhou: pod owner's total replica number.
 
 func (dc *DisruptionController) getExpectedScale(ctx context.Context, pdb *policy.PodDisruptionBudget, pods []*v1.Pod) (expectedCount int32, unmanagedPods []string, err error) {
 	// When the user specifies a fraction of pods that must be available, we
@@ -872,6 +901,8 @@ func (dc *DisruptionController) getExpectedScale(ctx context.Context, pdb *polic
 	// With ControllerRef, a pod can only have 1 controller.
 	for _, pod := range pods {
 		controllerRef := metav1.GetControllerOf(pod)
+
+		// zhou: standalone pod
 		if controllerRef == nil {
 			unmanagedPods = append(unmanagedPods, pod.Name)
 			continue
@@ -891,16 +922,21 @@ func (dc *DisruptionController) getExpectedScale(ctx context.Context, pdb *polic
 				return
 			}
 			if controllerNScale != nil {
+				// zhou: ower reference replica number.
 				controllerScale[controllerNScale.UID] = controllerNScale.scale
 				foundController = true
 				break
 			}
 		}
+
+		// zhou: it indeed belongs to a owner, but the owner disappeared.
 		if !foundController {
 			err = fmt.Errorf("found no controllers for pod %q", pod.Name)
 			return
 		}
 	}
+
+	// zhou get expectedCount
 
 	// 2. Add up all the controllers.
 	expectedCount = 0
@@ -910,6 +946,8 @@ func (dc *DisruptionController) getExpectedScale(ctx context.Context, pdb *polic
 
 	return
 }
+
+// zhou:
 
 func countHealthyPods(pods []*v1.Pod, disruptedPods map[string]metav1.Time, currentTime time.Time) (currentHealthy int32) {
 	for _, pod := range pods {
@@ -921,6 +959,9 @@ func countHealthyPods(pods []*v1.Pod, disruptedPods map[string]metav1.Time, curr
 		if disruptionTime, found := disruptedPods[pod.Name]; found && disruptionTime.Time.Add(DeletionTimeout).After(currentTime) {
 			continue
 		}
+
+		// zhou: only pod sits in state READY
+
 		if apipod.IsPodReady(pod) {
 			currentHealthy++
 		}

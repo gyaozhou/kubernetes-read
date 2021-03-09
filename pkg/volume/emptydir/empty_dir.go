@@ -56,6 +56,8 @@ func ProbeVolumePlugins() []volume.VolumePlugin {
 	}
 }
 
+// zhou: implement "volume.VolumePlugin interface"
+
 type emptyDirPlugin struct {
 	host volume.VolumeHost
 }
@@ -76,6 +78,8 @@ func (plugin *emptyDirPlugin) Init(host volume.VolumeHost) error {
 
 	return nil
 }
+
+// zhou: "kubernetes.io/empty-dir"
 
 func (plugin *emptyDirPlugin) GetPluginName() string {
 	return emptyDirPluginName
@@ -139,6 +143,8 @@ func calculateEmptyDirMemorySize(nodeAllocatableMemory *resource.Quantity, spec 
 	return sizeLimit
 }
 
+// zhou: README,
+
 func (plugin *emptyDirPlugin) newMounterInternal(spec *volume.Spec, pod *v1.Pod, mounter mount.Interface, mountDetector mountDetector) (volume.Mounter, error) {
 	medium := v1.StorageMediumDefault
 	sizeLimit := &resource.Quantity{}
@@ -152,6 +158,7 @@ func (plugin *emptyDirPlugin) newMounterInternal(spec *volume.Spec, pod *v1.Pod,
 			sizeLimit = calculateEmptyDirMemorySize(nodeAllocatable.Memory(), spec, pod)
 		}
 	}
+
 	return &emptyDir{
 		pod:             pod,
 		volName:         spec.Name(),
@@ -224,6 +231,8 @@ func (ed *emptyDir) GetAttributes() volume.Attributes {
 		SELinuxRelabel: true,
 	}
 }
+
+// zhou:
 
 // SetUp creates new directory.
 func (ed *emptyDir) SetUp(mounterArgs volume.MounterArgs) error {

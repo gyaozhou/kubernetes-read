@@ -68,7 +68,7 @@ type objectStore struct {
 	lock  sync.Mutex
 	items map[objectKey]*objectStoreItem
 
-	defaultTTL time.Duration
+	defaultTTL time.Duration // zhou: default value 1 min
 	getTTL     GetObjectTTLFunc
 }
 
@@ -264,6 +264,8 @@ func (c *cacheBasedManager) UnregisterPod(pod *v1.Pod) {
 		}
 	}
 }
+
+// zhou: README,
 
 // NewCacheBasedManager creates a manager that keeps a cache of all objects
 // necessary for registered pods.

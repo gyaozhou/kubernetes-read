@@ -24,6 +24,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// zhou: deprecated
+
 // PluginName indicates name of admission plugin.
 const PluginName = "AlwaysAdmit"
 

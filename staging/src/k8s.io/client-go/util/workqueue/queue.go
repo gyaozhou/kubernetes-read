@@ -27,6 +27,8 @@ import (
 // Deprecated: Interface is deprecated, use TypedInterface instead.
 type Interface TypedInterface[any]
 
+// zhou: queue operation primitves interface.
+
 type TypedInterface[T comparable] interface {
 	Add(item T)
 	Len() int
@@ -128,6 +130,8 @@ func NewTypedWithConfig[T comparable](config TypedQueueConfig[T]) *Typed[T] {
 	return newQueueWithConfig(config, defaultUnfinishedWorkUpdatePeriod)
 }
 
+// zhou: create simple queue
+
 // NewNamed creates a new named queue.
 // Deprecated: Use NewWithConfig instead.
 func NewNamed(name string) *Type {
@@ -182,15 +186,21 @@ func newQueue[T comparable](c clock.WithTicker, queue Queue[T], metrics queueMet
 
 const defaultUnfinishedWorkUpdatePeriod = 500 * time.Millisecond
 
+// zhou: simple queue is not so simple
+
 // Type is a work queue (see the package comment).
 // Deprecated: Use Typed instead.
 type Type = Typed[any]
+
+// zhou: "queue" is used to identify the order, and store the item.
 
 type Typed[t comparable] struct {
 	// queue defines the order in which we will work on items. Every
 	// element of queue should be in the dirty set and not in the
 	// processing set.
 	queue Queue[t]
+
+	// zhou: index for search
 
 	// dirty defines all of the items that need to be processed.
 	dirty sets.Set[t]
@@ -207,6 +217,8 @@ type Typed[t comparable] struct {
 	drain        bool
 
 	metrics queueMetrics[t]
+
+	// zhou: interval for update metrics, "clock" is used for counting
 
 	unfinishedWorkUpdatePeriod time.Duration
 	clock                      clock.WithTicker
@@ -233,6 +245,7 @@ func (q *Typed[T]) Add(item T) {
 	q.metrics.add(item)
 
 	q.dirty.Insert(item)
+	// zhou: Done() will check the item when processing completed.
 	if q.processing.Has(item) {
 		return
 	}
@@ -249,6 +262,8 @@ func (q *Typed[T]) Len() int {
 	defer q.cond.L.Unlock()
 	return q.queue.Len()
 }
+
+// zhou: not processing "shutdown"
 
 // Get blocks until it can return an item to be processed. If shutdown = true,
 // the caller should end their goroutine. You must call Done with item when you
@@ -284,10 +299,12 @@ func (q *Typed[T]) Done(item T) {
 	q.metrics.done(item)
 
 	q.processing.Delete(item)
+	// zhou: by this way, avoid the same item be processed by two consumers at the same time.
 	if q.dirty.Has(item) {
 		q.queue.Push(item)
 		q.cond.Signal()
 	} else if q.processing.Len() == 0 {
+		// zhou: wait up "waitForProcessing()"
 		q.cond.Signal()
 	}
 }
@@ -329,6 +346,8 @@ func (q *Typed[T]) ShuttingDown() bool {
 
 	return q.shuttingDown
 }
+
+// zhou: update metric for every "unfinishedWorkUpdatePeriod" == 500ms
 
 func (q *Typed[T]) updateUnfinishedWorkLoop() {
 	t := q.clock.NewTicker(q.unfinishedWorkUpdatePeriod)

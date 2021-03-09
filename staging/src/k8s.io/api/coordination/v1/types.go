@@ -32,6 +32,8 @@ const (
 	OldestEmulationVersion CoordinatedLeaseStrategy = "OldestEmulationVersion"
 )
 
+// zhou:
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:prerelease-lifecycle-gen:introduced=1.14

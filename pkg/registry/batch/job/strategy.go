@@ -90,6 +90,8 @@ func (jobStrategy) GetResetFields() map[fieldpath.APIVersion]*fieldpath.Set {
 	return fields
 }
 
+// zhou: addmission webhook, including mutating and validation.
+
 // PrepareForCreate clears the status of a job before creation.
 func (jobStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	job := obj.(*batch.Job)
@@ -165,6 +167,8 @@ func (jobStrategy) PrepareForUpdate(ctx context.Context, obj, old runtime.Object
 
 }
 
+// zhou:
+
 // Validate validates a new job.
 func (jobStrategy) Validate(ctx context.Context, obj runtime.Object) field.ErrorList {
 	job := obj.(*batch.Job)
@@ -220,6 +224,8 @@ func generateSelectorIfNeeded(obj *batch.Job) {
 	}
 }
 
+// zhou: add selector and labels to template
+
 // generateSelector adds a selector to a job and labels to its template
 // which can be used to uniquely identify the pods created by that job,
 // if the user has requested this behavior.
@@ -227,6 +233,9 @@ func generateSelector(obj *batch.Job) {
 	if obj.Spec.Template.Labels == nil {
 		obj.Spec.Template.Labels = make(map[string]string)
 	}
+
+	// zhou: set "JobNameLabel" in "job.spec.template.metadata.labels"
+
 	// The job-name label is unique except in cases that are expected to be
 	// quite uncommon, and is more user friendly than uid.  So, we add it as
 	// a label.
@@ -241,6 +250,8 @@ func generateSelector(obj *batch.Job) {
 		}
 	}
 
+	// zhou: set "ControllerUidLabel" in "job.spec.template.metadata.labels"
+
 	// The controller-uid label makes the pods that belong to this job
 	// only match this job.
 	controllerUidLabels := []string{batch.LegacyControllerUidLabel, batch.ControllerUidLabel}
@@ -253,6 +264,9 @@ func generateSelector(obj *batch.Job) {
 			obj.Spec.Template.Labels[value] = string(obj.ObjectMeta.UID)
 		}
 	}
+
+	// zhou: set "job.spec.selector" which checking "ControllerUidLabel"
+
 	// Select the controller-uid label.  This is sufficient for uniqueness.
 	if obj.Spec.Selector == nil {
 		obj.Spec.Selector = &metav1.LabelSelector{}

@@ -78,6 +78,8 @@ func hash(val string, max int) int {
 // GetPodsByNodeNameFunc returns the list of pods assigned to the specified node.
 type GetPodsByNodeNameFunc func(nodeName string) ([]*v1.Pod, error)
 
+// zhou:
+
 // Controller listens to Taint/Toleration changes and is responsible for removing Pods
 // from Nodes tainted with NoExecute Taints.
 type Controller struct {
@@ -125,6 +127,8 @@ func deletePodHandler(c clientset.Interface, emitEventFunc func(types.Namespaced
 		return err
 	}
 }
+
+// zhou: README, delete Pod due to Node Taint
 
 func addConditionAndDeletePod(ctx context.Context, c clientset.Interface, name, ns string) (err error) {
 	pod, err := c.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
@@ -180,6 +184,9 @@ func getMinTolerationTime(tolerations []v1.Toleration) time.Duration {
 	}
 	return time.Duration(minTolerationTime) * time.Second
 }
+
+// zhou: README, controller used to handle Node Taint triggered Pod Eviction.
+//       Created in "node_lifecycle_controller"
 
 // New creates a new Controller that will use passed clientset to communicate with the API server.
 func New(ctx context.Context, c clientset.Interface, podInformer corev1informers.PodInformer, nodeInformer corev1informers.NodeInformer, controllerName string) (*Controller, error) {

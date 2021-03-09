@@ -32,6 +32,8 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
+// zhou:
+
 // PersistentVolumeClaimInformer provides access to a shared informer and lister for
 // PersistentVolumeClaims.
 type PersistentVolumeClaimInformer interface {

@@ -56,6 +56,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// zhou: example of using clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err)

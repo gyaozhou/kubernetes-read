@@ -27,6 +27,8 @@ import (
 // Deprecated: RateLimiter is deprecated, use TypedRateLimiter instead.
 type RateLimiter TypedRateLimiter[any]
 
+// zhou: not a queue, just a flow controller module
+
 type TypedRateLimiter[T comparable] interface {
 	// When gets an item and gets to decide how long that item should wait
 	When(item T) time.Duration
@@ -36,6 +38,8 @@ type TypedRateLimiter[T comparable] interface {
 	// NumRequeues returns back how many failures the item has had
 	NumRequeues(item T) int
 }
+
+// zhou: flow control rate setting, used as default strategy by controller-runtime
 
 // DefaultControllerRateLimiter is a no-arg constructor for a default rate limiter for a workqueue.  It has
 // both overall and per-item rate limiting.  The overall is a token bucket and the per-item is exponential
@@ -112,6 +116,8 @@ func DefaultItemBasedRateLimiter() RateLimiter {
 func DefaultTypedItemBasedRateLimiter[T comparable]() TypedRateLimiter[T] {
 	return NewTypedItemExponentialFailureRateLimiter[T](time.Millisecond, 1000*time.Second)
 }
+
+// zhou: README,
 
 func (r *TypedItemExponentialFailureRateLimiter[T]) When(item T) time.Duration {
 	r.failuresLock.Lock()

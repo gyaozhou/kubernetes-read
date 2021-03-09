@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// zhou: README,
+
 // ThreadSafeStore is an interface that allows concurrent indexed
 // access to a storage backend.  It is like Indexer but does not
 // (necessarily) know how to extract the Store key from a given
@@ -309,6 +311,8 @@ func (c *threadSafeMap) Index(indexName string, obj interface{}) ([]interface{},
 	return list, nil
 }
 
+// zhou: README,
+
 // ByIndex returns a list of the items whose indexed values in the given index include the given indexed value
 func (c *threadSafeMap) ByIndex(indexName, indexedValue string) ([]interface{}, error) {
 	c.lock.RLock()
@@ -372,6 +376,8 @@ func (c *threadSafeMap) Resync() error {
 	// Nothing to do
 	return nil
 }
+
+// zhou: README, used by sharedInformer.
 
 // NewThreadSafeStore creates a new instance of ThreadSafeStore.
 func NewThreadSafeStore(indexers Indexers, indices Indices) ThreadSafeStore {

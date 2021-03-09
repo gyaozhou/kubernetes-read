@@ -98,6 +98,8 @@ type Controller struct {
 	lastSyncedNodesLock sync.Mutex
 }
 
+// zhou: README, used to handle cloud provider dependency service.
+
 // New returns a new service controller to keep cloud provider service resources
 // (like load balancers) in sync with the registry.
 func New(

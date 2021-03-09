@@ -32,6 +32,8 @@ const (
 	PodIndexLabel                  = "apps.kubernetes.io/pod-index"
 )
 
+// zhou:
+
 // +genclient
 // +genclient:method=GetScale,verb=get,subresource=scale,result=k8s.io/api/autoscaling/v1.Scale
 // +genclient:method=UpdateScale,verb=update,subresource=scale,input=k8s.io/api/autoscaling/v1.Scale,result=k8s.io/api/autoscaling/v1.Scale
@@ -131,6 +133,8 @@ type RollingUpdateStatefulSetStrategy struct {
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty" protobuf:"varint,2,opt,name=maxUnavailable"`
 }
 
+// zhou: how to handle PV during delete or scale down StatefulSet.
+
 // PersistentVolumeClaimRetentionPolicyType is a string enumeration of the policies that will determine
 // when volumes from the VolumeClaimTemplates will be deleted when the controlling StatefulSet is
 // deleted or scaled down.
@@ -148,6 +152,8 @@ const (
 	// StatefulSetPersistentVolumeClaimRetentionPolicy.
 	DeletePersistentVolumeClaimRetentionPolicyType PersistentVolumeClaimRetentionPolicyType = "Delete"
 )
+
+// zhou: used to decide how to handle PVC when StatefulSet deleted or scaled down.
 
 // StatefulSetPersistentVolumeClaimRetentionPolicy describes the policy used for PVCs
 // created from the StatefulSet VolumeClaimTemplates.
@@ -349,6 +355,8 @@ type StatefulSetList struct {
 	Items []StatefulSet `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou: README,
+
 // +genclient
 // +genclient:method=GetScale,verb=get,subresource=scale,result=k8s.io/api/autoscaling/v1.Scale
 // +genclient:method=UpdateScale,verb=update,subresource=scale,input=k8s.io/api/autoscaling/v1.Scale,result=k8s.io/api/autoscaling/v1.Scale
@@ -389,16 +397,21 @@ type DeploymentSpec struct {
 	// The only allowed template.spec.restartPolicy value is "Always".
 	Template v1.PodTemplateSpec `json:"template" protobuf:"bytes,3,opt,name=template"`
 
+	// zhou:
+
 	// The deployment strategy to use to replace existing pods with new ones.
 	// +optional
 	// +patchStrategy=retainKeys
 	Strategy DeploymentStrategy `json:"strategy,omitempty" patchStrategy:"retainKeys" protobuf:"bytes,4,opt,name=strategy"`
+
+	// zhou: README, it will check the Readiness probe.
 
 	// Minimum number of seconds for which a newly created pod should be ready
 	// without any of its container crashing, for it to be considered available.
 	// Defaults to 0 (pod will be considered available as soon as it is ready)
 	// +optional
 	MinReadySeconds int32 `json:"minReadySeconds,omitempty" protobuf:"varint,5,opt,name=minReadySeconds"`
+	// zhou: after update, the previous ReplicaSet will be reserved for no more than this number.
 
 	// The number of old ReplicaSets to retain to allow rollback.
 	// This is a pointer to distinguish between explicit zero and not specified.
@@ -425,6 +438,8 @@ const (
 	DefaultDeploymentUniqueLabelKey string = "pod-template-hash"
 )
 
+// zhou: default update strategy is "RollingUpdate".
+
 // DeploymentStrategy describes how to replace existing pods with new ones.
 type DeploymentStrategy struct {
 	// Type of deployment. Can be "Recreate" or "RollingUpdate". Default is RollingUpdate.
@@ -450,6 +465,8 @@ const (
 	// Replace the old ReplicaSets by new one using rolling update i.e gradually scale down the old ReplicaSets and scale up the new one.
 	RollingUpdateDeploymentStrategyType DeploymentStrategyType = "RollingUpdate"
 )
+
+// zhou: the rolling update pace, fast or slow.
 
 // Spec to control the desired behavior of rolling update.
 type RollingUpdateDeployment struct {
@@ -577,6 +594,8 @@ type DeploymentList struct {
 	Items []Deployment `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
+// zhou:
+
 // DaemonSetUpdateStrategy is a struct used to control the update strategy for a DaemonSet.
 type DaemonSetUpdateStrategy struct {
 	// Type of daemon set update. Can be "RollingUpdate" or "OnDelete". Default is RollingUpdate.
@@ -644,6 +663,8 @@ type RollingUpdateDaemonSet struct {
 	MaxSurge *intstr.IntOrString `json:"maxSurge,omitempty" protobuf:"bytes,2,opt,name=maxSurge"`
 }
 
+// zhou:
+
 // DaemonSetSpec is the specification of a daemon set.
 type DaemonSetSpec struct {
 	// A label query over pods that are managed by the daemon set.
@@ -677,6 +698,8 @@ type DaemonSetSpec struct {
 	// +optional
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty" protobuf:"varint,6,opt,name=revisionHistoryLimit"`
 }
+
+// zhou:
 
 // DaemonSetStatus represents the current status of a daemon set.
 type DaemonSetStatus struct {
@@ -754,6 +777,8 @@ type DaemonSetCondition struct {
 	// +optional
 	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
+
+// zhou:
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

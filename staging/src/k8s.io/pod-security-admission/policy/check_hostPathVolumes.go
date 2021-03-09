@@ -45,7 +45,7 @@ const checkHostPathVolumesID CheckID = "hostPathVolumes"
 func CheckHostPathVolumes() Check {
 	return Check{
 		ID:    checkHostPathVolumesID,
-		Level: api.LevelBaseline,
+		Level: api.LevelBaseline, // zhou: Baseline forbid Hostpath volume.
 		Versions: []VersionedCheck{
 			{
 				MinimumVersion: api.MajorMinorVersion(1, 0),
@@ -54,6 +54,8 @@ func CheckHostPathVolumes() Check {
 		},
 	}
 }
+
+// zhou:
 
 func hostPathVolumes_1_0(podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) CheckResult {
 	var hostVolumes []string

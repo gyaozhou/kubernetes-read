@@ -71,6 +71,8 @@ func TolerationsTolerateTaint(tolerations []v1.Toleration, taint *v1.Taint) bool
 
 type taintsFilterFunc func(*v1.Taint) bool
 
+// zhou: return true in case Pod can NOT tolerate the Node's Taint.
+
 // FindMatchingUntoleratedTaint checks if the given tolerations tolerates
 // all the filtered taints, and returns the first taint without a toleration
 // Returns true if there is an untolerated taint
@@ -84,6 +86,8 @@ func FindMatchingUntoleratedTaint(taints []v1.Taint, tolerations []v1.Toleration
 	}
 	return v1.Taint{}, false
 }
+
+// zhou: pick up the taints which impact "Filter()"
 
 // getFilteredTaints returns a list of taints satisfying the filter predicate
 func getFilteredTaints(taints []v1.Taint, inclusionFilter taintsFilterFunc) []v1.Taint {

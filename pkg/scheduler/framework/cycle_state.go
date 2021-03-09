@@ -23,6 +23,8 @@ import (
 	fwk "k8s.io/kube-scheduler/framework"
 )
 
+// zhou: like context
+
 // Note: CycleState uses a sync.Map to back the storage, because it is thread safe. It's aimed to optimize for the "write once and read many times" scenarios.
 // It is the recommended pattern used in all in-tree plugins - plugin-specific state is written once in PreFilter/PreScore and afterward read many times in Filter/Score.
 type CycleState struct {

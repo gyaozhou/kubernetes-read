@@ -79,10 +79,14 @@ const (
 	postTimeoutLoggerWait = 5 * time.Minute
 )
 
+// zhou: running solider handler in a asynchronous goroutine.
+
 // FinishRequest makes a given ResultFunc asynchronous and handles errors returned by the response.
 func FinishRequest(ctx context.Context, fn ResultFunc) (runtime.Object, error) {
 	return finishRequest(ctx, fn, postTimeoutLoggerWait, logPostTimeoutResult)
 }
+
+// zhou: README,
 
 func finishRequest(ctx context.Context, fn ResultFunc, postTimeoutWait time.Duration, postTimeoutLogger PostTimeoutLoggerFunc) (runtime.Object, error) {
 	// the channel needs to be buffered since the post-timeout receiver goroutine
@@ -113,6 +117,8 @@ func finishRequest(ctx context.Context, fn ResultFunc, postTimeoutWait time.Dura
 			// Propagate the result to the parent goroutine
 			resultCh <- result
 		}()
+
+		// zhou: perform handler
 
 		if object, err := fn(); err != nil {
 			result.err = err

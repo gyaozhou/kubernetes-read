@@ -45,6 +45,8 @@ const (
 	// DefaultServiceAccountName is the name of the default service account to set on pods which do not specify a service account
 	DefaultServiceAccountName = "default"
 
+	// zhou:
+
 	// EnforceMountableSecretsAnnotation is a default annotation that indicates that a service account should enforce mountable secrets.
 	// The value must be true to have this annotation take effect
 	EnforceMountableSecretsAnnotation = "kubernetes.io/enforce-mountable-secrets"
@@ -263,6 +265,8 @@ func shouldAutomount(sa *corev1.ServiceAccount, pod *api.Pod) bool {
 	// Default to true for backwards compatibility
 	return true
 }
+
+// zhou:
 
 // enforceMountableSecrets indicates whether mountable secrets should be enforced for a particular service account
 // A global setting of true will override any flag set on the individual service account

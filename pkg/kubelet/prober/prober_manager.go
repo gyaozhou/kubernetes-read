@@ -114,6 +114,8 @@ type manager struct {
 	start time.Time
 }
 
+// zhou: README,
+
 // NewManager creates a Manager for pod probing.
 func NewManager(
 	statusManager status.Manager,

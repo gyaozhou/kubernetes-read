@@ -50,11 +50,14 @@ const (
 	loopSleepDuration = 1 * time.Second
 )
 
+// zhou: By default, "/var/lib/kubelet/plugins_registry"
+
 // NewPluginManager returns a new concrete instance implementing the
 // PluginManager interface.
 func NewPluginManager(
 	sockDir string,
 	recorder record.EventRecorder) PluginManager {
+
 	asw := cache.NewActualStateOfWorld()
 	dsw := cache.NewDesiredStateOfWorld()
 	reconciler := reconciler.NewReconciler(
@@ -67,6 +70,8 @@ func NewPluginManager(
 		dsw,
 		asw,
 	)
+
+	// zhou:
 
 	pm := &pluginManager{
 		desiredStateOfWorldPopulator: pluginwatcher.NewWatcher(
@@ -82,6 +87,9 @@ func NewPluginManager(
 
 // pluginManager implements the PluginManager interface
 type pluginManager struct {
+
+	// zhou: "pluginwatcher"
+
 	// desiredStateOfWorldPopulator (the plugin watcher) runs an asynchronous
 	// periodic loop to populate the desiredStateOfWorld.
 	desiredStateOfWorldPopulator *pluginwatcher.Watcher
@@ -106,6 +114,8 @@ type pluginManager struct {
 
 var _ PluginManager = &pluginManager{}
 
+// zhou: run in an isolated thread
+
 func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesReady, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 
@@ -118,8 +128,11 @@ func (pm *pluginManager) Run(ctx context.Context, sourcesReady config.SourcesRea
 
 	logger.V(2).Info("The desired_state_of_world populator (plugin watcher) starts")
 
+	// zhou: run reconciler in an isolated thread
 	logger.Info("Starting Kubelet Plugin Manager")
 	go pm.reconciler.Run(stopCh)
+
+	// zhou: wait for stop
 
 	metrics.Register(pm.actualStateOfWorld, pm.desiredStateOfWorld)
 	<-stopCh

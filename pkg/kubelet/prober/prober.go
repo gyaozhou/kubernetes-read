@@ -79,6 +79,8 @@ func (pb *prober) recordContainerEvent(ctx context.Context, pod *v1.Pod, contain
 	pb.recorder.Eventf(ref, eventType, reason, message, args...)
 }
 
+// zhou: README,
+
 // probe probes the container.
 func (pb *prober) probe(ctx context.Context, probeType probeType, pod *v1.Pod, status v1.PodStatus, container v1.Container, containerID kubecontainer.ContainerID) (results.Result, error) {
 	var probeSpec *v1.Probe
@@ -133,6 +135,8 @@ func (pb *prober) probe(ctx context.Context, probeType probeType, pod *v1.Pod, s
 	}
 }
 
+// zhou: README,
+
 // runProbeWithRetries tries to probe the container in a finite loop, it returns the last result
 // if it never succeeds.
 func (pb *prober) runProbeWithRetries(ctx context.Context, probeType probeType, p *v1.Probe, pod *v1.Pod, status v1.PodStatus, container v1.Container, containerID kubecontainer.ContainerID, retries int) (probe.Result, string, error) {
@@ -147,6 +151,8 @@ func (pb *prober) runProbeWithRetries(ctx context.Context, probeType probeType, 
 	}
 	return result, output, err
 }
+
+// zhou: README,
 
 func (pb *prober) runProbe(ctx context.Context, probeType probeType, p *v1.Probe, pod *v1.Pod, status v1.PodStatus, container v1.Container, containerID kubecontainer.ContainerID) (probe.Result, string, error) {
 	logger := klog.FromContext(ctx)

@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// zhou: README,
+
 // Indexer extends Store with multiple indices and restricts each
 // accumulator to simply hold the current object (and be empty after
 // Delete).

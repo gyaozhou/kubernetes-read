@@ -32,6 +32,7 @@ import (
 	"k8s.io/kubernetes/cmd/kubelet/app"
 )
 
+// zhou: kubelet binary
 func main() {
 	command := app.NewKubeletCommand(context.Background())
 	code := cli.Run(command)

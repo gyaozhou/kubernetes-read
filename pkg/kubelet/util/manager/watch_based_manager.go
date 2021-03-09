@@ -173,6 +173,8 @@ type objectCache struct {
 
 const minIdleTime = 1 * time.Minute
 
+// zhou: implements client-go like object store.
+
 // NewObjectCache returns a new watch-based instance of Store interface.
 func NewObjectCache(
 	listObject listObjectFunc,
@@ -380,6 +382,8 @@ func (c *objectCache) shutdownWhenStopped(stopCh <-chan struct{}) {
 		item.stop()
 	}
 }
+
+// zhou: README,
 
 // NewWatchBasedManager creates a manager that keeps a cache of all objects
 // necessary for registered pods.

@@ -110,6 +110,8 @@ func (pl *TaintToleration) isSchedulableAfterNodeChange(logger klog.Logger, pod 
 func (pl *TaintToleration) Filter(ctx context.Context, state fwk.CycleState, pod *v1.Pod, nodeInfo fwk.NodeInfo) *fwk.Status {
 	node := nodeInfo.Node()
 
+	// zhou: return nil in case of the Pod tolerate the Taint
+
 	taint, isUntolerated := v1helper.FindMatchingUntoleratedTaint(node.Spec.Taints, pod.Spec.Tolerations, helper.DoNotScheduleTaintsFilterFunc())
 	if !isUntolerated {
 		return nil
@@ -140,6 +142,8 @@ func getAllTolerationPreferNoSchedule(tolerations []v1.Toleration) (tolerationLi
 	}
 	return
 }
+
+// zhou: "TaintEffectPreferNoSchedule" will impact the score
 
 // PreScore builds and writes cycle state used by Score and NormalizeScore.
 func (pl *TaintToleration) PreScore(ctx context.Context, cycleState fwk.CycleState, pod *v1.Pod, nodes []fwk.NodeInfo) *fwk.Status {

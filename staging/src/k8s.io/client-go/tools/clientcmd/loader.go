@@ -104,6 +104,8 @@ func (g *ClientConfigGetter) IsDefaultConfig(config *restclient.Config) bool {
 	return false
 }
 
+// zhou: README,
+
 // ClientConfigLoadingRules is an ExplicitPath and string slice of specific locations that are used for merging together a Config
 // Callers can put the chain together however they want, but we'd recommend:
 // EnvVarPathFiles if set (a list of files if set) OR the HomeDirectoryPath
@@ -177,6 +179,8 @@ func NewDefaultClientConfigLoadingRules() *ClientConfigLoadingRules {
 		WarnIfAllMissing: warnIfAllMissing,
 	}
 }
+
+// zhou: README,
 
 // Load starts by running the MigrationRules and then
 // takes the loading rules and returns a Config object based on following rules.

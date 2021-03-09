@@ -153,6 +153,8 @@ func NewPodsToActivate() *PodsToActivate {
 	return &PodsToActivate{Map: make(map[string]*v1.Pod)}
 }
 
+// zhou: scheduler framework.
+
 // Framework manages the set of plugins in use by the scheduling framework.
 // Configured plugins are called at specified points in a scheduling context.
 type Framework interface {

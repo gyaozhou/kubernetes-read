@@ -27,6 +27,8 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 )
 
+// zhou:
+
 type DryRunnableStorage struct {
 	Storage storage.Interface
 	Codec   runtime.Codec

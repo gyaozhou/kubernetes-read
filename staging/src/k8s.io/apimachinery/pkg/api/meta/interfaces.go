@@ -88,6 +88,8 @@ type RESTScope interface {
 	Name() RESTScopeName
 }
 
+// zhou:
+
 // RESTMapping contains the information needed to deal with objects of a specific
 // resource and kind in a RESTful manner.
 type RESTMapping struct {
@@ -100,6 +102,8 @@ type RESTMapping struct {
 	// Scope contains the information needed to deal with REST Resources that are in a resource hierarchy
 	Scope RESTScope
 }
+
+// zhou: README,
 
 // RESTMapper allows clients to map resources to kind, and map kind and version
 // to interfaces for manipulating those objects. It is primarily intended for

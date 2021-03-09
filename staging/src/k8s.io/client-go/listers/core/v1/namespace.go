@@ -25,6 +25,8 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
+// zhou: only checking "Indexer"
+
 // NamespaceLister helps list Namespaces.
 // All objects returned here must be treated as read-only.
 type NamespaceLister interface {

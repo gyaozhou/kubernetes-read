@@ -65,6 +65,9 @@ const (
 	deletionGracePeriod = 10 * time.Second
 )
 
+// zhou: used to extend the existing Service IP range assigned to a cluster.
+//       "https://kubernetes.io/docs/tasks/network/extend-service-ip-ranges/"
+
 // NewController returns a new *Controller.
 func NewController(
 	ctx context.Context,

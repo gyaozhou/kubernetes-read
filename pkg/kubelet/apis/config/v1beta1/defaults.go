@@ -266,9 +266,13 @@ func SetDefaults_KubeletConfiguration(obj *kubeletconfigv1beta1.KubeletConfigura
 	if obj.ContainerLogMonitorInterval == nil {
 		obj.ContainerLogMonitorInterval = &metav1.Duration{Duration: 10 * time.Second}
 	}
+
+	// zhou: if the Secret/ConfigMap change detection strategy is not set
+
 	if obj.ConfigMapAndSecretChangeDetectionStrategy == "" {
 		obj.ConfigMapAndSecretChangeDetectionStrategy = kubeletconfigv1beta1.WatchChangeDetectionStrategy
 	}
+
 	if obj.EnforceNodeAllocatable == nil {
 		obj.EnforceNodeAllocatable = DefaultNodeAllocatableEnforcement
 	}

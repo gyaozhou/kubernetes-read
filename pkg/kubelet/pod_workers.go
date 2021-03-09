@@ -143,6 +143,8 @@ type PodWorkerSync struct {
 	Static bool
 }
 
+// zhou: README,
+
 // podWork is the internal changes
 type podWork struct {
 	// WorkType is the type of sync to perform - sync (create), terminating (stop
@@ -296,6 +298,8 @@ type podSyncerFuncs struct {
 	syncTerminatingRuntimePod syncTerminatingRuntimePodFnType
 	syncTerminatedPod         syncTerminatedPodFnType
 }
+
+// zhou:
 
 func newPodSyncerFuncs(s podSyncer) podSyncerFuncs {
 	return podSyncerFuncs{
@@ -477,6 +481,8 @@ func (s *podSyncStatus) mergeLastUpdate(other UpdatePodOptions) {
 	// from kubelet to pod worker.
 }
 
+// zhou: README,
+
 // podWorkers keeps track of operations on pods and ensures each pod is
 // reconciled with the container runtime and other subsystems. The worker
 // also tracks which pods are in flight for starting, which pods are
@@ -615,6 +621,8 @@ type podWorkers struct {
 	clock clock.PassiveClock
 }
 
+// zhou: README,
+
 func newPodWorkers(
 	podSyncer podSyncer,
 	recorder record.EventRecorder,
@@ -748,6 +756,8 @@ func isPodStatusCacheTerminal(status *kubecontainer.PodStatus) bool {
 	}
 	return true
 }
+
+// zhou: README,
 
 // UpdatePod carries a configuration change or termination state to a pod. A pod is either runnable,
 // terminating, or terminated, and will transition to terminating if: deleted on the apiserver,
@@ -967,6 +977,9 @@ func (p *podWorkers) UpdatePod(options UpdatePodOptions) {
 			// accept a context for shutdown
 			defer runtime.HandleCrash()
 			defer klog.V(3).InfoS("Pod worker has stopped", "podUID", uid)
+
+			// zhou: common	case
+
 			p.podWorkerLoop(uid, outCh)
 		}()
 	}
@@ -1221,6 +1234,8 @@ func podUIDAndRefForUpdate(update UpdatePodOptions) (types.UID, klog.ObjectRef) 
 	return update.Pod.UID, klog.KObj(update.Pod)
 }
 
+// zhou: README,
+
 // podWorkerLoop manages sequential state updates to a pod in a goroutine, exiting once the final
 // state is reached. The loop is responsible for driving the pod through four main phases:
 //
@@ -1306,6 +1321,7 @@ func (p *podWorkers) podWorkerLoop(podUID types.UID, podUpdates <-chan struct{})
 				}
 
 			default:
+				// zhou:
 				isTerminal, err = p.podSyncer.SyncPod(ctx, update.Options.UpdateType, update.Options.Pod, update.Options.MirrorPod, status)
 			}
 

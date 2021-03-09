@@ -61,9 +61,12 @@ type BlockVolumePathHandler interface {
 	GetLoopDevice(path string) (string, error)
 }
 
+// zhou: get an object to handl above methods
+
 // NewBlockVolumePathHandler returns a new instance of BlockVolumeHandler.
 func NewBlockVolumePathHandler() BlockVolumePathHandler {
 	var volumePathHandler VolumePathHandler
+
 	return volumePathHandler
 }
 

@@ -18,6 +18,8 @@ package api
 
 type Level string
 
+// zhou: Pod Security Admission
+
 const (
 	LevelPrivileged Level = "privileged"
 	LevelBaseline   Level = "baseline"
@@ -33,6 +35,8 @@ var validLevels = []string{
 const VersionLatest = "latest"
 
 const AuditAnnotationPrefix = labelPrefix
+
+// zhou: namespace label to set Pod Security.
 
 const (
 	labelPrefix = "pod-security.kubernetes.io/"

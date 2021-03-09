@@ -48,6 +48,8 @@ import (
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 )
 
+// zhou: README,
+
 // PodStorage includes storage for pods and all sub resources
 type PodStorage struct {
 	Pod                 *REST
@@ -69,6 +71,8 @@ type REST struct {
 	*genericregistry.Store
 	proxyTransport http.RoundTripper
 }
+
+// zhou: README,
 
 // NewStorage returns a RESTStorage object that will work against pods.
 func NewStorage(optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGetter, proxyTransport http.RoundTripper, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) (PodStorage, error) {
@@ -170,6 +174,8 @@ func (r *BindingREST) Destroy() {
 
 var _ = rest.NamedCreater(&BindingREST{})
 var _ = rest.SubresourceObjectMetaPreserver(&BindingREST{})
+
+// zhou: bind Pod to node.
 
 // Create ensures a pod is bound to a specific host.
 func (r *BindingREST) Create(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (out runtime.Object, err error) {

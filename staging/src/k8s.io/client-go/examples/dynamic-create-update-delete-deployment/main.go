@@ -56,6 +56,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// zhou: example of using dynamic client
 	client, err := dynamic.NewForConfig(config)
 	if err != nil {
 		panic(err)

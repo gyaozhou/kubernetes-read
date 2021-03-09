@@ -26,6 +26,8 @@ import (
 	"k8s.io/kubernetes/cmd/kube-scheduler/app"
 )
 
+// zhou: entry for kube-scheduler
+
 func main() {
 	command := app.NewSchedulerCommand()
 	code := cli.Run(command)

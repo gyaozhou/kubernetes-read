@@ -19,15 +19,19 @@ package cache
 import (
 	"context"
 	"errors"
-	clientgofeaturegate "k8s.io/client-go/features"
 	"sync"
 	"time"
+
+	clientgofeaturegate "k8s.io/client-go/features"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/clock"
 )
+
+// zhou: core implementation of sharedIndexInformer, including processing of producer and consumer
+//       of DeltaFIFO.
 
 // This file implements a low-level controller that is used in
 // sharedIndexInformer, which is an implementation of
@@ -40,23 +44,29 @@ import (
 
 // Config contains all the settings for one of these low-level controllers.
 type Config struct {
+	// zhou: DeltaFIFO
 	// The queue for your objects - has to be a DeltaFIFO due to
 	// assumptions in the implementation. Your Process() function
 	// should accept the output of this Queue's Pop() method.
 	Queue
 
+	// zhou: used to list and watch api server by reflector.
 	// Something that can list and watch your objects.
 	ListerWatcher
 
+	// zhou: handler of poped items of DeltaFIFO.
 	// Something that can process a popped Deltas.
 	Process ProcessFunc
 
+	// zhou: each sharedIndexInformer only handle a type of resource. This is the way of indication.
 	// ObjectType is an example object of the type this controller is
 	// expected to handle.
 	ObjectType runtime.Object
 
 	// ObjectDescription is the description to use when logging type-specific information about this controller.
 	ObjectDescription string
+
+	// zhou: interval of full resync.
 
 	// FullResyncPeriod is the period at which ShouldResync is considered.
 	FullResyncPeriod time.Duration
@@ -82,6 +92,8 @@ type Config struct {
 	// and WatchErrorHandler is not set.
 	WatchErrorHandlerWithContext WatchErrorHandlerWithContext
 
+	// zhou: control the object number of each Watch and List request.
+
 	// WatchListPageSize is the requested chunk size of initial and relist watch lists.
 	WatchListPageSize int64
 }
@@ -94,6 +106,8 @@ type ShouldResyncFunc func() bool
 // ProcessFunc processes a single object.
 type ProcessFunc func(obj interface{}, isInInitialList bool) error
 
+// zhou: controller create reflector.
+
 // `*controller` implements Controller
 type controller struct {
 	config         Config
@@ -101,6 +115,8 @@ type controller struct {
 	reflectorMutex sync.RWMutex
 	clock          clock.Clock
 }
+
+// zhou: README,
 
 // Controller is a low-level controller that is parameterized by a
 // Config and used in sharedIndexInformer.
@@ -130,6 +146,8 @@ type Controller interface {
 	LastSyncResourceVersion() string
 }
 
+// zhou: create a Controller object, the core part is "config"
+
 // New makes a new Controller from the given Config.
 func New(c *Config) Controller {
 	ctlr := &controller{
@@ -138,6 +156,11 @@ func New(c *Config) Controller {
 	}
 	return ctlr
 }
+
+// zhou: controller implements the sharedIndexInformer's processing structure.
+//       1. create Reflector running in a separate goroutine, which will List and Watch api server,
+//       then, enquque DeltaFIFO.
+//       2. Running HandleDelta() to consume DeltaFIFO.
 
 // Run implements [Controller.Run].
 func (c *controller) Run(stopCh <-chan struct{}) {
@@ -151,9 +174,13 @@ func (c *controller) RunWithContext(ctx context.Context) {
 		<-ctx.Done()
 		c.config.Queue.Close()
 	}()
+
+	// zhou: create a new Reflector to handle api server.
+
 	r := NewReflectorWithOptions(
 		c.config.ListerWatcher,
 		c.config.ObjectType,
+		// zhou: DeltaFIFO assigned to "Store interface".
 		c.config.Queue,
 		ReflectorOptions{
 			ResyncPeriod:    c.config.FullResyncPeriod,
@@ -178,9 +205,14 @@ func (c *controller) RunWithContext(ctx context.Context) {
 
 	var wg wait.Group
 
+	// zhou: fixme, StartWithChannel() starts function in a new goroutine in the group.
+	//       Reflector will run in a separate goroutine, working as producer of FIFO.
 	wg.StartWithContext(ctx, r.RunWithContext)
 
+	// zhou: Processor will run in this goroutine, and running in loop.
 	wait.UntilWithContext(ctx, c.processLoop, time.Second)
+	// zhou: Processor already stopped, wait for Reflector goroutine exit.
+
 	wg.Wait()
 }
 
@@ -198,6 +230,8 @@ func (c *controller) LastSyncResourceVersion() string {
 	return c.reflector.LastSyncResourceVersion()
 }
 
+// zhou: loop running, block to pop up from DeltaFIFO and handle it.
+
 // processLoop drains the work queue.
 // TODO: Consider doing the processing in parallel. This will require a little thought
 // to make sure that we don't end up processing the same object multiple times
@@ -208,6 +242,9 @@ func (c *controller) processLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+			// zhou: "PopProcessFunc(c.config.Process)", type converting from "ProcessFunc" to
+			//       "PopProcessFunc". Here is "HandleDeltas()".
+
 			_, err := c.config.Pop(PopProcessFunc(c.config.Process))
 			if err != nil {
 				if errors.Is(err, ErrFIFOClosed) {
@@ -217,6 +254,8 @@ func (c *controller) processLoop(ctx context.Context) {
 		}
 	}
 }
+
+// zhou:
 
 // ResourceEventHandler can handle notifications for events that
 // happen to a resource. The events are informational only, so you
@@ -239,6 +278,9 @@ type ResourceEventHandler interface {
 	OnUpdate(oldObj, newObj interface{})
 	OnDelete(obj interface{})
 }
+
+// zhou: ResourceEventHandlerFuncs is a adaptor, user could put their own callback functions,
+//       into fields "AddFunc", "UpdateFunc" and "DeleteFunc".
 
 // ResourceEventHandlerFuncs is an adaptor to let you easily specify as many or
 // as few of the notification functions as you want while still implementing
@@ -418,6 +460,8 @@ func NewInformerWithOptions(options InformerOptions) (Store, Controller) {
 	return clientState, newInformer(clientState, options)
 }
 
+// zhou: always used by "NewIndexerInformer()"
+
 // NewInformer returns a Store and a controller for populating the store
 // while also providing event notifications. You should only used the returned
 // Store for Get/List operations; Add/Modify/Deletes will cause the event
@@ -451,6 +495,8 @@ func NewInformer(
 	}
 	return clientState, newInformer(clientState, options)
 }
+
+// zhou: README, Informer is different from sharedInformer, they use different index/store.
 
 // NewIndexerInformer returns an Indexer and a Controller for populating the index
 // while also providing event notifications. You should only used the returned

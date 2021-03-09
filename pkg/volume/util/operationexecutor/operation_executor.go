@@ -39,6 +39,8 @@ import (
 	volumetypes "k8s.io/kubernetes/pkg/volume/util/types"
 )
 
+// zhou: README,
+
 // OperationExecutor defines a set of operations for attaching, detaching,
 // mounting, or unmounting a volume that are executed with a NewNestedPendingOperations which
 // prevents more than one operation from being triggered on the same volume.
@@ -82,6 +84,8 @@ type OperationExecutor interface {
 	// object and it is used to verify that the volume does not exist in Node's
 	// Status.VolumesInUse list (operation fails with error if it is).
 	DetachVolume(logger klog.Logger, volumeToDetach AttachedVolume, verifySafeToDetach bool, actualStateOfWorld ActualStateOfWorldAttacherUpdater) error
+
+	// zhou:
 
 	// If a volume has 'Filesystem' volumeMode, MountVolume mounts the
 	// volume to the pod specified in volumeToMount.
@@ -150,6 +154,8 @@ type OperationExecutor interface {
 	// ReconstructVolumeOperation construct a new volumeSpec and returns it created by plugin
 	ReconstructVolumeOperation(volumeMode v1.PersistentVolumeMode, plugin volume.VolumePlugin, mapperPlugin volume.BlockVolumePlugin, uid types.UID, podName volumetypes.UniquePodName, volumeSpecName string, volumePath string, pluginName string) (volume.ReconstructedVolume, error)
 }
+
+// zhou: used by
 
 // NewOperationExecutor returns a new instance of OperationExecutor.
 func NewOperationExecutor(
@@ -762,10 +768,13 @@ func (oe *operationExecutor) IsOperationSafeToRetry(
 	return oe.pendingOperations.IsOperationSafeToRetry(volumeName, podName, nodeName, operationName)
 }
 
+// zhou: README,
+
 func (oe *operationExecutor) AttachVolume(
 	logger klog.Logger,
 	volumeToAttach VolumeToAttach,
 	actualStateOfWorld ActualStateOfWorldAttacherUpdater) error {
+
 	generatedOperations :=
 		oe.operationGenerator.GenerateAttachVolumeFunc(logger, volumeToAttach, actualStateOfWorld)
 
@@ -778,11 +787,16 @@ func (oe *operationExecutor) AttachVolume(
 		volumeToAttach.VolumeName, "" /* podName */, "" /* nodeName */, generatedOperations)
 }
 
+// zhou: README,
+
 func (oe *operationExecutor) DetachVolume(
 	logger klog.Logger,
 	volumeToDetach AttachedVolume,
 	verifySafeToDetach bool,
 	actualStateOfWorld ActualStateOfWorldAttacherUpdater) error {
+
+	// zhou:
+
 	generatedOperations, err :=
 		oe.operationGenerator.GenerateDetachVolumeFunc(logger, volumeToDetach, verifySafeToDetach, actualStateOfWorld)
 	if err != nil {
@@ -824,6 +838,12 @@ func (oe *operationExecutor) VerifyVolumesAreAttachedPerNode(
 	return oe.pendingOperations.Run("" /* volumeName */, "" /* podName */, "" /* nodeName */, generatedOperations)
 }
 
+// zhou: implement functions like NodePublishVolume().
+//       If a volume has 'Filesystem' volumeMode, MountVolume mounts the
+//       volume to the pod specified in volumeToMount.
+//       For 'Block' volumeMode, this method creates a symbolic link to
+//       the volume from both the pod specified in volumeToMount and global map path.
+
 func (oe *operationExecutor) MountVolume(
 	waitForAttachTimeout time.Duration,
 	volumeToMount VolumeToMount,
@@ -835,12 +855,16 @@ func (oe *operationExecutor) MountVolume(
 	}
 	var generatedOperations volumetypes.GeneratedOperations
 	if fsVolume {
+		// zhou:
+
 		// Filesystem volume case
 		// Mount/remount a volume when a volume is attached
 		generatedOperations = oe.operationGenerator.GenerateMountVolumeFunc(
 			waitForAttachTimeout, volumeToMount, actualStateOfWorld, isRemount)
 
 	} else {
+		// zhou:
+
 		// Block volume case
 		// Creates a map to device if a volume is attached
 		generatedOperations, err = oe.operationGenerator.GenerateMapVolumeFunc(
@@ -860,10 +884,14 @@ func (oe *operationExecutor) MountVolume(
 		podName = util.GetUniquePodName(volumeToMount.Pod)
 	}
 
+	// zhou:
+
 	// TODO mount_device
 	return oe.pendingOperations.Run(
 		volumeToMount.VolumeName, podName, "" /* nodeName */, generatedOperations)
 }
+
+// zhou: README,
 
 func (oe *operationExecutor) UnmountVolume(
 	volumeToUnmount MountedVolume,

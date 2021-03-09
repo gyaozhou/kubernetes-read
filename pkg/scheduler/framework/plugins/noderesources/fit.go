@@ -38,6 +38,9 @@ import (
 	schedutil "k8s.io/kubernetes/pkg/scheduler/util"
 )
 
+// zhou: NodeResourcesFit Checks if the node has all the resources that the Pod is requesting.
+//       Like CPU, Memory, devices, ...
+
 var _ fwk.PreFilterPlugin = &Fit{}
 var _ fwk.FilterPlugin = &Fit{}
 var _ fwk.EnqueueExtensions = &Fit{}
@@ -153,6 +156,8 @@ func getPreScoreState(cycleState fwk.CycleState) (*preScoreState, error) {
 func (f *Fit) Name() string {
 	return Name
 }
+
+// zhou: README,
 
 // NewFit initializes a new plugin and returns it.
 func NewFit(_ context.Context, plArgs runtime.Object, h fwk.Handle, fts feature.Features) (fwk.Plugin, error) {

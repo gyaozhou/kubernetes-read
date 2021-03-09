@@ -62,6 +62,7 @@ var optionsTypes = []runtime.Object{
 	&PatchOptions{},
 }
 
+// zhou: README,
 // AddToGroupVersion registers common meta types into schemas.
 func AddToGroupVersion(scheme *runtime.Scheme, groupVersion schema.GroupVersion) {
 	scheme.AddKnownTypeWithName(groupVersion.WithKind(WatchEventKind), &WatchEvent{})

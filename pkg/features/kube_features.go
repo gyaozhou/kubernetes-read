@@ -115,6 +115,26 @@ const (
 	// Enables the Portworx in-tree driver to Portworx migration feature.
 	CSIMigrationPortworx featuregate.Feature = "CSIMigrationPortworx"
 
+<<<<<<< HEAD
+=======
+	// owner: @humblec
+	// alpha: v1.23
+	// deprecated: v1.28
+	//
+	// Enables the RBD in-tree driver to RBD CSI Driver  migration feature.
+	CSIMigrationRBD featuregate.Feature = "CSIMigrationRBD"
+
+	// zhou: CSI ephemeral storage feature, NOT normal CSI provisioned volume
+
+	// owner: @humblec, @zhucan
+	// kep: https://kep.k8s.io/3171
+	// alpha: v1.25
+	// beta: v1.27
+	// GA: v1.29
+	// Enables SecretRef field in CSI NodeExpandVolume request.
+	CSINodeExpandSecret featuregate.Feature = "CSINodeExpandSecret"
+
+>>>>>>> d2016d5b8ea (study kubernetes)
 	// owner: @fengzixu
 	//
 	// Enables kubelet to detect CSI volume condition and send the event of the abnormal volume to the corresponding pod that is using it.

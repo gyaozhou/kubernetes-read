@@ -26,6 +26,8 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+// zhou: get object by "GetResource()".
+
 // Attributes is an interface used by AdmissionController to get information about a request
 // that is used to make an admission decision.
 type Attributes interface {

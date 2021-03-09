@@ -81,9 +81,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
+// zhou: default scheme.
 var Scheme = runtime.NewScheme()
 var Codecs = serializer.NewCodecFactory(Scheme)
 var ParameterCodec = runtime.NewParameterCodec(Scheme)
+
+// zhou: refer to "SchemeBuilder.AddToScheme()"
 var localSchemeBuilder = runtime.SchemeBuilder{
 	admissionregistrationv1.AddToScheme,
 	admissionregistrationv1alpha1.AddToScheme,
@@ -141,6 +144,8 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	storagev1alpha1.AddToScheme,
 	storagemigrationv1alpha1.AddToScheme,
 }
+
+// zhou: README, adds all k8s internal types list above into the given scheme.
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
 // of clientsets, like in:

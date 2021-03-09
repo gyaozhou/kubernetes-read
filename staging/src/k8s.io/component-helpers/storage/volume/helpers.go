@@ -38,6 +38,8 @@ func PersistentVolumeClaimHasClass(claim *v1.PersistentVolumeClaim) bool {
 	return false
 }
 
+// zhou: get StorageClass name if has.
+
 // GetPersistentVolumeClaimClass returns StorageClassName. If no storage class was
 // requested, it returns "".
 func GetPersistentVolumeClaimClass(claim *v1.PersistentVolumeClaim) string {
@@ -62,6 +64,8 @@ func GetPersistentVolumeClass(volume *v1.PersistentVolume) string {
 
 	return volume.Spec.StorageClassName
 }
+
+// zhou: is PV's NodeAffinity matching the node's Label
 
 // CheckNodeAffinity looks at the PV node affinity, and checks if the node has the same corresponding labels
 // This ensures that we don't mount a volume that doesn't belong to this node

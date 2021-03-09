@@ -68,6 +68,8 @@ const (
 // NamespaceDefault is a string representing the default namespace.
 const NamespaceDefault = metav1.NamespaceDefault
 
+// zhou: README,
+
 // PodUpdate defines an operation sent on the channel. You can add or remove single services by
 // sending an array of size one and Op == ADD|REMOVE (with REMOVE, only the ID is required).
 // For setting the state of the system to a given state for this source configuration, set

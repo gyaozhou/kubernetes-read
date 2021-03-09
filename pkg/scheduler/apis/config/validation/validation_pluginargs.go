@@ -237,6 +237,8 @@ func ValidateNodeResourcesBalancedAllocationArgs(path *field.Path, args *config.
 	return allErrs.ToAggregate()
 }
 
+// zhou: any error for the additional Node Affinity
+
 // ValidateNodeAffinityArgs validates that NodeAffinityArgs are correct.
 func ValidateNodeAffinityArgs(path *field.Path, args *config.NodeAffinityArgs) error {
 	if args.AddedAffinity == nil {
