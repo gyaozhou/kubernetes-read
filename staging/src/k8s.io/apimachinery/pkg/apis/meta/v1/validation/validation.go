@@ -154,18 +154,23 @@ func ValidateFieldSelectorRequirement(requirement metav1.FieldSelectorRequiremen
 	return allErrs
 }
 
+// zhou: check "PropagationPolicy" and "dryRun" flag for deletion.
+
 func ValidateDeleteOptions(options *metav1.DeleteOptions) field.ErrorList {
 	allErrs := field.ErrorList{}
 	//lint:file-ignore SA1019 Keep validation for deprecated OrphanDependents option until it's being removed
+
 	if options.OrphanDependents != nil && options.PropagationPolicy != nil {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("propagationPolicy"), options.PropagationPolicy, "orphanDependents and deletionPropagation cannot be both set"))
 	}
+
 	if options.PropagationPolicy != nil &&
 		*options.PropagationPolicy != metav1.DeletePropagationForeground &&
 		*options.PropagationPolicy != metav1.DeletePropagationBackground &&
 		*options.PropagationPolicy != metav1.DeletePropagationOrphan {
 		allErrs = append(allErrs, field.NotSupported(field.NewPath("propagationPolicy"), options.PropagationPolicy, []string{string(metav1.DeletePropagationForeground), string(metav1.DeletePropagationBackground), string(metav1.DeletePropagationOrphan), "nil"}))
 	}
+
 	allErrs = append(allErrs, ValidateDryRun(field.NewPath("dryRun"), options.DryRun)...)
 	allErrs = append(allErrs, ValidateIgnoreStoreReadError(field.NewPath("ignoreStoreReadErrorWithClusterBreakingPotential"), options)...)
 	return allErrs

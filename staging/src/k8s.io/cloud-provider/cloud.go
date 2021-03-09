@@ -39,6 +39,9 @@ type ControllerClientBuilder interface {
 	ClientOrDie(name string) clientset.Interface
 }
 
+// zhou: interface implemented by each Cloud Service Provider.
+//       Used to define the actions k8s need to interact with CSP.
+
 // Interface is an abstract, pluggable interface for cloud providers.
 type Interface interface {
 	// Initialize provides the cloud with a kubernetes client builder and may spawn goroutines

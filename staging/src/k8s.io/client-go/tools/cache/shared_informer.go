@@ -35,6 +35,26 @@ import (
 	clientgofeaturegate "k8s.io/client-go/features"
 )
 
+// zhou: "SharedInformer" normally represents only a GVR !!!
+//       It can be limited to a namespace, and/or lable selector, and/or field selector.
+//       "SharedInformer" maintains a cache/store, but it is evntaully consistent with
+//       apiservers.
+//       The sequence of states that appears in the informer's cache is a subsequence of
+//       the statesCache in apiservers.
+//       e.g. apiservers saw: s1, s2, s3, s4, s5, s6,
+//            cache      saw: s1, s3, s4, s6,
+//       Eventaully state is same if no communication or other critical issues.
+//
+//       Every query against the local cache is answered entirely from one
+//       snapshot of the cache's state.  Thus, the result of a `List` call
+//       will not contain two entries with the same namespace and name.
+//
+//       Object with same namesapece and name, might be deleted and created. But cache may
+//       only see object updated. At this time, need to check their uid, which is different.
+//
+//       Like irq handler, we should limit processing here. Using workqueue for further
+//       complicated processing.
+
 // SharedInformer provides eventually consistent linkage of its
 // clients to the authoritative state of a given collection of
 // objects.  An object is identified by its API group, kind/resource,
@@ -143,6 +163,10 @@ type SharedInformer interface {
 	// remove the handler again, or to tell if the handler is synced (has
 	// seen every item in the initial list).
 	AddEventHandler(handler ResourceEventHandler) (ResourceEventHandlerRegistration, error)
+
+	// zhou: to prevent eventhandler from missing some events, rehandle every objects
+	//       for every "resyncPeriod".
+
 	// AddEventHandlerWithResyncPeriod adds an event handler to the
 	// shared informer with the requested resync period; zero means
 	// this handler does not care about resyncs.  The resync operation
@@ -228,6 +252,8 @@ type ResourceEventHandlerRegistration interface {
 	HasSynced() bool
 }
 
+// zhou: indexer + SharedInformer
+
 // SharedIndexInformer provides add and get Indexers ability based on SharedInformer.
 type SharedIndexInformer interface {
 	SharedInformer
@@ -235,6 +261,8 @@ type SharedIndexInformer interface {
 	AddIndexers(indexers Indexers) error
 	GetIndexer() Indexer
 }
+
+// zhou: no body implements SharedInformer directly?
 
 // NewSharedInformer creates a new instance for the ListerWatcher. See NewSharedIndexInformerWithOptions for full details.
 func NewSharedInformer(lw ListerWatcher, exampleObject runtime.Object, defaultEventHandlerResyncPeriod time.Duration) SharedInformer {
@@ -253,6 +281,9 @@ func NewSharedIndexInformer(lw ListerWatcher, exampleObject runtime.Object, defa
 		},
 	)
 }
+
+// zhou: create a Informer instance for a specific type same with "exampleObject".
+//       Refer to "sample-controller", the generated "NewFilteredFooInformer()" will invoke this method.
 
 // NewSharedIndexInformerWithOptions creates a new instance for the ListerWatcher.
 // The created informer will not do resyncs if options.ResyncPeriod is zero.  Otherwise: for each
@@ -342,6 +373,15 @@ func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool
 	return true
 }
 
+// zhou: "sharedIndexInfomer" sit at the core of whole informer mechanism.
+//       It only handle one type of resource!!!
+//       Major components:
+//       1. an indexed local cache;
+//       2. a Controller that pulls objects/notifications using the ListerWatcher and pushes them into DeltaFIFO.
+//          Concurrently "HandleDeltas()" from DeltaFIFO, to update the local cache and notify "sharedProcessor".
+//          It wil.
+//       3. "sharedProcessor" is responsible for relaying those notifications to each of the informer's clients.
+
 // `*sharedIndexInformer` implements SharedIndexInformer and has three
 // main components.  One is an indexed local cache, `indexer Indexer`.
 // The second main component is a Controller that pulls
@@ -356,13 +396,19 @@ func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool
 // sharedProcessor, which is responsible for relaying those
 // notifications to each of the informer's clients.
 type sharedIndexInformer struct {
-	indexer    Indexer
+	// zhou: represent a store, normally implemented by ThreadSafeStore.
+	indexer Indexer
+	// zhou: represent a running object.
 	controller Controller
 
-	processor             *sharedProcessor
+	// zhou: used to distribute notification to listeners.
+	processor *sharedProcessor
+	// zhou: disabled by default, what's it used for ?
 	cacheMutationDetector MutationDetector
 
 	listerWatcher ListerWatcher
+
+	// zhou: used to identify object type of this informer is expected to handle.
 
 	// objectType is an example object of the type this informer is expected to handle. If set, an event
 	// with an object with a mismatching type is dropped instead of being delivered to listeners.
@@ -456,6 +502,9 @@ func (s *sharedIndexInformer) SetTransform(handler TransformFunc) error {
 	return nil
 }
 
+// zhou: user should execute this function in a separate goroutine since it will be blocked.
+//       Setup config for controller, let controller.Run() handle the work flow control.
+
 func (s *sharedIndexInformer) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 
@@ -468,7 +517,13 @@ func (s *sharedIndexInformer) Run(stopCh <-chan struct{}) {
 		s.startedLock.Lock()
 		defer s.startedLock.Unlock()
 
+		// zhou: create DeltaFIFO.
+
 		fifo := NewDeltaFIFOWithOptions(DeltaFIFOOptions{
+
+			// zhou: In fact, DeltaFIFO doesn't care about the store, which will be handle
+			//       by processor. Here, just help DeltaFIFO to handle Replace when recover from error.
+
 			KnownObjects:          s.indexer,
 			EmitDeltaTypeReplaced: true,
 			Transformer:           s.transform,
@@ -487,16 +542,24 @@ func (s *sharedIndexInformer) Run(stopCh <-chan struct{}) {
 			WatchErrorHandler: s.watchErrorHandler,
 		}
 
+		// zhou: make a new Controller
+
 		s.controller = New(cfg)
+		// zhou: interface Type Assertions. Why assign the clock ???
 		s.controller.(*controller).clock = s.clock
 		s.started = true
 	}()
 
+	// zhou: works like context.
 	// Separate stop channel because Processor should be stopped strictly after controller
 	processorStopCh := make(chan struct{})
 	var wg wait.Group
+	// zhou: this goroutine will be block to wait for Processor and cacheMutationDetector goroutine completed.
 	defer wg.Wait()              // Wait for Processor to stop
 	defer close(processorStopCh) // Tell Processor to stop
+
+	// zhou: StartWithChannel() starts function in a new goroutine in the group.
+	//       Both of these function are loop running.
 	wg.StartWithChannel(processorStopCh, s.cacheMutationDetector.Run)
 	wg.StartWithChannel(processorStopCh, s.processor.run)
 
@@ -557,6 +620,8 @@ func (s *sharedIndexInformer) GetController() Controller {
 	return &dummyController{informer: s}
 }
 
+// zhou: user's callback functions to handle event poped up from DeltaFIFO.
+
 func (s *sharedIndexInformer) AddEventHandler(handler ResourceEventHandler) (ResourceEventHandlerRegistration, error) {
 	return s.AddEventHandlerWithResyncPeriod(handler, s.defaultEventHandlerResyncPeriod)
 }
@@ -577,6 +642,8 @@ func determineResyncPeriod(desired, check time.Duration) time.Duration {
 }
 
 const minimumResyncPeriod = 1 * time.Second
+
+// zhou: user's callback functions to handle event poped up from DeltaFIFO.
 
 func (s *sharedIndexInformer) AddEventHandlerWithResyncPeriod(handler ResourceEventHandler, resyncPeriod time.Duration) (ResourceEventHandlerRegistration, error) {
 	s.startedLock.Lock()
@@ -608,6 +675,7 @@ func (s *sharedIndexInformer) AddEventHandlerWithResyncPeriod(handler ResourceEv
 
 	listener := newProcessListener(handler, resyncPeriod, determineResyncPeriod(resyncPeriod, s.resyncCheckPeriod), s.clock.Now(), initialBufferSize, s.HasSynced)
 
+	// zhou: add to Listener list
 	if !s.started {
 		return s.processor.addListener(listener), nil
 	}
@@ -621,6 +689,9 @@ func (s *sharedIndexInformer) AddEventHandlerWithResyncPeriod(handler ResourceEv
 	defer s.blockDeltas.Unlock()
 
 	handle := s.processor.addListener(listener)
+
+	// zhou: due to sharedInformer is already running, create add notification to this user.
+
 	for _, item := range s.indexer.List() {
 		// Note that we enqueue these notifications with the lock held
 		// and before returning the handle. That means there is never a
@@ -634,6 +705,10 @@ func (s *sharedIndexInformer) AddEventHandlerWithResyncPeriod(handler ResourceEv
 	}
 	return handle, nil
 }
+
+// zhou: handler of DeltaFIFO consumer.
+//  1. maintain Index/store,
+//  2. Processor will pass notification to registered listeners.
 
 func (s *sharedIndexInformer) HandleDeltas(obj interface{}, isInInitialList bool) error {
 	s.blockDeltas.Lock()
@@ -672,6 +747,7 @@ func (s *sharedIndexInformer) OnUpdate(old, new interface{}) {
 	// Invocation of this function is locked under s.blockDeltas, so it is
 	// save to distribute the notification
 	s.cacheMutationDetector.AddObject(new)
+	// zhou: distribute the notification to Listeners.
 	s.processor.distribute(updateNotification{oldObj: old, newObj: new}, isSync)
 }
 
@@ -744,7 +820,10 @@ func (p *sharedProcessor) addListener(listener *processorListener) ResourceEvent
 
 	p.listeners[listener] = true
 
+	// zhou: it is frist user, we need to start listener related goroutine.
+
 	if p.listenersStarted {
+		// zhou: in a new goroutine in the group.
 		p.wg.Start(listener.run)
 		p.wg.Start(listener.pop)
 	}
@@ -776,6 +855,7 @@ func (p *sharedProcessor) removeListener(handle ResourceEventHandlerRegistration
 	return nil
 }
 
+// zhou: "obj" here is notification.
 func (p *sharedProcessor) distribute(obj interface{}, sync bool) {
 	p.listenersLock.RLock()
 	defer p.listenersLock.RUnlock()
@@ -794,11 +874,16 @@ func (p *sharedProcessor) distribute(obj interface{}, sync bool) {
 	}
 }
 
+// zhou: distibute events from DeltaFIFO to each listeners.
 func (p *sharedProcessor) run(stopCh <-chan struct{}) {
 	func() {
 		p.listenersLock.RLock()
 		defer p.listenersLock.RUnlock()
 		for listener := range p.listeners {
+
+			// zhou: "Start()" starts f in a new goroutine in the group
+			//       Both of these two functions are loop runing.
+
 			p.wg.Start(listener.run)
 			p.wg.Start(listener.pop)
 		}
@@ -855,6 +940,8 @@ func (p *sharedProcessor) resyncCheckPeriodChanged(resyncCheckPeriod time.Durati
 	}
 }
 
+// zhou: listener is represent one ResourceEventHandler
+
 // processorListener relays notifications from a sharedProcessor to
 // one ResourceEventHandler --- using two goroutines, two unbuffered
 // channels, and an unbounded ring buffer.  The `add(notification)`
@@ -873,6 +960,8 @@ type processorListener struct {
 	handler ResourceEventHandler
 
 	syncTracker *synctrack.SingleFileTracker
+
+	// zhou: due to user's event handler may be slow, we need a ringbuffer to hold events.
 
 	// pendingNotifications is an unbounded ring buffer that holds all notifications not yet distributed.
 	// There is one per listener, but a failing/stalled listener will have infinite pendingNotifications
@@ -910,9 +999,12 @@ func (p *processorListener) HasSynced() bool {
 	return p.syncTracker.HasSynced()
 }
 
+// zhou: Listener represent user's callback registration.
+
 func newProcessListener(handler ResourceEventHandler, requestedResyncPeriod, resyncPeriod time.Duration, now time.Time, bufferSize int, hasSynced func() bool) *processorListener {
 	ret := &processorListener{
-		nextCh:                make(chan interface{}),
+		nextCh: make(chan interface{}),
+		// zhou: HandleDeltas() will send new events to this channel
 		addCh:                 make(chan interface{}),
 		handler:               handler,
 		syncTracker:           &synctrack.SingleFileTracker{UpstreamHasSynced: hasSynced},
@@ -926,6 +1018,7 @@ func newProcessListener(handler ResourceEventHandler, requestedResyncPeriod, res
 	return ret
 }
 
+// zhou: new event added to channel "addCh"
 func (p *processorListener) add(notification interface{}) {
 	if a, ok := notification.(addNotification); ok && a.isInInitialList {
 		p.syncTracker.Start()
@@ -933,17 +1026,23 @@ func (p *processorListener) add(notification interface{}) {
 	p.addCh <- notification
 }
 
+// zhou: handle new event/notification immediately.
+//
+//	If the "p.nextCh" is still blocked, which means the user's event handler is too busy to
+//	handle last one, we will put this event to ringbuffer firstly.
 func (p *processorListener) pop() {
 	defer utilruntime.HandleCrash()
 	defer close(p.nextCh) // Tell .run() to stop
 
 	var nextCh chan<- interface{}
+	// zhou: the event waiting be send to nextCh.
 	var notification interface{}
 	for {
 		select {
-		case nextCh <- notification:
+		case nextCh <- notification: // zhou: nil channel will block forever; nextCh could handle more.
 			// Notification dispatched
 			var ok bool
+			// zhou: get next event to be sent to "p.nextCh"
 			notification, ok = p.pendingNotifications.ReadOne()
 			if !ok { // Nothing to pop
 				nextCh = nil // Disable this select case
@@ -957,18 +1056,21 @@ func (p *processorListener) pop() {
 				notification = notificationToAdd
 				nextCh = p.nextCh
 			} else { // There is already a notification waiting to be dispatched
+				// zhou: queue to ringbuffer
 				p.pendingNotifications.WriteOne(notificationToAdd)
 			}
 		}
 	}
 }
 
+// zhou: goroutine to execute user's eventhandler
 func (p *processorListener) run() {
 	// this call blocks until the channel is closed.  When a panic happens during the notification
 	// we will catch it, **the offending item will be skipped!**, and after a short delay (one second)
 	// the next notification will be attempted.  This is usually better than the alternative of never
 	// delivering again.
 	stopCh := make(chan struct{})
+	// zhou: loop running
 	wait.Until(func() {
 		for next := range p.nextCh {
 			switch notification := next.(type) {

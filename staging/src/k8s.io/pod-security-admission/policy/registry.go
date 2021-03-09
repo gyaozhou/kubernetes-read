@@ -25,6 +25,8 @@ import (
 	"k8s.io/pod-security-admission/api"
 )
 
+// zhou:
+
 // Evaluator holds the Checks that are used to validate a policy.
 type Evaluator interface {
 	// EvaluatePod evaluates the pod against the policy for the given level & version.
@@ -39,6 +41,8 @@ type checkRegistry struct {
 	// the max MinimumVersion of all registered checks.
 	maxVersion api.Version
 }
+
+// zhou: check list is populated
 
 // NewEvaluator constructs a new Evaluator instance from the list of checks. If the provided checks are invalid,
 // an error is returned. A valid list of checks must meet the following requirements:
@@ -58,10 +62,19 @@ func NewEvaluator(checks []Check) (Evaluator, error) {
 	return r, nil
 }
 
+// zhou: evaluate the Pod's spec according to its Namespace's PodSecurityAdmission definition.
+
 func (r *checkRegistry) EvaluatePod(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) []CheckResult {
+
+	// zhou: "pod-security.kubernetes.io/<MODE>: <LEVEL>"
+	//       Namespace already allow "LevelPrivileged", no more check needed.
+
 	if lv.Level == api.LevelPrivileged {
 		return nil
 	}
+
+	// zhou: "pod-security.kubernetes.io/<MODE>-version: <VERSION>"
+
 	if r.maxVersion.Older(lv.Version) {
 		lv.Version = r.maxVersion
 	}
@@ -130,6 +143,8 @@ func validateChecks(checks []Check) error {
 	}
 	return nil
 }
+
+// zhou: define the check list for each level.
 
 func populate(r *checkRegistry, validChecks []Check) {
 	// Find the max(MinimumVersion) across all checks.

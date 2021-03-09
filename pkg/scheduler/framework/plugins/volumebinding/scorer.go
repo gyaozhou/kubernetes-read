@@ -28,6 +28,8 @@ type classResourceMap map[string]*StorageResource
 // volumeCapacityScorer calculates the score based on class storage resource information.
 type volumeCapacityScorer func(classResourceMap) int64
 
+// zhou: README,
+
 // buildScorerFunction builds volumeCapacityScorer from the scoring function shape.
 func buildScorerFunction(scoringFunctionShape helper.FunctionShape) volumeCapacityScorer {
 	rawScoringFunction := helper.BuildBrokenLinearFunction(scoringFunctionShape)

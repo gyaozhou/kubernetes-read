@@ -22,6 +22,8 @@ package runtime
 // functions.
 type SchemeBuilder []func(*Scheme) error
 
+// zhou: execution phase
+
 // AddToScheme applies all the stored functions to the scheme. A non-nil error
 // indicates that one function failed and the attempt was abandoned.
 func (sb *SchemeBuilder) AddToScheme(s *Scheme) error {
@@ -32,6 +34,8 @@ func (sb *SchemeBuilder) AddToScheme(s *Scheme) error {
 	}
 	return nil
 }
+
+// zhou: add to pending list.
 
 // Register adds a scheme setup function to the list.
 func (sb *SchemeBuilder) Register(funcs ...func(*Scheme) error) {

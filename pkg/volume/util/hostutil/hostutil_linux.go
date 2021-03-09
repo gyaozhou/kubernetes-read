@@ -142,6 +142,8 @@ func (hu *HostUtil) MakeRShared(path string) error {
 	return DoMakeRShared(path, procMountInfoPath)
 }
 
+// zhou: check the path type
+
 // GetFileType checks for file/directory/socket/block/character devices.
 func (hu *HostUtil) GetFileType(pathname string) (FileType, error) {
 	return getFileType(pathname)

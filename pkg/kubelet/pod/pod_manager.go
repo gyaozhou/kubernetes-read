@@ -27,6 +27,8 @@ import (
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 )
 
+// zhou: README,
+
 // Manager stores and manages access to pods, maintaining the mappings
 // between static pods and mirror pods.
 //
@@ -121,6 +123,8 @@ type basicManager struct {
 	// Mirror pod UID to pod UID map.
 	translationByUID map[kubetypes.MirrorPodUID]kubetypes.ResolvedPodUID
 }
+
+// zhou:
 
 // NewBasicPodManager returns a functional Manager.
 func NewBasicPodManager() Manager {

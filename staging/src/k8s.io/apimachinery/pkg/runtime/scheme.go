@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// zhou: README,
+
 // Scheme defines methods for serializing and deserializing API objects, a type
 // registry for converting group, version, and kind information to and from Go
 // schemas, and mappings between Go schemas of different versions. A scheme is the
@@ -87,6 +89,8 @@ type Scheme struct {
 // FieldLabelConversionFunc converts a field selector to internal representation.
 type FieldLabelConversionFunc func(label, value string) (internalLabel, internalValue string, err error)
 
+// zhou:
+
 // NewScheme creates a new Scheme. This scheme is pluggable by default.
 func NewScheme() *Scheme {
 	s := &Scheme{
@@ -133,6 +137,8 @@ func (s *Scheme) AddUnversionedTypes(version schema.GroupVersion, types ...Objec
 	}
 }
 
+// zhou: setup mapping between GVK to golang's type. Using golang's type name as kind.
+
 // AddKnownTypes registers all types passed in 'types' as being members of version 'version'.
 // All objects passed to types should be pointers to structs. The name that go reports for
 // the struct becomes the "kind" field when encoding. Version may not be empty - use the
@@ -148,6 +154,8 @@ func (s *Scheme) AddKnownTypes(gv schema.GroupVersion, types ...Object) {
 		s.AddKnownTypeWithName(gv.WithKind(t.Name()), obj)
 	}
 }
+
+// zhou: README,
 
 // AddKnownTypeWithName is like AddKnownTypes, but it lets you specify what this type should
 // be encoded as. Useful for testing when you don't want to make multiple packages to define

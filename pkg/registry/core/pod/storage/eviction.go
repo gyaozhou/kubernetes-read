@@ -63,6 +63,8 @@ var EvictionsRetry = wait.Backoff{
 	Jitter:   0.1,
 }
 
+// zhou:
+
 func newEvictionStorage(store rest.StandardStorage, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) *EvictionREST {
 	return &EvictionREST{store: store, podDisruptionBudgetClient: podDisruptionBudgetClient}
 }
@@ -94,8 +96,14 @@ func (r *EvictionREST) AcceptsGroupVersion(gv schema.GroupVersion) bool {
 	}
 }
 
+// zhou: unlike generic object which Store.NewFunc() invoked to create object.
+//       In that case, e.g. corev1/Pod created.
+
 // New creates a new eviction resource
 func (r *EvictionREST) New() runtime.Object {
+
+	// zhou: using internal version of Eviction instead of policyV1/Evcition. Why???
+
 	return &policy.Eviction{}
 }
 
@@ -125,12 +133,19 @@ func propagateDryRun(eviction *policy.Eviction, options *metav1.CreateOptions) (
 	return eviction.DeleteOptions, nil
 }
 
+// zhou: handle Eviction creation.
+
 // Create attempts to create a new eviction.  That is, it tries to evict a pod.
 func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+
+	// zhou: already converted from policy/v1/Evciont to policy/Eviction. before store?
+
 	eviction, ok := obj.(*policy.Eviction)
 	if !ok {
 		return nil, errors.NewBadRequest(fmt.Sprintf("not a Eviction object: %T", obj))
 	}
+
+	// zhou: Pod name != Eviction Name
 
 	if name != eviction.Name {
 		return nil, errors.NewBadRequest("name in URL does not match name in Eviction object")
@@ -164,6 +179,9 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 	}
 
 	err = retry.OnError(EvictionsRetry, shouldRetry, func() error {
+
+		// zhou: get the Pod to be evicted.
+
 		pod, err = getPod(r, ctx, eviction.Name)
 		if err != nil {
 			return err
@@ -188,6 +206,9 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 			deleteOptions = deleteOptions.DeepCopy()
 			setPreconditionsResourceVersion(deleteOptions, &pod.ResourceVersion)
 		}
+
+		// zhou: update Pod Condition "EvictionByEvictionAPI" and delete terminating Pod.
+
 		err = addConditionAndDeletePod(r, ctx, eviction.Name, rest.ValidateAllObjectFunc, deleteOptions)
 		if err != nil {
 			return err
@@ -195,6 +216,7 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 		deletedPod = true
 		return nil
 	})
+
 	switch {
 	case err != nil:
 		// this can happen in cases where the PDB can be ignored, but there was a problem issuing the pod delete:
@@ -209,6 +231,8 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 		// this happens when we didn't have an error and we didn't delete the pod. The only branch that happens on is when
 		// we cannot ignored the PDB for this pod, so this is the fall through case.
 	}
+
+	// zhou: Pod is still running, still need to check PDB
 
 	var rtStatus *metav1.Status
 	var pdbName string
@@ -252,6 +276,8 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 			}
 			// confirm no disruptions allowed in checkAndDecrement
 		}
+
+		// zhou: retry only in case of "errors.IsConflict"
 
 		refresh := false
 		err = retry.RetryOnConflict(EvictionsRetry, func() error {
@@ -297,6 +323,8 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 		setPreconditionsResourceVersion(deleteOptions, &pod.ResourceVersion)
 	}
 
+	// zhou: update Pod Condition "EvictionByEvictionAPI" and delete running Pod.
+
 	// Try the delete
 	err = addConditionAndDeletePod(r, ctx, eviction.Name, rest.ValidateAllObjectFunc, deleteOptions)
 	if err != nil {
@@ -313,6 +341,8 @@ func (r *EvictionREST) Create(ctx context.Context, name string, obj runtime.Obje
 	// Success!
 	return &metav1.Status{Status: metav1.StatusSuccess}, nil
 }
+
+// zhou: update Pod Condition "EvictionByEvictionAPI" and delete Pod.
 
 func addConditionAndDeletePod(r *EvictionREST, ctx context.Context, name string, validation rest.ValidateObjectFunc, options *metav1.DeleteOptions) error {
 	if !dryrun.IsDryRun(options.DryRun) {
@@ -352,6 +382,8 @@ func addConditionAndDeletePod(r *EvictionREST, ctx context.Context, name string,
 
 		podUpdatedObjectInfo := rest.DefaultUpdatedObjectInfo(nil, getLatestPod, conditionAppender) // order important
 
+		// zhou: update Pod Condition in case Pod already in terminating.
+
 		updatedPodObject, _, err := r.store.Update(ctx, name, podUpdatedObjectInfo, rest.ValidateAllObjectFunc, rest.ValidateAllObjectUpdateFunc, false, &metav1.UpdateOptions{})
 		if err != nil {
 			return err
@@ -367,6 +399,10 @@ func addConditionAndDeletePod(r *EvictionREST, ctx context.Context, name string,
 			options.Preconditions.ResourceVersion = &newResourceVersion
 		}
 	}
+
+	// zhou: delete Pod from underlying storage like etcd, e.g. set DeleteTimeStamp,...
+	//       implemented in pkg/registry/core/namespace/storage/storage.go.
+
 	_, _, err := r.store.Delete(ctx, name, rest.ValidateAllObjectFunc, options)
 	return err
 }
@@ -385,6 +421,8 @@ func setPreconditionsResourceVersion(deleteOptions *metav1.DeleteOptions, resour
 	}
 	deleteOptions.Preconditions.ResourceVersion = resourceVersion
 }
+
+// zhou: Pod alreaday teminated.
 
 // canIgnorePDB returns true for pod conditions that allow the pod to be deleted
 // without checking PDBs.
@@ -419,6 +457,8 @@ func createTooManyRequestsError(name string) error {
 	err.ErrStatus.Details.Causes = append(err.ErrStatus.Details.Causes, metav1.StatusCause{Type: policyv1.DisruptionBudgetCause, Message: fmt.Sprintf("The disruption budget %s is still being processed by the server.", name)})
 	return err
 }
+
+// zhou: README, check and update PDB
 
 // checkAndDecrement checks if the provided PodDisruptionBudget allows any disruption.
 func (r *EvictionREST) checkAndDecrement(namespace string, podName string, pdb policyv1.PodDisruptionBudget, dryRun bool) error {

@@ -137,10 +137,15 @@ const (
 	componentKubelet = "kubelet"
 )
 
+// zhou: README, kubelet cli
+//       e.g. "/usr/bin/kubelet --config=/etc/kubelet.d/ --kubeconfig=/etc/kubernetes/kubelet.conf --require-kubeconfig=true --pod-manifest-path=/etc/kubernetes/manifests --allow-privileged=true --network-plugin=cni --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/opt/cni/bin --cluster-dns=10.12.0.10 --cluster-domain=cluster.local --v=4"
+
 // NewKubeletCommand creates a *cobra.Command object with default parameters
 func NewKubeletCommand() *cobra.Command {
 	cleanFlagSet := pflag.NewFlagSet(componentKubelet, pflag.ContinueOnError)
 	cleanFlagSet.SetNormalizeFunc(cliflag.WordSepNormalizeFunc)
+
+	// zhou: default arguments for cli
 	kubeletFlags := options.NewKubeletFlags()
 
 	kubeletConfig, err := options.NewKubeletConfiguration()
@@ -150,6 +155,7 @@ func NewKubeletCommand() *cobra.Command {
 		os.Exit(1)
 	}
 
+	// zhou: the major goal for kubelet is to take care of Pod.
 	cmd := &cobra.Command{
 		Use: componentKubelet,
 		Long: `The kubelet is the primary "node agent" that runs on each
@@ -177,6 +183,7 @@ is checked every 20 seconds (also configurable with a flag).`,
 		// `args` arg to Run, without Cobra's interference.
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
+		// zhou: handler for kubelet cli.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// initial flag parse, since we disable cobra's flag parsing
 			if err := cleanFlagSet.Parse(args); err != nil {
@@ -293,6 +300,7 @@ is checked every 20 seconds (also configurable with a flag).`,
 		},
 	}
 
+	// zhou: add options supported by kubelet.
 	// keep cleanFlagSet separate, so Cobra doesn't pollute it with the global flags
 	kubeletFlags.AddFlags(cleanFlagSet)
 	options.AddKubeletConfigFlags(cleanFlagSet, kubeletConfig)
@@ -466,6 +474,8 @@ func loadDropinConfigFileIntoJSON(name string) ([]byte, *schema.GroupVersionKind
 	return loader.LoadIntoJSON()
 }
 
+// zhou: get OS related dependencies, including volume plugins.
+
 // UnsecuredDependencies returns a Dependencies suitable for being run, or an error if the server setup
 // is not valid.  It will not start any background processes, and does not include authentication/authorization
 func UnsecuredDependencies(s *options.KubeletServer, featureGate featuregate.FeatureGate) (*kubelet.Dependencies, error) {
@@ -475,10 +485,20 @@ func UnsecuredDependencies(s *options.KubeletServer, featureGate featuregate.Fea
 		return nil, err
 	}
 
+	// zhou: default local OS mount capability.
+
 	mounter := mount.New(s.ExperimentalMounterPath)
 	subpather := subpath.New(mounter)
+
+	// zhou: default local OS filesystem capability.
+
 	hu := hostutil.NewHostUtil()
+
+	// zhou: handler used to create process.
+
 	pluginRunner := exec.New()
+
+	// zhou: ProbeVolumePlugins collects all volume plugins into an easy to use list.
 
 	plugins, err := ProbeVolumePlugins(featureGate)
 	if err != nil {
@@ -511,6 +531,9 @@ func UnsecuredDependencies(s *options.KubeletServer, featureGate featuregate.Fea
 		TLSOptions:          tlsOptions}, nil
 }
 
+// zhou: "KubeletServer" handle configurations, "Dependencies" handle OS related capabilities,
+//       "FeatureGate" k8s features admin states.
+
 // Run runs the specified KubeletServer with the given Dependencies. This should never exit.
 // The kubeDeps argument may be nil - if so, it is initialized from the settings on KubeletServer.
 // Otherwise, the caller is assumed to have set up the Dependencies object and a default one will
@@ -524,6 +547,7 @@ func Run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 	if err := initForOS(s.KubeletFlags.WindowsService, s.KubeletFlags.WindowsPriorityClass); err != nil {
 		return fmt.Errorf("failed OS init: %w", err)
 	}
+	// zhou:
 	if err := run(ctx, s, kubeDeps, featureGate); err != nil {
 		return fmt.Errorf("failed to run Kubelet: %w", err)
 	}
@@ -593,6 +617,8 @@ func getReservedCPUs(machineInfo *cadvisorapi.MachineInfo, cpus string) (cpuset.
 	}
 	return reservedCPUSet, nil
 }
+
+// zhou: README,
 
 func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Dependencies, featureGate featuregate.FeatureGate) (err error) {
 	// Set global feature gates based on the value on the initial KubeletServer
@@ -671,6 +697,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 	// if in standalone mode, indicate as much by setting all clients to nil
 	switch {
 	case standaloneMode:
+		// zhou: not common case.
 		kubeDeps.KubeClient = nil
 		kubeDeps.EventClient = nil
 		kubeDeps.HeartbeatClient = nil
@@ -686,6 +713,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 		}
 		kubeDeps.OnHeartbeatFailure = onHeartbeatFailure
 
+		// zhou: clientset
 		kubeDeps.KubeClient, err = clientset.NewForConfig(clientConfig)
 		if err != nil {
 			return fmt.Errorf("failed to initialize kubelet client: %w", err)
@@ -725,6 +753,8 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 		runAuthenticatorCAReload(ctx.Done())
 	}
 
+	// zhou: init runtime service before RunKubelet.
+
 	if err := kubelet.PreInitRuntimeService(&s.KubeletConfiguration, kubeDeps); err != nil {
 		return err
 	}
@@ -735,6 +765,8 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 			return err
 		}
 	}
+
+	// zhou: CGroup ?
 
 	var cgroupRoots []string
 	nodeAllocatableRoot := cm.NodeAllocatableRoot(s.CgroupRoot, s.CgroupsPerQOS, s.CgroupDriver)
@@ -767,6 +799,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 	// Setup event recorder if required.
 	makeEventRecorder(ctx, kubeDeps, nodeName)
 
+	// zhou:
 	if kubeDeps.ContainerManager == nil {
 		if s.CgroupsPerQOS && s.CgroupRoot == "" {
 			klog.InfoS("--cgroups-per-qos enabled, but --cgroup-root was not specified.  defaulting to /")
@@ -842,6 +875,7 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 			}
 		}
 
+		// zhou: Container Manager
 		kubeDeps.ContainerManager, err = cm.NewContainerManager(
 			kubeDeps.Mounter,
 			kubeDeps.CAdvisorInterface,
@@ -901,6 +935,8 @@ func run(ctx context.Context, s *options.KubeletServer, kubeDeps *kubelet.Depend
 	if err := oomAdjuster.ApplyOOMScoreAdj(0, int(s.OOMScoreAdj)); err != nil {
 		klog.InfoS("Failed to ApplyOOMScoreAdj", "err", err)
 	}
+
+	// zhou: handler
 
 	if err := RunKubelet(ctx, s, kubeDeps); err != nil {
 		return err
@@ -1222,6 +1258,8 @@ func setContentTypeForClient(cfg *restclient.Config, contentType string) {
 	}
 }
 
+// zhou: README,
+
 // RunKubelet is responsible for setting up and running a kubelet.  It is used in three different applications:
 //
 //	1 Integration tests
@@ -1262,6 +1300,8 @@ func RunKubelet(ctx context.Context, kubeServer *options.KubeletServer, kubeDeps
 		kubeDeps.OSInterface = kubecontainer.RealOS{}
 	}
 
+	// zhou: create kubelet instance
+
 	k, err := createAndInitKubelet(kubeServer,
 		kubeDeps,
 		hostname,
@@ -1283,15 +1323,24 @@ func RunKubelet(ctx context.Context, kubeServer *options.KubeletServer, kubeDeps
 		klog.ErrorS(err, "Failed to set rlimit on max file handles")
 	}
 
+	// zhou: common case
+
 	startKubelet(k, podCfg, &kubeServer.KubeletConfiguration, kubeDeps, kubeServer.EnableServer)
 	klog.InfoS("Started kubelet")
 
 	return nil
 }
 
+// zhou: README, start related kubelet components.
+
 func startKubelet(k kubelet.Bootstrap, podCfg *config.PodConfig, kubeCfg *kubeletconfiginternal.KubeletConfiguration, kubeDeps *kubelet.Dependencies, enableServer bool) {
+
+	// zhou: "kubelet.Kubelet struct" implements "kubelet.Bootstrap interface"
+
 	// start the kubelet
 	go k.Run(podCfg.Updates())
+
+	// zhou: what's it used for ??? some related service?
 
 	// start the kubelet server
 	if enableServer {
@@ -1303,6 +1352,7 @@ func startKubelet(k kubelet.Bootstrap, podCfg *config.PodConfig, kubeCfg *kubele
 	go k.ListenAndServePodResources()
 }
 
+// zhou: README, create instance. "kubelet.Kubelet struct" implements "kubelet.Bootstrap interface"
 func createAndInitKubelet(kubeServer *options.KubeletServer,
 	kubeDeps *kubelet.Dependencies,
 	hostname string,
@@ -1311,6 +1361,8 @@ func createAndInitKubelet(kubeServer *options.KubeletServer,
 	nodeIPs []net.IP) (k kubelet.Bootstrap, err error) {
 	// TODO: block until all sources have delivered at least one update to the channel, or break the sync loop
 	// up into "per source" synchronizations
+
+	// zhou: create "kubelet.Kubelet" object.
 
 	k, err = kubelet.NewMainKubelet(&kubeServer.KubeletConfiguration,
 		kubeDeps,
@@ -1344,6 +1396,8 @@ func createAndInitKubelet(kubeServer *options.KubeletServer,
 	}
 
 	k.BirthCry()
+
+	// zhou: container/image gc goroutines
 
 	k.StartGarbageCollection()
 

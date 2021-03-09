@@ -51,6 +51,8 @@ const (
 	PluginName = "LimitRanger"
 )
 
+// zhou: README,
+
 // Register registers a plugin
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(config io.Reader) (admission.Interface, error) {
@@ -194,6 +196,8 @@ func (l *LimitRanger) GetLimitRanges(a admission.Attributes) ([]*corev1.LimitRan
 	return items, nil
 }
 
+// zhou:
+
 // NewLimitRanger returns an object that enforces limits based on the supplied limit function
 func NewLimitRanger(actions LimitRangerActions) (*LimitRanger, error) {
 	liveLookupCache := lru.New(10000)
@@ -333,6 +337,9 @@ func maxRequestConstraint(limitType string, resourceName string, enforced resour
 		return fmt.Errorf("maximum %s usage per %s is %s.  No request is specified", resourceName, limitType, enforced.String())
 	}
 	if observedReqValue > enforcedValue {
+
+		// zhou: the output will be showed in console when failed to create a pod.
+
 		return fmt.Errorf("maximum %s usage per %s is %s, but request is %s", resourceName, limitType, enforced.String(), req.String())
 	}
 	return nil
@@ -383,6 +390,8 @@ func limitRequestRatioConstraint(limitType string, resourceName string, enforced
 
 	return nil
 }
+
+// zhou:
 
 // DefaultLimitRangerActions is the default implementation of LimitRangerActions.
 type DefaultLimitRangerActions struct{}

@@ -60,6 +60,8 @@ type TypedRateLimitingQueueConfig[T comparable] struct {
 	DelayingQueue TypedDelayingInterface[T]
 }
 
+// zhou: used by controller-runtime workqueue
+
 // NewRateLimitingQueue constructs a new workqueue with rateLimited queuing ability
 // Remember to call Forget!  If you don't, you may end up tracking failures forever.
 // NewRateLimitingQueue does not emit metrics. For use with a MetricsProvider, please use
@@ -125,6 +127,8 @@ func NewRateLimitingQueueWithDelayingInterface(di DelayingInterface, rateLimiter
 		DelayingQueue: di,
 	})
 }
+
+// zhou: Delay Queue with rate limiter.
 
 // rateLimitingType wraps an Interface and provides rateLimited re-enquing
 type rateLimitingType[T comparable] struct {

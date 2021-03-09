@@ -18,6 +18,8 @@ package helper
 
 import v1 "k8s.io/api/core/v1"
 
+// zhou:
+
 // DoNotScheduleTaintsFilterFunc returns the filter function that can
 // filter out the node taints that reject scheduling Pod on a Node.
 func DoNotScheduleTaintsFilterFunc() func(t *v1.Taint) bool {
